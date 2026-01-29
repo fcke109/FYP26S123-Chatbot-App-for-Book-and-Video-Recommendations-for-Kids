@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Kids Book Buddy</string>
+    <string name="app_name">Little Dino</string>
 
     <!-- Authentication -->
     <string name="login">Login</string>
@@ -18,8 +18,8 @@
     <string name="chat">Chat</string>
     <string name="type_message">Type a message…</string>
     <string name="send">Send</string>
-    <string name="chat_with_buddy">Chat with Book Buddy</string>
-    <string name="welcome_message">Hi! I\'m your Book Buddy! I can help you find amazing books and videos to read and watch. What are you interested in today?</string>
+    <string name="chat_with_buddy">Chat with Little Dino</string>
+    <string name="welcome_message">Hi! I\'m Little Dino! I can help you find amazing books and videos to read and watch. What are you interested in today?</string>
 
     <!-- Profile -->
     <string name="profile">Profile</string>

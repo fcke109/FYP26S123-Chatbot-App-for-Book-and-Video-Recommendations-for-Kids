@@ -6,6 +6,8 @@ import com.google.firebase.firestore.Query
 import com.kidsrec.chatbot.data.model.ChatMessage
 import com.kidsrec.chatbot.data.model.Conversation
 import com.kidsrec.chatbot.data.model.MessageRole
+import com.kidsrec.chatbot.data.model.Recommendation
+import com.kidsrec.chatbot.data.model.RecommendationType
 import com.kidsrec.chatbot.data.remote.OpenAIMessage
 import com.kidsrec.chatbot.data.remote.OpenAIRequest
 import com.kidsrec.chatbot.data.remote.OpenAIService
@@ -13,6 +15,8 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
+import org.json.JSONArray
+import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -78,10 +82,25 @@ class ChatRepository @Inject constructor(
                 }
             }
 
-            // Create system prompt
-            val systemPrompt = "You are a friendly children's book recommendation assistant called Book Buddy. " +
-                    "Recommend age-appropriate books and educational videos. " +
-                    "Be encouraging and make learning fun. Keep responses short (2-3 sentences)."
+            // Create system prompt with JSON format for recommendations
+            val systemPrompt = """You are Little Dino, a friendly dinosaur who helps kids discover amazing books and videos! Use simple, fun language.
+
+CRITICAL RULE: You MUST ALWAYS include the [RECOMMENDATIONS] block when suggesting any book, video, or content. Never just mention titles in text - always use the JSON format.
+
+Response format:
+1. Write a brief, friendly message (1-2 sentences max)
+2. ALWAYS end with recommendations in this EXACT format:
+
+[RECOMMENDATIONS]
+[{"type":"BOOK","title":"Exact Book Title","description":"What it's about in 1 sentence","reason":"Why kids will love it"},{"type":"VIDEO","title":"Exact Video Title","description":"What it teaches","reason":"Why it's fun to watch"}]
+[/RECOMMENDATIONS]
+
+Rules:
+- type must be "BOOK" or "VIDEO" (uppercase)
+- Always include 1-3 recommendations
+- Keep descriptions short (under 15 words)
+- Make reasons exciting for kids
+- NEVER skip the [RECOMMENDATIONS] block when suggesting content"""
 
             // Prepare messages for OpenAI
             val messages = mutableListOf(
@@ -97,6 +116,9 @@ class ChatRepository @Inject constructor(
             val botResponse = openAIResponse.choices.firstOrNull()?.message?.content
                 ?: "I'm sorry, I couldn't process that. Can you try again?"
 
+            // Parse recommendations from response
+            val (cleanContent, recommendations) = parseRecommendations(botResponse)
+
             val botMessage = ChatMessage(
                 id = firestore.collection("chatHistory")
                     .document(userId)
@@ -105,8 +127,9 @@ class ChatRepository @Inject constructor(
                     .collection("messages")
                     .document().id,
                 role = MessageRole.ASSISTANT,
-                content = botResponse,
-                timestamp = Timestamp.now()
+                content = cleanContent,
+                timestamp = Timestamp.now(),
+                recommendations = recommendations
             )
 
             firestore.collection("chatHistory")
@@ -180,5 +203,49 @@ class ChatRepository @Inject constructor(
             }
 
         awaitClose { listener.remove() }
+    }
+
+    private fun parseRecommendations(response: String): Pair<String, List<Recommendation>> {
+        val recommendations = mutableListOf<Recommendation>()
+        var cleanContent = response
+
+        try {
+            val startTag = "[RECOMMENDATIONS]"
+            val endTag = "[/RECOMMENDATIONS]"
+
+            val startIndex = response.indexOf(startTag)
+            val endIndex = response.indexOf(endTag)
+
+            if (startIndex != -1 && endIndex != -1 && endIndex > startIndex) {
+                val jsonString = response.substring(startIndex + startTag.length, endIndex).trim()
+                cleanContent = response.substring(0, startIndex).trim()
+
+                val jsonArray = JSONArray(jsonString)
+                for (i in 0 until jsonArray.length()) {
+                    val obj = jsonArray.getJSONObject(i)
+                    val type = when (obj.optString("type", "BOOK").uppercase()) {
+                        "VIDEO" -> RecommendationType.VIDEO
+                        else -> RecommendationType.BOOK
+                    }
+                    recommendations.add(
+                        Recommendation(
+                            id = UUID.randomUUID().toString(),
+                            type = type,
+                            title = obj.optString("title", ""),
+                            description = obj.optString("description", ""),
+                            reason = obj.optString("reason", ""),
+                            imageUrl = obj.optString("imageUrl", "")
+                        )
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            // If parsing fails, return original content without recommendations
+            cleanContent = response
+                .replace(Regex("\\[RECOMMENDATIONS\\].*?\\[/RECOMMENDATIONS\\]", RegexOption.DOT_MATCHES_ALL), "")
+                .trim()
+        }
+
+        return Pair(cleanContent, recommendations)
     }
 }

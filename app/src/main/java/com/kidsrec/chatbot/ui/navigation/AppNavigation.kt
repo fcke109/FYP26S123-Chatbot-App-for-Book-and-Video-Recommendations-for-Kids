@@ -14,10 +14,13 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import com.kidsrec.chatbot.data.model.RecommendationType
 import com.kidsrec.chatbot.ui.auth.*
 import com.kidsrec.chatbot.ui.chat.ChatScreen
 import com.kidsrec.chatbot.ui.chat.ChatViewModel
@@ -25,6 +28,9 @@ import com.kidsrec.chatbot.ui.favorites.FavoritesScreen
 import com.kidsrec.chatbot.ui.favorites.FavoritesViewModel
 import com.kidsrec.chatbot.ui.profile.ProfileScreen
 import com.kidsrec.chatbot.ui.profile.ProfileViewModel
+import com.kidsrec.chatbot.ui.webview.SafeWebViewScreen
+import java.net.URLDecoder
+import java.net.URLEncoder
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector? = null) {
     object Login : Screen("login", "Login")
@@ -32,6 +38,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
     object Chat : Screen("chat", "Chat", Icons.Default.Chat)
     object Favorites : Screen("favorites", "Favorites", Icons.Default.Favorite)
     object Profile : Screen("profile", "Profile", Icons.Default.Person)
+    object SafeWebView : Screen("webview/{url}/{title}/{isVideo}", "WebView")
 }
 
 @Composable
@@ -130,12 +137,36 @@ fun MainScreen(authViewModel: AuthViewModel) {
         ) {
             composable(Screen.Chat.route) {
                 val chatViewModel: ChatViewModel = hiltViewModel()
-                ChatScreen(viewModel = chatViewModel)
+                val favoritesViewModel: FavoritesViewModel = hiltViewModel()
+                ChatScreen(
+                    viewModel = chatViewModel,
+                    onAddToFavorites = { recommendation ->
+                        favoritesViewModel.addFavorite(
+                            itemId = recommendation.id,
+                            type = recommendation.type,
+                            title = recommendation.title,
+                            description = recommendation.description,
+                            imageUrl = recommendation.imageUrl
+                        )
+                    },
+                    onOpenRecommendation = { url, title, isVideo ->
+                        val encodedUrl = URLEncoder.encode(url, "UTF-8")
+                        val encodedTitle = URLEncoder.encode(title, "UTF-8")
+                        navController.navigate("webview/$encodedUrl/$encodedTitle/$isVideo")
+                    }
+                )
             }
 
             composable(Screen.Favorites.route) {
                 val favoritesViewModel: FavoritesViewModel = hiltViewModel()
-                FavoritesScreen(viewModel = favoritesViewModel)
+                FavoritesScreen(
+                    viewModel = favoritesViewModel,
+                    onOpenFavorite = { url, title, isVideo ->
+                        val encodedUrl = URLEncoder.encode(url, "UTF-8")
+                        val encodedTitle = URLEncoder.encode(title, "UTF-8")
+                        navController.navigate("webview/$encodedUrl/$encodedTitle/$isVideo")
+                    }
+                )
             }
 
             composable(Screen.Profile.route) {
@@ -143,6 +174,26 @@ fun MainScreen(authViewModel: AuthViewModel) {
                 ProfileScreen(
                     authViewModel = authViewModel,
                     profileViewModel = profileViewModel
+                )
+            }
+
+            composable(
+                route = "webview/{url}/{title}/{isVideo}",
+                arguments = listOf(
+                    navArgument("url") { type = NavType.StringType },
+                    navArgument("title") { type = NavType.StringType },
+                    navArgument("isVideo") { type = NavType.BoolType }
+                )
+            ) { backStackEntry ->
+                val url = URLDecoder.decode(backStackEntry.arguments?.getString("url") ?: "", "UTF-8")
+                val title = URLDecoder.decode(backStackEntry.arguments?.getString("title") ?: "", "UTF-8")
+                val isVideo = backStackEntry.arguments?.getBoolean("isVideo") ?: false
+
+                SafeWebViewScreen(
+                    url = url,
+                    title = title,
+                    isVideo = isVideo,
+                    onClose = { navController.popBackStack() }
                 )
             }
         }
