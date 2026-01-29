@@ -1,0 +1,52 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper function to check if user owns the resource
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Users collection
+    match /users/{userId} {
+      // Users can read and write their own data
+      allow read, write: if isOwner(userId);
+
+      // Allow user creation during signup
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Chat history
+    match /chatHistory/{userId}/conversations/{conversationId} {
+      // Users can only access their own conversations
+      allow read, write: if isOwner(userId);
+
+      // Messages subcollection
+      match /messages/{messageId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+
+    // Favorites
+    match /favorites/{userId}/items/{itemId} {
+      // Users can only access their own favorites
+      allow read, write: if isOwner(userId);
+    }
+
+    // Content library (read-only for all authenticated users)
+    match /content/{document=**} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Only admins can write (via admin SDK)
+    }
+
+    // Deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

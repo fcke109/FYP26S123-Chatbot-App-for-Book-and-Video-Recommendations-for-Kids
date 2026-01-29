@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "698763257857",
+    "project_id": "fyp-chatbot-81a50",
+    "storage_bucket": "fyp-chatbot-81a50.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:698763257857:android:2e50f6ecac6e540e0f3800",
+        "android_client_info": {
+          "package_name": "com.kidsrec.chatbot"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "698763257857-rt26kfq1tmgkg98sr6roo3cd11algm0h.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCXtq_JTtpWbGNgPYH6tyyZRE8fFuP3i9o"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "698763257857-rt26kfq1tmgkg98sr6roo3cd11algm0h.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,0 +1,8 @@
+{
+  "projects": {
+    "default": "kids-rec-app",
+    "KidsRecApp": "fyp-chatbot-81a50"
+  },
+  "targets": {},
+  "etags": {}
+}
