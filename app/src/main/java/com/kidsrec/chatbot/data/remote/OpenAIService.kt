@@ -10,7 +10,7 @@ data class OpenAIMessage(
 )
 
 data class OpenAIRequest(
-    val model: String = "gpt-3.5-turbo",
+    val model: String = "gpt-4o-mini",
     val messages: List<OpenAIMessage>,
     val temperature: Double = 0.7,
     val max_tokens: Int = 500
