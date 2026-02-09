@@ -98,7 +98,8 @@ fun FavoritesScreen(
                                     val searchUrl = if (isVideo) {
                                         "https://www.youtube.com/results?search_query=$encodedTitle+for+kids"
                                     } else {
-                                        "https://www.kiddle.co/s.php?q=$encodedTitle+book"
+                                        // Google Books - FREE previews and info (works reliably!)
+                                        "https://www.google.com/search?tbm=bks&q=$encodedTitle+children+book"
                                     }
                                     onOpenFavorite?.invoke(searchUrl, favorite.title, isVideo)
                                 }

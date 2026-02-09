@@ -40,18 +40,24 @@ fun SafeWebViewScreen(
 
     // Allowed domains for child safety
     val allowedDomains = listOf(
+        // Video platforms
         "youtube.com",
         "www.youtube.com",
         "m.youtube.com",
         "youtu.be",
-        "google.com",
-        "www.google.com",
-        "books.google.com",
+        "ytimg.com",
+        "ggpht.com",
+        // Open Library & Internet Archive (FREE book reader!)
         "openlibrary.org",
         "www.openlibrary.org",
-        "archive.org",
-        "kiddle.co",  // Kid-safe search engine
-        "www.kiddle.co"
+        "covers.openlibrary.org",
+        "archive.org",                 // Main domain - allows ALL subdomains
+        // CDNs and resources
+        "googleapis.com",
+        "gstatic.com",
+        "cloudflare.com",
+        "unpkg.com",
+        "jsdelivr.net"
     )
 
     fun isUrlAllowed(urlToCheck: String): Boolean {

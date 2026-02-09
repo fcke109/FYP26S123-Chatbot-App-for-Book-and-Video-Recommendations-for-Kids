@@ -134,7 +134,8 @@ fun ChatScreen(
                         MessageBubble(
                             message = message,
                             onAddToFavorites = onAddToFavorites,
-                            onOpenRecommendation = onOpenRecommendation
+                            onOpenRecommendation = onOpenRecommendation,
+                            onGetBookPreviewUrl = { title -> viewModel.getBookPreviewUrl(title) }
                         )
                     }
 
@@ -189,7 +190,8 @@ fun ChatScreen(
 fun MessageBubble(
     message: ChatMessage,
     onAddToFavorites: ((Recommendation) -> Unit)? = null,
-    onOpenRecommendation: ((url: String, title: String, isVideo: Boolean) -> Unit)? = null
+    onOpenRecommendation: ((url: String, title: String, isVideo: Boolean) -> Unit)? = null,
+    onGetBookPreviewUrl: (suspend (String) -> String)? = null
 ) {
     val isUser = message.role == MessageRole.USER
 
@@ -233,7 +235,8 @@ fun MessageBubble(
                     RecommendationCard(
                         recommendation = recommendation,
                         onAddToFavorites = onAddToFavorites,
-                        onOpenRecommendation = onOpenRecommendation
+                        onOpenRecommendation = onOpenRecommendation,
+                        onGetBookPreviewUrl = onGetBookPreviewUrl
                     )
                 }
             }
@@ -245,22 +248,32 @@ fun MessageBubble(
 fun RecommendationCard(
     recommendation: Recommendation,
     onAddToFavorites: ((Recommendation) -> Unit)? = null,
-    onOpenRecommendation: ((url: String, title: String, isVideo: Boolean) -> Unit)? = null
+    onOpenRecommendation: ((url: String, title: String, isVideo: Boolean) -> Unit)? = null,
+    onGetBookPreviewUrl: (suspend (String) -> String)? = null
 ) {
     var isFavorited by remember { mutableStateOf(false) }
+    var isLoading by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
 
-    // Function to open search for the recommendation in safe WebView
+    // Function to open the recommendation in safe WebView
     fun openRecommendation() {
-        val encodedTitle = URLEncoder.encode(recommendation.title, "UTF-8")
         val isVideo = recommendation.type == RecommendationType.VIDEO
-        val searchUrl = if (isVideo) {
-            // Search on YouTube for videos (kid-safe)
-            "https://www.youtube.com/results?search_query=$encodedTitle+for+kids"
+
+        if (isVideo) {
+            // For videos, go directly to YouTube search
+            val encodedTitle = URLEncoder.encode(recommendation.title, "UTF-8")
+            val searchUrl = "https://www.youtube.com/results?search_query=$encodedTitle+for+kids"
+            onOpenRecommendation?.invoke(searchUrl, recommendation.title, true)
         } else {
-            // Search on Kiddle (kid-safe search engine) for books
-            "https://www.kiddle.co/s.php?q=$encodedTitle+book"
+            // For books, fetch direct preview URL from Google Books API
+            isLoading = true
+            coroutineScope.launch {
+                val previewUrl = onGetBookPreviewUrl?.invoke(recommendation.title)
+                    ?: "https://books.google.com/books?q=${URLEncoder.encode(recommendation.title, "UTF-8")}"
+                isLoading = false
+                onOpenRecommendation?.invoke(previewUrl, recommendation.title, false)
+            }
         }
-        onOpenRecommendation?.invoke(searchUrl, recommendation.title, isVideo)
     }
 
     Card(

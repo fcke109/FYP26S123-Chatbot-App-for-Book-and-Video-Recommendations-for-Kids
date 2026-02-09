@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kidsrec.chatbot.data.model.ChatMessage
 import com.kidsrec.chatbot.data.repository.AuthRepository
+import com.kidsrec.chatbot.data.repository.BookRepository
 import com.kidsrec.chatbot.data.repository.ChatRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,7 +16,8 @@ import javax.inject.Inject
 @HiltViewModel
 class ChatViewModel @Inject constructor(
     private val chatRepository: ChatRepository,
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    private val bookRepository: BookRepository
 ) : ViewModel() {
 
     private val _messages = MutableStateFlow<List<ChatMessage>>(emptyList())
@@ -84,5 +86,21 @@ class ChatViewModel @Inject constructor(
 
     fun clearError() {
         _error.value = null
+    }
+
+    /**
+     * Get a direct preview URL for a book
+     */
+    suspend fun getBookPreviewUrl(title: String): String {
+        return try {
+            val result = bookRepository.getBookPreviewUrl(title)
+            val url = result.getOrNull()?.previewUrl
+            // Log for debugging
+            android.util.Log.d("ChatViewModel", "Book preview URL for '$title': $url")
+            url ?: "https://books.google.com/books?q=$title"
+        } catch (e: Exception) {
+            android.util.Log.e("ChatViewModel", "Error getting book preview URL", e)
+            "https://books.google.com/books?q=$title"
+        }
     }
 }
