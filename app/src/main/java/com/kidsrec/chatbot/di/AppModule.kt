@@ -4,11 +4,9 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.storage.FirebaseStorage
-import com.kidsrec.chatbot.data.remote.GoogleBooksService
-import com.kidsrec.chatbot.data.remote.OpenAIService
-import com.kidsrec.chatbot.data.remote.OpenLibraryService
+import com.kidsrec.chatbot.data.remote.*
+import com.kidsrec.chatbot.data.repository.*
 import dagger.Module
-import javax.inject.Named
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
@@ -18,6 +16,7 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
+import javax.inject.Named
 import javax.inject.Singleton
 
 @Module
@@ -45,7 +44,7 @@ object AppModule {
     fun provideOpenAIInterceptor(): Interceptor {
         return Interceptor { chain ->
             val request = chain.request().newBuilder()
-                .addHeader("Authorization", "Bearer ${getOpenAIKey()}")
+                .addHeader("Authorization", "Bearer ${com.kidsrec.chatbot.util.Constants.OPENAI_API_KEY}")
                 .build()
             chain.proceed(request)
         }
@@ -57,7 +56,6 @@ object AppModule {
         val loggingInterceptor = HttpLoggingInterceptor().apply {
             level = HttpLoggingInterceptor.Level.BODY
         }
-
         return OkHttpClient.Builder()
             .addInterceptor(openAIInterceptor)
             .addInterceptor(loggingInterceptor)
@@ -79,61 +77,65 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideOpenAIService(retrofit: Retrofit): OpenAIService {
-        return retrofit.create(OpenAIService::class.java)
-    }
+    fun provideOpenAIService(retrofit: Retrofit): OpenAIService = retrofit.create(OpenAIService::class.java)
 
-    // Open Library API (no auth needed - free API)
     @Provides
     @Singleton
-    @Named("OpenLibraryOkHttp")
-    fun provideOpenLibraryOkHttpClient(): OkHttpClient {
-        val loggingInterceptor = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BASIC
-        }
-        return OkHttpClient.Builder()
-            .addInterceptor(loggingInterceptor)
-            .connectTimeout(15, TimeUnit.SECONDS)
-            .readTimeout(15, TimeUnit.SECONDS)
+    @Named("SWRetrofit")
+    fun provideStoryweaverRetrofit(): Retrofit {
+        return Retrofit.Builder()
+            .baseUrl("https://storyweaver.org.in/")
+            .addConverterFactory(GsonConverterFactory.create())
             .build()
     }
+
+    @Provides
+    @Singleton
+    fun provideStoryweaverService(@Named("SWRetrofit") retrofit: Retrofit): StoryweaverService =
+        retrofit.create(StoryweaverService::class.java)
+
+    @Provides
+    @Singleton
+    @Named("GutendexRetrofit")
+    fun provideGutendexRetrofit(): Retrofit {
+        return Retrofit.Builder()
+            .baseUrl("https://gutendex.com/")
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+    }
+
+    @Provides
+    @Singleton
+    fun provideGutendexService(@Named("GutendexRetrofit") retrofit: Retrofit): GutendexService =
+        retrofit.create(GutendexService::class.java)
 
     @Provides
     @Singleton
     @Named("OpenLibraryRetrofit")
-    fun provideOpenLibraryRetrofit(@Named("OpenLibraryOkHttp") okHttpClient: OkHttpClient): Retrofit {
+    fun provideOpenLibraryRetrofit(): Retrofit {
         return Retrofit.Builder()
             .baseUrl("https://openlibrary.org/")
-            .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
     }
 
     @Provides
     @Singleton
-    fun provideOpenLibraryService(@Named("OpenLibraryRetrofit") retrofit: Retrofit): OpenLibraryService {
-        return retrofit.create(OpenLibraryService::class.java)
-    }
+    fun provideOpenLibraryService(@Named("OpenLibraryRetrofit") retrofit: Retrofit): OpenLibraryService =
+        retrofit.create(OpenLibraryService::class.java)
 
-    // Google Books API (FREE, no key needed)
     @Provides
     @Singleton
     @Named("GoogleBooksRetrofit")
-    fun provideGoogleBooksRetrofit(@Named("OpenLibraryOkHttp") okHttpClient: OkHttpClient): Retrofit {
+    fun provideGoogleBooksRetrofit(): Retrofit {
         return Retrofit.Builder()
             .baseUrl("https://www.googleapis.com/books/v1/")
-            .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
     }
 
     @Provides
     @Singleton
-    fun provideGoogleBooksService(@Named("GoogleBooksRetrofit") retrofit: Retrofit): GoogleBooksService {
-        return retrofit.create(GoogleBooksService::class.java)
-    }
-
-    private fun getOpenAIKey(): String {
-        return com.kidsrec.chatbot.util.Constants.OPENAI_API_KEY
-    }
+    fun provideGoogleBooksService(@Named("GoogleBooksRetrofit") retrofit: Retrofit): GoogleBooksService =
+        retrofit.create(GoogleBooksService::class.java)
 }

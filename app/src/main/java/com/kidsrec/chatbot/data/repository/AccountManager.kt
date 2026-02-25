@@ -11,8 +11,11 @@ import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/**
+ * AccountManager: Handles all user login, registration, and profile data.
+ */
 @Singleton
-class AuthRepository @Inject constructor(
+class AccountManager @Inject constructor(
     private val auth: FirebaseAuth,
     private val firestore: FirebaseFirestore
 ) {
@@ -43,7 +46,6 @@ class AuthRepository @Inject constructor(
             val result = auth.createUserWithEmailAndPassword(email, password).await()
             val user = result.user ?: return Result.failure(Exception("User creation failed"))
 
-            // Create user document in Firestore
             val userDoc = User(
                 id = user.uid,
                 name = name,
@@ -80,6 +82,19 @@ class AuthRepository @Inject constructor(
                 trySend(user)
             }
 
+        awaitClose { listener.remove() }
+    }
+
+    fun getAllUsersFlow(): Flow<List<User>> = callbackFlow {
+        val listener = firestore.collection("users")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    close(error)
+                    return@addSnapshotListener
+                }
+                val users = snapshot?.toObjects(User::class.java) ?: emptyList()
+                trySend(users)
+            }
         awaitClose { listener.remove() }
     }
 

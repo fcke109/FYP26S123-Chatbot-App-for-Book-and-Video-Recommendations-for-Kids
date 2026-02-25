@@ -1,7 +1,10 @@
 package com.kidsrec.chatbot.ui.auth
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
@@ -11,16 +14,20 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.kidsrec.chatbot.R
 
 @Composable
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
+    onAdminLogin: () -> Unit, // Added for Admin access
     onNavigateToRegister: () -> Unit,
     viewModel: AuthViewModel
 ) {
@@ -29,36 +36,52 @@ fun LoginScreen(
     var passwordVisible by remember { mutableStateOf(false) }
 
     val authState by viewModel.authState.collectAsState()
+    val scrollState = rememberScrollState()
 
     LaunchedEffect(authState) {
         if (authState is AuthState.Authenticated) {
-            onLoginSuccess()
+            // Check if it's the admin user
+            if (email.lowercase() == "admin@littledino.com") {
+                onAdminLogin()
+            } else {
+                onLoginSuccess()
+            }
         }
     }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(24.dp),
+            .padding(24.dp)
+            .verticalScroll(scrollState),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
+        Image(
+            painter = painterResource(id = R.drawable.little_dino),
+            contentDescription = "Little Dino Mascot",
+            modifier = Modifier
+                .size(320.dp)
+                .padding(bottom = 8.dp),
+            contentScale = ContentScale.Fit
+        )
+
         Text(
-            text = "📚 Kids Book Buddy",
-            fontSize = 32.sp,
-            fontWeight = FontWeight.Bold,
+            text = "Little Dino",
+            fontSize = 36.sp,
+            fontWeight = FontWeight.ExtraBold,
             color = MaterialTheme.colorScheme.primary
         )
 
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = "Discover Amazing Books & Videos!",
+            text = "Your Friendly AI Book & Video Guide!",
             fontSize = 16.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
-        Spacer(modifier = Modifier.height(48.dp))
+        Spacer(modifier = Modifier.height(32.dp))
 
         OutlinedTextField(
             value = email,
@@ -108,7 +131,8 @@ fun LoginScreen(
             onClick = { viewModel.signIn(email, password) },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(50.dp),
+                .height(56.dp),
+            shape = MaterialTheme.shapes.large,
             enabled = authState !is AuthState.Loading && email.isNotBlank() && password.isNotBlank()
         ) {
             if (authState is AuthState.Loading) {
@@ -117,14 +141,14 @@ fun LoginScreen(
                     color = MaterialTheme.colorScheme.onPrimary
                 )
             } else {
-                Text("Login", fontSize = 16.sp)
+                Text("Login", fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
         TextButton(onClick = onNavigateToRegister) {
-            Text("Don't have an account? Register")
+            Text("Don't have an account? Register", fontWeight = FontWeight.Medium)
         }
     }
 }
