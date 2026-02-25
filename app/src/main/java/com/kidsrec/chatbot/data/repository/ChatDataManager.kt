@@ -20,10 +20,14 @@ import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/**
+ * ChatDataManager: Manages chatbot conversations, message storage, and AI recommendations.
+ */
 @Singleton
-class ChatRepository @Inject constructor(
+class ChatDataManager @Inject constructor(
     private val firestore: FirebaseFirestore,
-    private val openAIService: OpenAIService
+    private val openAIService: OpenAIService,
+    private val bookDataManager: BookDataManager
 ) {
     suspend fun sendMessage(
         userId: String,
@@ -31,6 +35,13 @@ class ChatRepository @Inject constructor(
         message: String
     ): Result<ChatMessage> {
         return try {
+            // Fetch curated books to provide as context
+            val curatedBooks = bookDataManager.getCuratedBooks().getOrDefault(emptyList())
+            val curatedBooksContext = if (curatedBooks.isNotEmpty()) {
+                "Here are some books you can recommend: " + 
+                curatedBooks.joinToString(", ") { "${it.title} by ${it.author} (${it.description})" }
+            } else ""
+
             // Add user message to Firestore
             val userMessage = ChatMessage(
                 id = firestore.collection("chatHistory")
@@ -82,8 +93,10 @@ class ChatRepository @Inject constructor(
                 }
             }
 
-            // Create system prompt with JSON format for recommendations
+            // Create system prompt with curated books context
             val systemPrompt = """You are Little Dino, a friendly dinosaur who helps kids discover amazing books and videos! Use simple, fun language.
+            
+$curatedBooksContext
 
 CRITICAL RULE: You MUST ALWAYS include the [RECOMMENDATIONS] block when suggesting any book, video, or content. Never just mention titles in text - always use the JSON format.
 
@@ -109,14 +122,14 @@ Rules:
             messages.addAll(conversationHistory)
             messages.add(OpenAIMessage(role = "user", content = message))
 
-            // Call OpenAI API directly
+            // Call OpenAI API
             val openAIRequest = OpenAIRequest(messages = messages)
             val openAIResponse = openAIService.createChatCompletion(openAIRequest)
 
             val botResponse = openAIResponse.choices.firstOrNull()?.message?.content
                 ?: "I'm sorry, I couldn't process that. Can you try again?"
 
-            // Parse recommendations from response
+            // Parse recommendations
             val (cleanContent, recommendations) = parseRecommendations(botResponse)
 
             val botMessage = ChatMessage(
@@ -240,7 +253,6 @@ Rules:
                 }
             }
         } catch (e: Exception) {
-            // If parsing fails, return original content without recommendations
             cleanContent = response
                 .replace(Regex("\\[RECOMMENDATIONS\\].*?\\[/RECOMMENDATIONS\\]", RegexOption.DOT_MATCHES_ALL), "")
                 .trim()

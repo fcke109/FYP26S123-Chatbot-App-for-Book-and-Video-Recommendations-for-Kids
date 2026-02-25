@@ -4,19 +4,17 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kidsrec.chatbot.data.model.Favorite
 import com.kidsrec.chatbot.data.model.RecommendationType
-import com.kidsrec.chatbot.data.repository.AuthRepository
-import com.kidsrec.chatbot.data.repository.FavoritesRepository
+import com.kidsrec.chatbot.data.repository.AccountManager
+import com.kidsrec.chatbot.data.repository.FavoritesManager
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
 class FavoritesViewModel @Inject constructor(
-    private val favoritesRepository: FavoritesRepository,
-    private val authRepository: AuthRepository
+    private val favoritesManager: FavoritesManager,
+    private val accountManager: AccountManager
 ) : ViewModel() {
 
     private val _favorites = MutableStateFlow<List<Favorite>>(emptyList())
@@ -31,13 +29,11 @@ class FavoritesViewModel @Inject constructor(
 
     private fun loadFavorites() {
         viewModelScope.launch {
-            val userId = authRepository.getCurrentUserId() ?: return@launch
+            val userId = accountManager.getCurrentUserId() ?: return@launch
             _isLoading.value = true
-
-            favoritesRepository.getFavoritesFlow(userId).collect { favorites ->
-                _favorites.value = favorites
-                _isLoading.value = false
-            }
+            favoritesManager.getFavoritesFlow(userId)
+                .onEach { _isLoading.value = false }
+                .collect { items -> _favorites.value = items }
         }
     }
 
@@ -49,20 +45,15 @@ class FavoritesViewModel @Inject constructor(
         imageUrl: String
     ) {
         viewModelScope.launch {
-            val userId = authRepository.getCurrentUserId() ?: return@launch
-            favoritesRepository.addFavorite(userId, itemId, type, title, description, imageUrl)
+            val userId = accountManager.getCurrentUserId() ?: return@launch
+            favoritesManager.addFavorite(userId, itemId, type, title, description, imageUrl)
         }
     }
 
     fun removeFavorite(itemId: String) {
         viewModelScope.launch {
-            val userId = authRepository.getCurrentUserId() ?: return@launch
-            favoritesRepository.removeFavorite(userId, itemId)
+            val userId = accountManager.getCurrentUserId() ?: return@launch
+            favoritesManager.removeFavorite(userId, itemId)
         }
-    }
-
-    suspend fun isFavorite(itemId: String): Boolean {
-        val userId = authRepository.getCurrentUserId() ?: return false
-        return favoritesRepository.isFavorite(userId, itemId)
     }
 }

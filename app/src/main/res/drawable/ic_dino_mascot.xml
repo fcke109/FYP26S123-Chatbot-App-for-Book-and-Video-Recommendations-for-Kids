@@ -1,6 +1,6 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp"
-    android:height="108dp"
+    android:width="200dp"
+    android:height="200dp"
     android:viewportWidth="200"
     android:viewportHeight="200">
     <!-- Main Body -->
@@ -28,6 +28,12 @@
     <path
         android:fillColor="#43A047"
         android:pathData="M100,30 L110,45 L90,45 Z" />
+    <path
+        android:fillColor="#43A047"
+        android:pathData="M130,45 L135,60 L120,55 Z" />
+    <path
+        android:fillColor="#43A047"
+        android:pathData="M70,45 L65,60 L80,55 Z" />
     <!-- Smile -->
     <path
         android:strokeColor="#388E3C"

@@ -1,15 +1,16 @@
 package com.kidsrec.chatbot.ui.favorites
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -17,6 +18,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -75,7 +77,7 @@ fun FavoritesScreen(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "Start chatting to discover books and videos you'll love.",
+                            text = "Favorite your best stories from the Library or Chat!",
                             fontSize = 14.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -93,15 +95,17 @@ fun FavoritesScreen(
                                 favorite = favorite,
                                 onRemove = { viewModel.removeFavorite(favorite.itemId) },
                                 onOpen = {
-                                    val encodedTitle = URLEncoder.encode(favorite.title, "UTF-8")
                                     val isVideo = favorite.type == RecommendationType.VIDEO
-                                    val searchUrl = if (isVideo) {
+                                    // Visual Reader Priority: If it's a book, try to reconstruct the visual URL
+                                    // (Realistically we should store readerUrl in Favorite too, but for now we fallback)
+                                    val url = if (isVideo) {
+                                        val encodedTitle = URLEncoder.encode(favorite.title, "UTF-8")
                                         "https://www.youtube.com/results?search_query=$encodedTitle+for+kids"
                                     } else {
-                                        // Google Books - FREE previews and info (works reliably!)
-                                        "https://www.google.com/search?tbm=bks&q=$encodedTitle+children+book"
+                                        // Use the cover image domain to infer Archive.org if possible, or fallback to search
+                                        "https://archive.org/details/texts?query=${URLEncoder.encode(favorite.title, "UTF-8")}"
                                     }
-                                    onOpenFavorite?.invoke(searchUrl, favorite.title, isVideo)
+                                    onOpenFavorite?.invoke(url, favorite.title, isVideo)
                                 }
                             )
                         }
@@ -131,44 +135,54 @@ fun FavoriteCard(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(120.dp)
+                    .height(150.dp)
             ) {
-                // Type icon as placeholder
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = if (isVideo)
-                        Color(0xFFFF0000).copy(alpha = 0.1f)
-                    else
-                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
-                ) {
-                    Box(
+                // FIXED: Use AsyncImage to show the REAL book cover
+                if (favorite.imageUrl.isNotEmpty()) {
+                    AsyncImage(
+                        model = favorite.imageUrl,
+                        contentDescription = favorite.title,
                         modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    // Fallback placeholder
+                    Surface(
+                        modifier = Modifier.fillMaxSize(),
+                        color = if (isVideo)
+                            Color(0xFFFF0000).copy(alpha = 0.1f)
+                        else
+                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
                     ) {
-                        Icon(
-                            imageVector = if (isVideo) Icons.Default.PlayCircle else Icons.Default.Book,
-                            contentDescription = null,
-                            modifier = Modifier.size(48.dp),
-                            tint = if (isVideo) Color(0xFFFF0000) else MaterialTheme.colorScheme.primary
-                        )
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = if (isVideo) Icons.Default.PlayCircle else Icons.Default.Book,
+                                contentDescription = null,
+                                modifier = Modifier.size(48.dp),
+                                tint = if (isVideo) Color(0xFFFF0000) else MaterialTheme.colorScheme.primary
+                            )
+                        }
                     }
                 }
 
+                // Remove Button
                 IconButton(
                     onClick = onRemove,
-                    modifier = Modifier.align(Alignment.TopEnd)
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(4.dp)
+                        .background(Color.White.copy(alpha = 0.7f), CircleShape)
+                        .size(32.dp)
                 ) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
-                        shape = MaterialTheme.shapes.small
-                    ) {
-                        Icon(
-                            Icons.Default.Favorite,
-                            contentDescription = "Remove from favorites",
-                            tint = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.padding(4.dp)
-                        )
-                    }
+                    Icon(
+                        Icons.Default.Favorite,
+                        contentDescription = "Remove",
+                        tint = Color.Red,
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
             }
 
@@ -177,22 +191,6 @@ fun FavoriteCard(
                     .fillMaxWidth()
                     .padding(12.dp)
             ) {
-                // Type badge
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = if (isVideo) Color(0xFFFF0000) else MaterialTheme.colorScheme.primary
-                ) {
-                    Text(
-                        text = if (isVideo) "Video" else "Book",
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
                 Text(
                     text = favorite.title,
                     fontWeight = FontWeight.Bold,
@@ -203,21 +201,14 @@ fun FavoriteCard(
 
                 Spacer(modifier = Modifier.weight(1f))
 
-                // Open button
                 Button(
                     onClick = onOpen,
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = if (isVideo) Color(0xFFFF0000) else MaterialTheme.colorScheme.primary
                     ),
-                    contentPadding = PaddingValues(vertical = 8.dp)
+                    contentPadding = PaddingValues(vertical = 4.dp)
                 ) {
-                    Icon(
-                        imageVector = if (isVideo) Icons.Default.PlayCircle else Icons.Default.Book,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = if (isVideo) "Watch" else "Read",
                         fontSize = 12.sp,

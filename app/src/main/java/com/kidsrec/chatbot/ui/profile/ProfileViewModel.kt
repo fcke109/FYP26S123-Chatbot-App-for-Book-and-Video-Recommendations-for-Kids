@@ -3,7 +3,7 @@ package com.kidsrec.chatbot.ui.profile
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kidsrec.chatbot.data.model.User
-import com.kidsrec.chatbot.data.repository.AuthRepository
+import com.kidsrec.chatbot.data.repository.AccountManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -13,7 +13,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
-    private val authRepository: AuthRepository
+    private val accountManager: AccountManager
 ) : ViewModel() {
 
     private val _user = MutableStateFlow<User?>(null)
@@ -31,10 +31,10 @@ class ProfileViewModel @Inject constructor(
 
     private fun loadUser() {
         viewModelScope.launch {
-            val userId = authRepository.getCurrentUserId() ?: return@launch
+            val userId = accountManager.getCurrentUserId() ?: return@launch
             _isLoading.value = true
 
-            authRepository.getUserFlow(userId).collect { user ->
+            accountManager.getUserFlow(userId).collect { user ->
                 _user.value = user
                 _isLoading.value = false
             }
@@ -58,7 +58,7 @@ class ProfileViewModel @Inject constructor(
                 readingLevel = readingLevel
             )
 
-            val result = authRepository.updateUser(updatedUser)
+            val result = accountManager.updateUser(updatedUser)
             result.fold(
                 onSuccess = {
                     _updateSuccess.value = true

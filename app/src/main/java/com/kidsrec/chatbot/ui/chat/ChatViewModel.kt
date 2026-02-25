@@ -3,9 +3,9 @@ package com.kidsrec.chatbot.ui.chat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kidsrec.chatbot.data.model.ChatMessage
-import com.kidsrec.chatbot.data.repository.AuthRepository
-import com.kidsrec.chatbot.data.repository.BookRepository
-import com.kidsrec.chatbot.data.repository.ChatRepository
+import com.kidsrec.chatbot.data.repository.AccountManager
+import com.kidsrec.chatbot.data.repository.BookDataManager
+import com.kidsrec.chatbot.data.repository.ChatDataManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -13,11 +13,14 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/**
+ * ChatViewModel: Manages the logic for the DinoChatPage.
+ */
 @HiltViewModel
 class ChatViewModel @Inject constructor(
-    private val chatRepository: ChatRepository,
-    private val authRepository: AuthRepository,
-    private val bookRepository: BookRepository
+    private val chatDataManager: ChatDataManager,
+    private val accountManager: AccountManager,
+    private val bookDataManager: BookDataManager
 ) : ViewModel() {
 
     private val _messages = MutableStateFlow<List<ChatMessage>>(emptyList())
@@ -37,10 +40,8 @@ class ChatViewModel @Inject constructor(
 
     private fun initializeConversation() {
         viewModelScope.launch {
-            val userId = authRepository.getCurrentUserId() ?: return@launch
-
-            // Create a new conversation
-            val result = chatRepository.createConversation(userId)
+            val userId = accountManager.getCurrentUserId() ?: return@launch
+            val result = chatDataManager.createConversation(userId)
             result.fold(
                 onSuccess = { conversationId ->
                     currentConversationId = conversationId
@@ -55,7 +56,7 @@ class ChatViewModel @Inject constructor(
 
     private fun loadMessages(userId: String, conversationId: String) {
         viewModelScope.launch {
-            chatRepository.getMessagesFlow(userId, conversationId).collect { messages ->
+            chatDataManager.getMessagesFlow(userId, conversationId).collect { messages ->
                 _messages.value = messages
             }
         }
@@ -63,19 +64,14 @@ class ChatViewModel @Inject constructor(
 
     fun sendMessage(message: String) {
         if (message.isBlank()) return
-
         viewModelScope.launch {
-            val userId = authRepository.getCurrentUserId() ?: return@launch
+            val userId = accountManager.getCurrentUserId() ?: return@launch
             val conversationId = currentConversationId ?: return@launch
-
             _isLoading.value = true
             _error.value = null
-
-            val result = chatRepository.sendMessage(userId, conversationId, message)
+            val result = chatDataManager.sendMessage(userId, conversationId, message)
             result.fold(
-                onSuccess = {
-                    _isLoading.value = false
-                },
+                onSuccess = { _isLoading.value = false },
                 onFailure = { error ->
                     _isLoading.value = false
                     _error.value = error.message
@@ -84,23 +80,22 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    fun clearError() {
-        _error.value = null
-    }
-
     /**
-     * Get a direct preview URL for a book
+     * Get the best interactive reader link for a book title.
      */
     suspend fun getBookPreviewUrl(title: String): String {
         return try {
-            val result = bookRepository.getBookPreviewUrl(title)
-            val url = result.getOrNull()?.previewUrl
-            // Log for debugging
-            android.util.Log.d("ChatViewModel", "Book preview URL for '$title': $url")
-            url ?: "https://books.google.com/books?q=$title"
+            val curatedBooks = bookDataManager.getCuratedBooks().getOrNull()
+            val matchingBook = curatedBooks?.firstOrNull { it.title.contains(title, ignoreCase = true) }
+            
+            if (matchingBook?.readerUrl != null) {
+                return matchingBook.readerUrl!!
+            }
+
+            val encodedTitle = java.net.URLEncoder.encode(title, "UTF-8")
+            "https://archive.org/details/texts?query=$encodedTitle+children+picture+books"
         } catch (e: Exception) {
-            android.util.Log.e("ChatViewModel", "Error getting book preview URL", e)
-            "https://books.google.com/books?q=$title"
+            "https://archive.org/details/texts?query=$title"
         }
     }
 }
