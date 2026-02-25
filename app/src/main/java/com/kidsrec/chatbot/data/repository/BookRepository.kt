@@ -80,7 +80,7 @@ class BookRepository @Inject constructor(
      */
     suspend fun searchBooks(query: String, limit: Int = 5): Result<List<OpenLibraryBook>> {
         return try {
-            val response = openLibraryService.searchKidsBooks(
+            val response = openLibraryService.searchBooks(
                 query = "$query children",
                 limit = limit
             )
