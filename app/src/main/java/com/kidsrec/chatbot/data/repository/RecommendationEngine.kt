@@ -78,16 +78,17 @@ class RecommendationEngine @Inject constructor() {
     ): List<Recommendation> {
         if (recommendations.isEmpty()) return recommendations
 
-        return recommendations.sortedByDescending { rec ->
+        return recommendations.map { rec ->
             val matchingBook = curatedBooks.firstOrNull {
                 it.title.equals(rec.title, ignoreCase = true)
             }
-            if (matchingBook != null) {
+            val score = if (matchingBook != null) {
                 scoreBook(matchingBook, user, favorites)
             } else {
                 scoreRecommendation(rec, user, favorites)
             }
-        }
+            rec.copy(relevanceScore = score)
+        }.sortedByDescending { it.relevanceScore }
     }
 
     /**
@@ -109,14 +110,15 @@ class RecommendationEngine @Inject constructor() {
             .map { book -> book to scoreBook(book, user, favorites) }
             .sortedByDescending { it.second }
             .take(limit)
-            .map { (book, _) ->
+            .map { (book, score) ->
                 Recommendation(
                     id = UUID.randomUUID().toString(),
                     type = RecommendationType.BOOK,
                     title = book.title,
                     description = book.description ?: "A great book for you!",
                     imageUrl = book.coverUrl ?: "",
-                    reason = generateReason(book, user)
+                    reason = generateReason(book, user),
+                    relevanceScore = score
                 )
             }
     }

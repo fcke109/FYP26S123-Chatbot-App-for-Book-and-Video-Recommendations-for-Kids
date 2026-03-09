@@ -213,8 +213,44 @@ fun RecommendationCard(
         shape = RoundedCornerShape(16.dp)
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
+            // ANN relevance score badge
+            if (recommendation.relevanceScore > 0) {
+                val pct = (recommendation.relevanceScore * 100).toInt()
+                val badgeColor = when {
+                    pct >= 70 -> Color(0xFF4CAF50)
+                    pct >= 40 -> Color(0xFFFFA726)
+                    else -> Color.Gray
+                }
+                Surface(
+                    color = badgeColor.copy(alpha = 0.15f),
+                    contentColor = badgeColor,
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.padding(bottom = 4.dp)
+                ) {
+                    Text(
+                        text = "$pct% match",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+            }
+
             Text(recommendation.title, fontWeight = FontWeight.Bold, fontSize = 14.sp, maxLines = 1)
             Text(recommendation.description, fontSize = 12.sp, maxLines = 2)
+
+            // Show personalized reason from ANN engine
+            if (recommendation.reason.isNotBlank()) {
+                Text(
+                    text = recommendation.reason,
+                    fontSize = 10.sp,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
+
             Button(
                 onClick = {
                     coroutineScope.launch {
