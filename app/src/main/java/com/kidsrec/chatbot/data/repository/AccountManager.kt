@@ -70,6 +70,15 @@ class AccountManager @Inject constructor(
         auth.signOut()
     }
 
+    suspend fun getUser(userId: String): User? {
+        return try {
+            val snapshot = firestore.collection("users").document(userId).get().await()
+            snapshot.toObject(User::class.java)
+        } catch (e: Exception) {
+            null
+        }
+    }
+
     fun getUserFlow(userId: String): Flow<User?> = callbackFlow {
         val listener = firestore.collection("users")
             .document(userId)

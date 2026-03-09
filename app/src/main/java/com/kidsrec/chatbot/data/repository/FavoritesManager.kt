@@ -6,6 +6,7 @@ import com.kidsrec.chatbot.data.model.RecommendationType
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -56,6 +57,19 @@ class FavoritesManager @Inject constructor(
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
+        }
+    }
+
+    suspend fun getFavorites(userId: String): List<Favorite> {
+        return try {
+            val snapshot = firestore.collection("favorites")
+                .document(userId)
+                .collection("items")
+                .get()
+                .await()
+            snapshot.toObjects(Favorite::class.java)
+        } catch (e: Exception) {
+            emptyList()
         }
     }
 

@@ -8,6 +8,7 @@ import com.kidsrec.chatbot.data.model.Conversation
 import com.kidsrec.chatbot.data.model.MessageRole
 import com.kidsrec.chatbot.data.model.Recommendation
 import com.kidsrec.chatbot.data.model.RecommendationType
+import com.kidsrec.chatbot.data.model.User
 import com.kidsrec.chatbot.data.remote.OpenAIMessage
 import com.kidsrec.chatbot.data.remote.OpenAIRequest
 import com.kidsrec.chatbot.data.remote.OpenAIService
@@ -27,7 +28,10 @@ import javax.inject.Singleton
 class ChatDataManager @Inject constructor(
     private val firestore: FirebaseFirestore,
     private val openAIService: OpenAIService,
-    private val bookDataManager: BookDataManager
+    private val bookDataManager: BookDataManager,
+    private val recommendationEngine: RecommendationEngine,
+    private val accountManager: AccountManager,
+    private val favoritesManager: FavoritesManager
 ) {
     suspend fun sendMessage(
         userId: String,
@@ -129,8 +133,19 @@ Rules:
             val botResponse = openAIResponse.choices.firstOrNull()?.message?.content
                 ?: "I'm sorry, I couldn't process that. Can you try again?"
 
-            // Parse recommendations
-            val (cleanContent, recommendations) = parseRecommendations(botResponse)
+            // Parse recommendations and rank them using the recommendation engine
+            val (cleanContent, rawRecommendations) = parseRecommendations(botResponse)
+
+            // Rank recommendations using user profile and favorites (learning element)
+            val user = accountManager.getUser(userId)
+            val favorites = favoritesManager.getFavorites(userId)
+            val recommendations = if (user != null && rawRecommendations.isNotEmpty()) {
+                recommendationEngine.rankRecommendations(
+                    rawRecommendations, curatedBooks, user, favorites
+                )
+            } else {
+                rawRecommendations
+            }
 
             val botMessage = ChatMessage(
                 id = firestore.collection("chatHistory")
@@ -156,7 +171,42 @@ Rules:
 
             Result.success(botMessage)
         } catch (e: Exception) {
-            Result.failure(e)
+            // Fallback: use the recommendation engine to generate suggestions locally
+            try {
+                val curatedBooks = bookDataManager.getCuratedBooks().getOrDefault(emptyList())
+                val user = accountManager.getUser(userId)
+                val favorites = favoritesManager.getFavorites(userId)
+
+                val fallbackRecs = if (user != null && curatedBooks.isNotEmpty()) {
+                    recommendationEngine.getTopRecommendations(curatedBooks, user, favorites)
+                } else emptyList()
+
+                val fallbackMessage = ChatMessage(
+                    id = firestore.collection("chatHistory")
+                        .document(userId)
+                        .collection("conversations")
+                        .document(conversationId)
+                        .collection("messages")
+                        .document().id,
+                    role = MessageRole.ASSISTANT,
+                    content = "Rawr! I'm having trouble thinking right now, but here are some stories I picked just for you!",
+                    timestamp = Timestamp.now(),
+                    recommendations = fallbackRecs
+                )
+
+                firestore.collection("chatHistory")
+                    .document(userId)
+                    .collection("conversations")
+                    .document(conversationId)
+                    .collection("messages")
+                    .document(fallbackMessage.id)
+                    .set(fallbackMessage)
+                    .await()
+
+                Result.success(fallbackMessage)
+            } catch (fallbackError: Exception) {
+                Result.failure(e)
+            }
         }
     }
 
