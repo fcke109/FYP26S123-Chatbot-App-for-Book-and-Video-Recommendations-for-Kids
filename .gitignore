@@ -86,3 +86,4 @@ lint/tmp/
 *.env
 secrets/
 .claude/worktrees/recursing-pare/
+/.claude
