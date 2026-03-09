@@ -3,7 +3,7 @@ package com.kidsrec.chatbot.data.model
 import com.google.firebase.Timestamp
 
 enum class PlanType {
-    FREE, PREMIUM, FAMILY, ADMIN
+    FREE, PREMIUM, ADMIN
 }
 
 data class User(

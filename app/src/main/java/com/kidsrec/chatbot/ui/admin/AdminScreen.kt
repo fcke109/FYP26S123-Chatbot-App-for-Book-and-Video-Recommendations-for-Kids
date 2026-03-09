@@ -291,7 +291,6 @@ fun PlanBadge(planType: PlanType) {
     val color = when (planType) {
         PlanType.FREE -> Color.Gray
         PlanType.PREMIUM -> Color(0xFFFFD700)
-        PlanType.FAMILY -> Color(0xFF4CAF50)
         PlanType.ADMIN -> Color(0xFF9C27B0)
     }
     Surface(
