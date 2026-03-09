@@ -49,6 +49,7 @@ fun DinoChatPage(
 ) {
     val messages by viewModel.messages.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val error by viewModel.error.collectAsState()
     var messageText by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
@@ -100,6 +101,18 @@ fun DinoChatPage(
                     }
                     if (isLoading) { item { TypingIndicator() } }
                 }
+            }
+        }
+
+        // Error display
+        if (error != null) {
+            Surface(color = MaterialTheme.colorScheme.errorContainer, modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = "Error: $error",
+                    modifier = Modifier.padding(8.dp),
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    fontSize = 12.sp
+                )
             }
         }
 
