@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Little Dino - User Manual</title>
+<style>
+  @page { margin: 2.5cm; size: A4; }
+  body {
+    font-family: 'Times New Roman', Times, serif;
+    font-size: 12pt;
+    line-height: 1.6;
+    color: #000;
+    max-width: 21cm;
+    margin: 0 auto;
+    padding: 2.5cm;
+  }
+  h1 { font-size: 26pt; text-align: center; margin-top: 0; page-break-before: always; }
+  h1:first-of-type { page-break-before: avoid; }
+  h2 { font-size: 16pt; margin-top: 28pt; border-bottom: 1px solid #000; padding-bottom: 4pt; }
+  h3 { font-size: 13pt; margin-top: 20pt; }
+  h4 { font-size: 12pt; margin-top: 16pt; font-style: italic; }
+  p { text-align: justify; margin: 8pt 0; }
+  table { width: 100%; border-collapse: collapse; margin: 12pt 0; font-size: 11pt; }
+  th, td { border: 1px solid #000; padding: 6pt 8pt; text-align: left; vertical-align: top; }
+  th { background-color: #f0f0f0; font-weight: bold; }
+  .toc { page-break-after: always; }
+  .toc h2 { border-bottom: none; text-align: center; font-size: 18pt; }
+  .toc-entry { display: flex; justify-content: space-between; padding: 2pt 0; }
+  .toc-entry.level1 { font-weight: bold; margin-top: 8pt; }
+  .toc-entry.level2 { padding-left: 24pt; }
+  .toc-entry.level3 { padding-left: 48pt; }
+  .toc-dots { flex: 1; border-bottom: 1px dotted #999; margin: 0 8pt; position: relative; top: -4pt; }
+  .cover { text-align: center; page-break-after: always; padding-top: 120pt; }
+  .cover h1 { font-size: 32pt; border: none; page-break-before: avoid; }
+  .cover p { text-align: center; font-size: 14pt; }
+  .step { margin: 6pt 0; padding-left: 20pt; }
+  .step-num { font-weight: bold; }
+  ul, ol { margin: 8pt 0; padding-left: 24pt; }
+  li { margin: 4pt 0; }
+  .figure { text-align: center; margin: 16pt 0; font-style: italic; font-size: 10pt; }
+  .note { background: #f9f9f9; border-left: 3px solid #666; padding: 8pt 12pt; margin: 12pt 0; }
+  @media print {
+    body { padding: 0; }
+    h1 { page-break-before: always; }
+    h1:first-of-type { page-break-before: avoid; }
+    .cover { page-break-after: always; }
+    .toc { page-break-after: always; }
+    table { page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<!-- COVER PAGE -->
+<div class="cover">
+  <h1>Little Dino</h1>
+  <p style="font-size:18pt; margin-top:12pt;">Chatbot App for Book and Video Recommendations for Kids</p>
+  <p style="margin-top:40pt; font-size:16pt;"><strong>User Manual</strong></p>
+  <p style="margin-top:60pt;">FYP26S123</p>
+  <p>Version 1.0</p>
+  <p style="margin-top:40pt;">March 2026</p>
+</div>
+
+<!-- TABLE OF CONTENTS -->
+<div class="toc">
+  <h2>Table of Contents</h2>
+  <div class="toc-entry level1"><span>1. Introduction</span><span class="toc-dots"></span><span>3</span></div>
+  <div class="toc-entry level2"><span>1.1 Document Purpose</span><span class="toc-dots"></span><span>3</span></div>
+  <div class="toc-entry level2"><span>1.2 Target Audience</span><span class="toc-dots"></span><span>3</span></div>
+  <div class="toc-entry level2"><span>1.3 Scope and Purpose</span><span class="toc-dots"></span><span>3</span></div>
+  <div class="toc-entry level1"><span>2. Installation Instructions</span><span class="toc-dots"></span><span>4</span></div>
+  <div class="toc-entry level2"><span>2.1 Prerequisites</span><span class="toc-dots"></span><span>4</span></div>
+  <div class="toc-entry level2"><span>2.2 Backend Set Up</span><span class="toc-dots"></span><span>5</span></div>
+  <div class="toc-entry level2"><span>2.3 Frontend Set Up</span><span class="toc-dots"></span><span>6</span></div>
+  <div class="toc-entry level1"><span>3. User Roles</span><span class="toc-dots"></span><span>7</span></div>
+  <div class="toc-entry level2"><span>3.1 Child User</span><span class="toc-dots"></span><span>7</span></div>
+  <div class="toc-entry level2"><span>3.2 Parent User</span><span class="toc-dots"></span><span>7</span></div>
+  <div class="toc-entry level2"><span>3.3 Admin User</span><span class="toc-dots"></span><span>7</span></div>
+  <div class="toc-entry level1"><span>4. User Stories</span><span class="toc-dots"></span><span>8</span></div>
+  <div class="toc-entry level1"><span>5. Registration and Login</span><span class="toc-dots"></span><span>10</span></div>
+  <div class="toc-entry level2"><span>5.1 Creating an Account</span><span class="toc-dots"></span><span>10</span></div>
+  <div class="toc-entry level2"><span>5.2 Logging In</span><span class="toc-dots"></span><span>11</span></div>
+  <div class="toc-entry level2"><span>5.3 Logging Out</span><span class="toc-dots"></span><span>11</span></div>
+  <div class="toc-entry level1"><span>6. Chat Screen</span><span class="toc-dots"></span><span>12</span></div>
+  <div class="toc-entry level2"><span>6.1 Sending Messages</span><span class="toc-dots"></span><span>12</span></div>
+  <div class="toc-entry level2"><span>6.2 Receiving Recommendations</span><span class="toc-dots"></span><span>12</span></div>
+  <div class="toc-entry level2"><span>6.3 Opening Recommendations</span><span class="toc-dots"></span><span>13</span></div>
+  <div class="toc-entry level1"><span>7. Library Screen</span><span class="toc-dots"></span><span>14</span></div>
+  <div class="toc-entry level2"><span>7.1 Browsing Books</span><span class="toc-dots"></span><span>14</span></div>
+  <div class="toc-entry level2"><span>7.2 Opening a Book</span><span class="toc-dots"></span><span>14</span></div>
+  <div class="toc-entry level1"><span>8. Favourites Screen</span><span class="toc-dots"></span><span>15</span></div>
+  <div class="toc-entry level2"><span>8.1 Viewing Favourites</span><span class="toc-dots"></span><span>15</span></div>
+  <div class="toc-entry level2"><span>8.2 Removing Favourites</span><span class="toc-dots"></span><span>15</span></div>
+  <div class="toc-entry level1"><span>9. Profile Screen</span><span class="toc-dots"></span><span>16</span></div>
+  <div class="toc-entry level2"><span>9.1 Editing Profile</span><span class="toc-dots"></span><span>16</span></div>
+  <div class="toc-entry level2"><span>9.2 Parental Controls</span><span class="toc-dots"></span><span>16</span></div>
+  <div class="toc-entry level1"><span>10. Admin Dashboard</span><span class="toc-dots"></span><span>17</span></div>
+  <div class="toc-entry level2"><span>10.1 User Management</span><span class="toc-dots"></span><span>17</span></div>
+  <div class="toc-entry level2"><span>10.2 Book Library Management</span><span class="toc-dots"></span><span>18</span></div>
+  <div class="toc-entry level2"><span>10.3 Adding Books</span><span class="toc-dots"></span><span>18</span></div>
+  <div class="toc-entry level2"><span>10.4 AI Book Curator</span><span class="toc-dots"></span><span>19</span></div>
+  <div class="toc-entry level1"><span>11. Safe Web Viewer</span><span class="toc-dots"></span><span>20</span></div>
+  <div class="toc-entry level1"><span>12. Technical Stack</span><span class="toc-dots"></span><span>21</span></div>
+  <div class="toc-entry level2"><span>12.1 Frontend Framework</span><span class="toc-dots"></span><span>21</span></div>
+  <div class="toc-entry level2"><span>12.2 Backend Framework</span><span class="toc-dots"></span><span>22</span></div>
+  <div class="toc-entry level2"><span>12.3 Database</span><span class="toc-dots"></span><span>22</span></div>
+  <div class="toc-entry level2"><span>12.4 Machine Learning Libraries</span><span class="toc-dots"></span><span>23</span></div>
+  <div class="toc-entry level2"><span>12.5 APIs</span><span class="toc-dots"></span><span>25</span></div>
+  <div class="toc-entry level2"><span>12.6 Hosting</span><span class="toc-dots"></span><span>26</span></div>
+  <div class="toc-entry level2"><span>12.7 Server</span><span class="toc-dots"></span><span>26</span></div>
+  <div class="toc-entry level2"><span>12.8 Deployment</span><span class="toc-dots"></span><span>27</span></div>
+</div>
+
+<!-- SECTION 1 -->
+<h1>1. Introduction</h1>
+
+<h3>1.1 Document Purpose</h3>
+<p>This document serves as the official user manual for the Little Dino application. It provides detailed instructions on how to install, configure, and use all features of the platform. This manual is intended to guide developers through the setup process and to help end users understand the functionality available to them.</p>
+
+<h3>1.2 Target Audience</h3>
+<p>This manual is intended for the following audiences:</p>
+<ul>
+  <li><strong>Developers</strong> who need to set up the development environment, deploy the backend, and build the Android application.</li>
+  <li><strong>Children (ages 3-12)</strong> who will use the chatbot to discover books and videos.</li>
+  <li><strong>Parents</strong> who wish to configure parental controls and monitor their child's content access.</li>
+  <li><strong>Administrators</strong> who manage the content library and user accounts on the platform.</li>
+</ul>
+
+<h3>1.3 Scope and Purpose</h3>
+<p>Little Dino is an AI-powered Android chatbot application that provides personalised book and video recommendations for children aged 3 to 12. The application uses OpenAI's GPT models to deliver conversational recommendations and a custom ANN-inspired recommendation engine to rank content based on each child's age, interests, reading level, and favourite history.</p>
+<p>The purpose of the application is to encourage reading and learning among children by providing a safe, engaging, and personalised content discovery experience. Parents can configure safety settings through PIN-protected parental controls, while administrators manage the content library through a dedicated dashboard with AI-assisted book curation tools.</p>
+
+<!-- SECTION 2 -->
+<h1>2. Installation Instructions</h1>
+
+<h3>2.1 Prerequisites</h3>
+<p>Before setting up the application, ensure the following software and accounts are available.</p>
+
+<p><strong>Software Requirements:</strong></p>
+<ul>
+  <li>Android Studio (latest stable version, Ladybug or newer)</li>
+  <li>Java Development Kit (JDK) 11 or higher</li>
+  <li>Node.js version 18 and npm (Node Package Manager)</li>
+  <li>Firebase CLI (install by running: npm install -g firebase-tools)</li>
+  <li>Git version control</li>
+</ul>
+
+<p><strong>Account Requirements:</strong></p>
+<ul>
+  <li>An OpenAI API key obtained from platform.openai.com</li>
+  <li>A Firebase project with Authentication, Cloud Firestore, Cloud Functions, and Cloud Storage enabled</li>
+  <li>An Android device running Android 8.0 (API 26) or higher, or an Android emulator configured in Android Studio</li>
+</ul>
+
+<h3>2.2 Backend Set Up</h3>
+
+<p class="step"><span class="step-num">Step 1:</span> Clone the repository from GitHub to your local machine.</p>
+<p class="step"><span class="step-num">Step 2:</span> Open a terminal and navigate to the firebase/functions/ directory within the project.</p>
+<p class="step"><span class="step-num">Step 3:</span> Install the Node.js dependencies by running: npm install</p>
+<p class="step"><span class="step-num">Step 4:</span> Log in to Firebase by running: firebase login</p>
+<p class="step"><span class="step-num">Step 5:</span> Configure the OpenAI API key for Cloud Functions by running: firebase functions:config:set openai.key="YOUR_OPENAI_API_KEY"</p>
+<p class="step"><span class="step-num">Step 6:</span> Deploy the backend services by running: firebase deploy --only functions,firestore:rules,storage</p>
+<p class="step"><span class="step-num">Step 7 (Optional):</span> To run the backend locally for testing, run: npm run serve. This starts the Firebase emulator suite with Authentication on port 9099, Cloud Functions on port 5001, Firestore on port 8080, Storage on port 9199, and the emulator dashboard on port 4000.</p>
+
+<h3>2.3 Frontend Set Up</h3>
+
+<p class="step"><span class="step-num">Step 1:</span> Open Android Studio and select "Open an Existing Project". Navigate to the root directory of the cloned repository and open it.</p>
+<p class="step"><span class="step-num">Step 2:</span> Create a file named local.properties in the project root directory. Add the following line, replacing the placeholder with your actual OpenAI API key: OPENAI_API_KEY=your_openai_api_key_here</p>
+<p class="step"><span class="step-num">Step 3:</span> Download the google-services.json file from the Firebase Console under Project Settings and place it in the app/ directory.</p>
+<p class="step"><span class="step-num">Step 4:</span> Wait for Android Studio to sync the Gradle files automatically. If prompted, click "Sync Now" to resolve all dependencies.</p>
+<p class="step"><span class="step-num">Step 5:</span> Connect a physical Android device with USB debugging enabled (running Android 8.0 or higher) or launch an Android emulator from the AVD Manager.</p>
+<p class="step"><span class="step-num">Step 6:</span> Click the Run button (green play icon) in Android Studio or select Build, then Run from the menu bar. The application will compile and install on the connected device or emulator.</p>
+
+<!-- SECTION 3 -->
+<h1>3. User Roles</h1>
+
+<p>The application supports three distinct user roles, each with different access levels and capabilities.</p>
+
+<h3>3.1 Child User</h3>
+<p>The child user is the primary user of the application. Children can chat with the Little Dino AI chatbot to receive personalised book and video recommendations. They can browse the curated book library, save books and videos to their favourites collection, and read or watch content through the safe web viewer. Children can also customise their profile by selecting interests and setting their reading level to improve recommendation accuracy.</p>
+
+<h3>3.2 Parent User</h3>
+<p>The parent user accesses the platform through the same account as their child. Parents can access PIN-protected parental controls from the Profile screen to configure safety settings. These settings include setting a maximum age rating for content, toggling video content on or off, and managing content filters. The parental controls ensure that children only see age-appropriate material.</p>
+
+<h3>3.3 Admin User</h3>
+<p>The admin user has full access to the platform's management features. Admins are routed to a dedicated admin dashboard upon login instead of the standard chat interface. From the dashboard, admins can view and manage all registered users, search for books across multiple external APIs, add or remove books from the curated library, and use the AI-powered book curator to automatically extract book metadata from text. The admin account is identified by the email address admin@littledino.com with the plan type set to ADMIN.</p>
+
+<!-- SECTION 4 -->
+<h1>4. User Stories</h1>
+
+<p>The following user stories describe the functional requirements of the application from the perspective of each user role.</p>
+
+<p><strong>Authentication and Account Management</strong></p>
+<table>
+  <tr><th>No.</th><th>User Story</th></tr>
+  <tr><td>1</td><td>As an admin, I want to log in with my admin credentials so that I can access the admin dashboard.</td></tr>
+  <tr><td>2</td><td>As an admin, I want to log out so that I can securely exit the platform.</td></tr>
+  <tr><td>3</td><td>As a child user, I want to log in so that I can access the chatbot and library.</td></tr>
+  <tr><td>4</td><td>As a child user, I want to log out so that I can securely exit the platform.</td></tr>
+  <tr><td>5</td><td>As a parent, I want to log in so that I can access parental controls.</td></tr>
+  <tr><td>6</td><td>As a parent, I want to log out so that I can securely exit the platform.</td></tr>
+  <tr><td>7</td><td>As an unregistered user, I want to create an account with my name, age, interests, and reading level so that I can receive personalised recommendations.</td></tr>
+</table>
+
+<p><strong>Library and Browsing</strong></p>
+<table>
+  <tr><th>No.</th><th>User Story</th></tr>
+  <tr><td>8</td><td>As a child user, I want to browse the curated book library so that I can discover new books to read.</td></tr>
+  <tr><td>9</td><td>As a child user, I want to open a book in a safe web viewer so that I can read it within the app.</td></tr>
+  <tr><td>10</td><td>As a child user, I want to favourite books so that I can access them quickly from my collection.</td></tr>
+  <tr><td>11</td><td>As a child user, I want to remove books from my favourites so that I can keep my collection organised.</td></tr>
+</table>
+
+<p><strong>Chatbot and Recommendations</strong></p>
+<table>
+  <tr><th>No.</th><th>User Story</th></tr>
+  <tr><td>12</td><td>As a child user, I want to chat with the AI chatbot (Little Dino) so that I can get personalised book and video recommendations.</td></tr>
+  <tr><td>13</td><td>As a child user, I want to see relevance scores on recommendation cards so that I can understand how well a book matches my interests.</td></tr>
+  <tr><td>14</td><td>As a child user, I want to add chatbot recommendations to my favourites so that I can save them for later.</td></tr>
+  <tr><td>15</td><td>As a child user, I want to open recommended books or videos directly from the chat so that I can access them immediately.</td></tr>
+  <tr><td>16</td><td>As a child user, I want the chatbot to remember our conversation history so that recommendations improve over time.</td></tr>
+</table>
+
+<p><strong>Videos</strong></p>
+<table>
+  <tr><th>No.</th><th>User Story</th></tr>
+  <tr><td>17</td><td>As a child user, I want to search for videos through the chatbot so that I can find educational content to watch.</td></tr>
+  <tr><td>18</td><td>As a child user, I want to favourite videos so that I can access them quickly from my collection.</td></tr>
+  <tr><td>19</td><td>As a child user, I want to watch videos in the safe web viewer so that I stay within approved content.</td></tr>
+</table>
+
+<p><strong>Profile and Personalisation</strong></p>
+<table>
+  <tr><th>No.</th><th>User Story</th></tr>
+  <tr><td>20</td><td>As a child user, I want to select my interests (Reading, Science, Animals, Adventure, Fantasy, Art, Music, Sports, History, Nature) so that the chatbot gives me accurate suggestions.</td></tr>
+  <tr><td>21</td><td>As a child user, I want to set my reading level (Beginner, Early Reader, Intermediate, Advanced) so that I get age-appropriate recommendations.</td></tr>
+  <tr><td>22</td><td>As a child user, I want to edit my name and age so that my profile stays up to date.</td></tr>
+</table>
+
+<p><strong>Parental Controls</strong></p>
+<table>
+  <tr><th>No.</th><th>User Story</th></tr>
+  <tr><td>23</td><td>As a parent, I want to access parental controls via a PIN so that my child cannot change safety settings.</td></tr>
+  <tr><td>24</td><td>As a parent, I want to set a maximum age rating so that my child only sees age-appropriate content.</td></tr>
+  <tr><td>25</td><td>As a parent, I want to toggle video content on or off so that I can control what my child accesses.</td></tr>
+</table>
+
+<p><strong>Admin and Content Management</strong></p>
+<table>
+  <tr><th>No.</th><th>User Story</th></tr>
+  <tr><td>26</td><td>As an admin, I want to view all registered users and their plan types so that I can manage the platform.</td></tr>
+  <tr><td>27</td><td>As an admin, I want to search for books from StoryWeaver and Open Library so that I can add them to the curated library.</td></tr>
+  <tr><td>28</td><td>As an admin, I want to add books to the curated library so that children have quality content to browse.</td></tr>
+  <tr><td>29</td><td>As an admin, I want to delete books from the curated library so that I can remove outdated or inappropriate content.</td></tr>
+  <tr><td>30</td><td>As an admin, I want to paste text and have AI extract book details automatically so that I can curate books efficiently.</td></tr>
+</table>
+
+<!-- SECTION 5 -->
+<h1>5. Registration and Login</h1>
+
+<h3>5.1 Creating an Account</h3>
+<p>New users can create an account from the Registration screen. The registration process requires the following information:</p>
+<ul>
+  <li><strong>Name:</strong> The user's display name.</li>
+  <li><strong>Email:</strong> A valid email address used for login.</li>
+  <li><strong>Password:</strong> A password with a minimum of 6 characters.</li>
+  <li><strong>Age:</strong> The child's age (numeric value).</li>
+  <li><strong>Interests:</strong> At least one interest must be selected from the following options: Reading, Science, Animals, Adventure, Fantasy, Art, Music, Sports, History, and Nature.</li>
+  <li><strong>Reading Level:</strong> One of four levels must be selected: Beginner, Early Reader, Intermediate, or Advanced.</li>
+</ul>
+<p>Upon successful registration, the user is automatically logged in and directed to the Chat screen. The account is created with a FREE plan type by default. All user data is stored securely in Firebase Authentication and Cloud Firestore.</p>
+
+<h3>5.2 Logging In</h3>
+<p>Existing users can log in from the Login screen by entering their registered email address and password. Upon successful authentication, the application checks the user's role:</p>
+<ul>
+  <li>If the user's email is admin@littledino.com or their plan type is ADMIN, they are directed to the Admin Dashboard.</li>
+  <li>All other users are directed to the main application with the Chat screen as the default view.</li>
+</ul>
+
+<h3>5.3 Logging Out</h3>
+<p>Users can log out from the Profile screen (for regular users) or the Admin Dashboard (for admin users) by tapping the Logout button. Logging out clears the authentication session and returns the user to the Login screen.</p>
+
+<!-- SECTION 6 -->
+<h1>6. Chat Screen</h1>
+
+<p>The Chat screen is the primary interface of the application where children interact with Little Dino, the AI chatbot. The screen displays a conversation view with message bubbles and recommendation cards.</p>
+
+<h3>6.1 Sending Messages</h3>
+<p>Users type their message in the text input field at the bottom of the screen and tap the Send button. Messages can include questions about books, requests for recommendations, or general conversation about reading topics. The chatbot processes each message using OpenAI's GPT-4o-mini model and responds with personalised suggestions based on the user's profile.</p>
+
+<h3>6.2 Receiving Recommendations</h3>
+<p>When the chatbot identifies relevant content, it returns recommendation cards alongside its text response. Each recommendation card displays:</p>
+<ul>
+  <li>The book or video title</li>
+  <li>A brief description of the content</li>
+  <li>A personalised reason explaining why this item was recommended</li>
+  <li>A relevance score (0.0 to 1.0) indicating how well the item matches the user's profile</li>
+  <li>An "Add to Favourites" button to save the item</li>
+  <li>An "Open" button to view the content</li>
+</ul>
+<p>Recommendations are ranked by the ANN-inspired recommendation engine, which considers the user's interests, age, reading level, and favourite history. The chatbot maintains the last 10 messages of conversation history to provide contextually relevant responses.</p>
+
+<h3>6.3 Opening Recommendations</h3>
+<p>Tapping the "Open" button on a recommendation card navigates the user to the Safe Web Viewer, where the book or video is displayed within the app. Books are opened through approved reader platforms (StoryWeaver, Archive.org, Open Library), while videos are opened through YouTube.</p>
+
+<!-- SECTION 7 -->
+<h1>7. Library Screen</h1>
+
+<p>The Library screen provides a visual catalogue of all curated books available on the platform. It is accessible from the bottom navigation bar.</p>
+
+<h3>7.1 Browsing Books</h3>
+<p>Books are displayed in a grid layout showing cover images, titles, and age ranges. Users can scroll through the collection to discover books. The library is populated by the admin through the Admin Dashboard and stored in the gutenberg_books collection in Cloud Firestore.</p>
+
+<h3>7.2 Opening a Book</h3>
+<p>Tapping on a book card opens it in the Safe Web Viewer. Users can also tap the favourite icon on each card to add the book to their favourites collection for quick access later.</p>
+
+<!-- SECTION 8 -->
+<h1>8. Favourites Screen</h1>
+
+<p>The Favourites screen displays all books and videos that the user has saved to their collection. It is accessible from the bottom navigation bar.</p>
+
+<h3>8.1 Viewing Favourites</h3>
+<p>Favourited items are displayed in a grid layout showing the cover image, title, and description. Users can tap on any item to open it in the Safe Web Viewer. Favourites are stored in Cloud Firestore under the path favourites/{userId}/items/{itemId} and are synchronised in real-time across sessions.</p>
+
+<h3>8.2 Removing Favourites</h3>
+<p>Users can remove items from their favourites by tapping the remove or unfavourite button on the card. The item is immediately deleted from Firestore and disappears from the screen.</p>
+
+<!-- SECTION 9 -->
+<h1>9. Profile Screen</h1>
+
+<p>The Profile screen allows users to view and edit their personal information and access parental controls. It is accessible from the bottom navigation bar.</p>
+
+<h3>9.1 Editing Profile</h3>
+<p>Users can update the following profile fields:</p>
+<ul>
+  <li><strong>Name:</strong> Change the display name shown in the application.</li>
+  <li><strong>Age:</strong> Update the user's age, which affects recommendation scoring.</li>
+  <li><strong>Interests:</strong> Select or deselect interests from the available options (Reading, Science, Animals, Adventure, Fantasy, Art, Music, Sports, History, Nature). Changes to interests immediately affect future chatbot recommendations.</li>
+  <li><strong>Reading Level:</strong> Change between Beginner, Early Reader, Intermediate, and Advanced. This affects how the recommendation engine scores books based on difficulty.</li>
+</ul>
+<p>All profile changes are saved to Cloud Firestore and take effect immediately for subsequent chatbot interactions.</p>
+
+<h3>9.2 Parental Controls</h3>
+<p>The Parental Controls section is accessible from the Profile screen and is protected by a 4-digit PIN. After entering a valid PIN, parents can configure the following settings:</p>
+<ul>
+  <li><strong>Maximum Age Rating:</strong> A slider control ranging from 3 to 18 that sets the upper limit for content age ratings. Books and videos with age ratings above this threshold will be filtered from recommendations.</li>
+  <li><strong>Allow Videos:</strong> A toggle switch that enables or disables video content. When disabled, the chatbot will only recommend books.</li>
+</ul>
+<p>These settings are stored in the user's contentFilters object in Cloud Firestore.</p>
+
+<!-- SECTION 10 -->
+<h1>10. Admin Dashboard</h1>
+
+<p>The Admin Dashboard is the management interface for platform administrators. It is accessible only to users with the ADMIN plan type and replaces the standard bottom navigation with a drawer menu containing four tabs: User Management, Book Library, Add Books, and Settings.</p>
+
+<h3>10.1 User Management</h3>
+<p>The User Management tab displays a list of all registered users on the platform. Each user entry shows:</p>
+<ul>
+  <li>User name and email address</li>
+  <li>Age and selected interests</li>
+  <li>Reading level</li>
+  <li>Plan type badge (displayed with colour coding: Grey for FREE, Gold for PREMIUM, Purple for ADMIN)</li>
+</ul>
+<p>The user list is loaded in real-time from the users collection in Cloud Firestore.</p>
+
+<h3>10.2 Book Library Management</h3>
+<p>The Book Library tab displays all books currently in the curated library stored in the gutenberg_books collection. Each book entry shows the cover image, title, author, and age range. Administrators can delete books from the library by tapping the delete button on each entry. Deleted books are permanently removed from Cloud Firestore.</p>
+
+<h3>10.3 Adding Books</h3>
+<p>The Add Books tab provides a search interface for discovering new books to add to the library. When the admin enters a search query, the application performs parallel searches across two external APIs:</p>
+<ul>
+  <li><strong>StoryWeaver:</strong> Returns children's picture books with embedded reader URLs.</li>
+  <li><strong>Open Library:</strong> Returns books with metadata including Internet Archive identifiers for the embedded reader.</li>
+</ul>
+<p>Search results display the book title, author, and cover image. Tapping "Add to Library" saves the book to the gutenberg_books collection in Cloud Firestore, making it immediately available to all users.</p>
+
+<h3>10.4 AI Book Curator</h3>
+<p>The AI Book Curator (accessible through the Curator screen) allows administrators to add multiple books efficiently by pasting raw text. The administrator pastes a block of text containing book information (such as a booklist from a website or document), and the application sends this text to OpenAI's GPT model. The AI automatically extracts structured book metadata including title, author, description, age range, cover image URL, and reader URL. Each extracted book is then saved to Cloud Firestore as a new entry in the curated library.</p>
+
+<!-- SECTION 11 -->
+<h1>11. Safe Web Viewer</h1>
+
+<p>The Safe Web Viewer (SafeWebViewScreen) provides a protected browsing environment for reading books and watching videos within the application. It ensures that children can only access content from approved domains.</p>
+
+<p>The viewer enforces a domain whitelist that restricts navigation to the following approved sources:</p>
+<ul>
+  <li><strong>StoryWeaver</strong> (storyweaver.org.in) for interactive picture books</li>
+  <li><strong>Internet Archive</strong> (archive.org) for embedded book readers</li>
+  <li><strong>Open Library</strong> (openlibrary.org) for book previews</li>
+  <li><strong>YouTube</strong> (youtube.com) for educational videos</li>
+</ul>
+
+<p>The viewer includes the following controls:</p>
+<ul>
+  <li>A back button to return to the previous screen</li>
+  <li>A refresh button to reload the current page</li>
+  <li>A loading indicator that displays while content is being fetched</li>
+  <li>A lock icon indicating that the user is browsing within the safe environment</li>
+</ul>
+<p>Any attempt to navigate to a domain not on the whitelist is automatically blocked, ensuring that children remain within safe and approved content at all times.</p>
+
+<!-- SECTION 12 -->
+<h1>12. Technical Stack</h1>
+
+<h3>12.1 Frontend Framework</h3>
+<p>The frontend is built as a native Android application using Jetpack Compose with Material 3 design components. The primary programming language is Kotlin 2.0.21. The Compose Bill of Materials (BOM) version 2024.12.01 manages all UI library versions for consistency. Navigation between screens is handled by Navigation Compose 2.8.5. Asynchronous image loading for book covers uses Coil 2.7.0. The application targets a minimum SDK of 26 (Android 8.0) and a target SDK of 35 (Android 15).</p>
+
+<p>Key frontend libraries and their versions:</p>
+<table>
+  <tr><th>Library</th><th>Version</th><th>Purpose</th></tr>
+  <tr><td>Jetpack Compose (Material 3)</td><td>BOM 2024.12.01</td><td>Declarative UI toolkit</td></tr>
+  <tr><td>Kotlin</td><td>2.0.21</td><td>Primary programming language</td></tr>
+  <tr><td>Navigation Compose</td><td>2.8.5</td><td>Screen routing and navigation</td></tr>
+  <tr><td>Coil</td><td>2.7.0</td><td>Asynchronous image loading</td></tr>
+  <tr><td>Activity Compose</td><td>1.9.3</td><td>Activity integration</td></tr>
+  <tr><td>Lifecycle Runtime KTX</td><td>2.8.7</td><td>Lifecycle-aware components</td></tr>
+  <tr><td>Material Icons Extended</td><td>BOM managed</td><td>Icon library</td></tr>
+  <tr><td>Hilt Navigation Compose</td><td>1.2.0</td><td>DI integration with navigation</td></tr>
+</table>
+
+<h3>12.2 Backend Framework</h3>
+<p>The backend is built on Firebase Cloud Functions using Node.js 18 with TypeScript 5.3. Cloud Functions provide a serverless architecture that automatically scales based on demand. The firebase-functions library (version 4.5.0) handles the serverless runtime, while firebase-admin (version 12.0.0) provides server-side access to Firebase services. The OpenAI Node SDK (version 4.20.0) enables GPT integration for chat processing on the backend.</p>
+
+<p>Key backend libraries and their versions:</p>
+<table>
+  <tr><th>Library</th><th>Version</th><th>Purpose</th></tr>
+  <tr><td>Firebase Cloud Functions</td><td>4.5.0</td><td>Serverless function runtime</td></tr>
+  <tr><td>Firebase Admin SDK</td><td>12.0.0</td><td>Server-side Firebase access</td></tr>
+  <tr><td>OpenAI Node SDK</td><td>4.20.0</td><td>GPT API integration</td></tr>
+  <tr><td>TypeScript</td><td>5.3</td><td>Type-safe development</td></tr>
+  <tr><td>Node.js</td><td>18</td><td>Runtime environment</td></tr>
+</table>
+
+<h3>12.3 Database</h3>
+<p>The application uses Cloud Firestore, a NoSQL document database provided by Firebase. Firestore stores data in a hierarchical collection-document structure that supports real-time listeners for live data synchronisation.</p>
+
+<p>The Firestore collections are structured as follows:</p>
+<table>
+  <tr><th>Collection Path</th><th>Description</th></tr>
+  <tr><td>users/{userId}</td><td>Stores user profiles including name, email, age, interests, reading level, plan type, and parental control settings.</td></tr>
+  <tr><td>chatHistory/{userId}/conversations/{conversationId}/messages/{messageId}</td><td>Stores all chat messages between the user and the AI chatbot, including recommendations attached to bot responses.</td></tr>
+  <tr><td>favorites/{userId}/items/{itemId}</td><td>Stores the user's favourited books and videos with metadata such as title, description, and cover image URL.</td></tr>
+  <tr><td>gutenberg_books/{bookId}</td><td>Stores the admin-curated book library with fields for title, author, age range (ageMin, ageMax), category, difficulty, cover URL, and reader URL.</td></tr>
+</table>
+
+<p>Additional Firebase services used:</p>
+<ul>
+  <li><strong>Firebase Authentication:</strong> Handles email and password registration and login for all user accounts.</li>
+  <li><strong>Firebase Storage:</strong> Stores book cover images and media assets (storage bucket: fyp-chatbot-81a50.firebasestorage.app).</li>
+  <li><strong>DataStore Preferences (version 1.1.1):</strong> Stores local device-level preferences on the Android device.</li>
+</ul>
+
+<h3>12.4 Machine Learning Libraries</h3>
+<p>The application uses two AI components for intelligent recommendations.</p>
+
+<h4>OpenAI GPT Models</h4>
+<p>The chatbot is powered by OpenAI's GPT language models. The Android application calls the GPT-4o-mini model for chat completions and book curation, while the Firebase Cloud Functions use GPT-3.5-turbo for backend chat processing. Both models use a temperature setting of 0.7 to balance creativity with consistency and a maximum token limit of 500 to keep responses concise and child-friendly.</p>
+<p>The chat system constructs a personalised system prompt that includes the user's name, age, interests, and reading level. This prompt instructs the model to act as "Little Dino", a friendly dinosaur assistant that recommends age-appropriate books and videos. The model returns structured recommendation data in a JSON block embedded within its response, which the application parses to generate recommendation cards.</p>
+
+<h4>ANN-Inspired Recommendation Engine</h4>
+<p>The custom recommendation engine (RecommendationEngine.kt) is a simplified Artificial Neural Network-inspired scoring system built in Kotlin. It ranks content based on user profile features using a weighted scoring model with four input features:</p>
+
+<p><strong>Interest Match (weight: 0.35):</strong> Compares the user's selected interests against the book's title, description, and author name using keyword matching. The score is calculated as the ratio of matching interests to total interests, normalised between 0.0 and 1.0. If the user has no interests set, a default score of 0.5 is assigned.</p>
+
+<p><strong>Age Match (weight: 0.25):</strong> Calculates the absolute difference between the user's age and the book's target age range midpoint, computed as (ageMin + ageMax) / 2. The scoring is tiered: a difference of 1 year or less returns 1.0, up to 2 years returns 0.8, up to 3 years returns 0.5, up to 5 years returns 0.3, and larger differences return 0.1.</p>
+
+<p><strong>Reading Level Match (weight: 0.15):</strong> Maps both the user's reading level (Beginner = 1, Early Reader = 2, Intermediate = 3, Advanced = 4) and the book's difficulty rating (easy = 1, medium = 2, hard = 3) to numeric values. The score is based on the difference: an exact match returns 1.0, a difference of 1 returns 0.7, a difference of 2 returns 0.3, and larger differences return 0.1.</p>
+
+<p><strong>Favourite Similarity (weight: 0.25):</strong> Uses Jaccard similarity to compare a book's text content against the user's previously favourited items. The algorithm tokenises the book's title and description into words (filtering words shorter than 3 characters), then computes the Jaccard coefficient (intersection divided by union) against each favourite. The highest similarity score across all favourites is used. If the user has no favourites, a default score of 0.5 is assigned.</p>
+
+<p>The final relevance score is calculated as the weighted sum of all four feature scores:</p>
+<p style="text-align:center;"><em>Score = (0.35 x Interest) + (0.25 x Age) + (0.15 x ReadingLevel) + (0.25 x FavouriteSimilarity)</em></p>
+<p>The score is clamped between 0.0 and 1.0. Recommendations are sorted by this score in descending order. When the AI service is unavailable, the engine falls back to scoring curated books directly against the user profile and returns the top 3 results.</p>
+
+<h3>12.5 APIs</h3>
+<p>The application integrates with the following external APIs to provide content and AI functionality:</p>
+
+<table>
+  <tr><th>API</th><th>Base URL</th><th>Purpose</th></tr>
+  <tr><td>OpenAI Chat Completions</td><td>api.openai.com/v1/</td><td>Powers the AI chatbot responses and automated book metadata extraction for the admin curator tool.</td></tr>
+  <tr><td>StoryWeaver</td><td>storyweaver.org.in/</td><td>Provides access to open-source children's picture books with embedded reader support for reading within the app.</td></tr>
+  <tr><td>Open Library</td><td>openlibrary.org/</td><td>Provides book search functionality and metadata including titles, authors, cover images, and Internet Archive identifiers.</td></tr>
+  <tr><td>Google Books</td><td>googleapis.com/books/v1/</td><td>Provides book preview URLs and cover images for display in the library and recommendation cards.</td></tr>
+  <tr><td>Gutendex</td><td>gutendex.com/</td><td>Provides access to public domain children's books from Project Gutenberg.</td></tr>
+  <tr><td>Internet Archive</td><td>archive.org/embed/</td><td>Provides an embedded book reader interface for reading books directly within the Safe Web Viewer.</td></tr>
+</table>
+
+<p>All API calls from the Android application are made using Retrofit 2.11.0 with OkHttp 4.12.0 as the HTTP client. API requests include logging interceptors for debugging and timeout configurations of 30 seconds for connection, read, and write operations. The OpenAI API key is injected as a Bearer token through an OkHttp interceptor.</p>
+
+<h3>12.6 Hosting</h3>
+<p>The application is hosted entirely on Firebase, which runs on Google Cloud Platform infrastructure. The Firebase project (project ID: fyp-chatbot-81a50) provides the following hosted services:</p>
+<ul>
+  <li><strong>Firebase Authentication</strong> for user identity management and secure login.</li>
+  <li><strong>Cloud Firestore</strong> for real-time NoSQL database storage.</li>
+  <li><strong>Firebase Cloud Functions</strong> for serverless backend logic execution.</li>
+  <li><strong>Firebase Storage</strong> for media file hosting (storage bucket: fyp-chatbot-81a50.firebasestorage.app).</li>
+</ul>
+
+<h3>12.7 Server</h3>
+<p>The application uses a serverless architecture through Firebase Cloud Functions, meaning there is no dedicated server to manage. Cloud Functions run on Node.js 18 and automatically scale up or down based on incoming request volume. This eliminates the need for server provisioning, maintenance, or capacity planning.</p>
+
+<p>For local development and testing, Firebase provides an emulator suite with the following configuration:</p>
+<table>
+  <tr><th>Service</th><th>Port</th></tr>
+  <tr><td>Authentication Emulator</td><td>9099</td></tr>
+  <tr><td>Cloud Functions Emulator</td><td>5001</td></tr>
+  <tr><td>Firestore Emulator</td><td>8080</td></tr>
+  <tr><td>Storage Emulator</td><td>9199</td></tr>
+  <tr><td>Emulator UI Dashboard</td><td>4000</td></tr>
+</table>
+
+<h3>12.8 Deployment</h3>
+<p>The deployment process consists of two components: the Android application and the Firebase backend.</p>
+
+<p><strong>Android Application Deployment:</strong></p>
+<p>The Android application is built using Gradle 9.3.1 with the Android Gradle Plugin 9.0.0. The build process compiles Kotlin source code into an APK (Android Package) or AAB (Android App Bundle) for distribution. The OpenAI API key is stored in a local.properties file that is excluded from version control and injected into the application at build time through the BuildConfig class. Dependency injection is managed by Dagger Hilt 2.59.2, and annotation processing uses KAPT (Kotlin Annotation Processing Tool) with KSP (Kotlin Symbol Processing) 2.0.21-1.0.25 available as an alternative.</p>
+
+<p><strong>Firebase Backend Deployment:</strong></p>
+<p>Firebase Cloud Functions are deployed using the Firebase CLI. The deployment process includes an automatic pre-deploy step that compiles TypeScript source files to JavaScript before uploading. Functions are deployed with the command: firebase deploy --only functions. Firestore security rules and Storage rules are deployed separately using: firebase deploy --only firestore:rules,storage. The entire backend can be deployed in a single command: firebase deploy --only functions,firestore:rules,storage.</p>
+
+</body>
+</html>
