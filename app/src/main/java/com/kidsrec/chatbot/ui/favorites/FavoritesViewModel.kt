@@ -47,11 +47,12 @@ class FavoritesViewModel @Inject constructor(
         type: RecommendationType,
         title: String,
         description: String,
-        imageUrl: String
+        imageUrl: String,
+        url: String = ""
     ) {
         viewModelScope.launch {
             val userId = accountManager.getCurrentUserId() ?: return@launch
-            favoritesManager.addFavorite(userId, itemId, type, title, description, imageUrl)
+            favoritesManager.addFavorite(userId, itemId, type, title, description, imageUrl, url)
         }
     }
 

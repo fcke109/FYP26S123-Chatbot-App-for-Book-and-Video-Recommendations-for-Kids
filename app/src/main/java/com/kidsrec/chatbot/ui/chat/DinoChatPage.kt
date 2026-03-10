@@ -185,9 +185,11 @@ fun RecommendationCard(
     Card(
         modifier = Modifier
             .width(220.dp)
-            .clickable { 
+            .clickable {
                 coroutineScope.launch {
-                    val url = if (isVideo) {
+                    val url = if (recommendation.url.isNotBlank()) {
+                        recommendation.url
+                    } else if (isVideo) {
                         "https://www.youtube.com/results?search_query=${java.net.URLEncoder.encode(recommendation.title, "UTF-8")}+kids"
                     } else {
                         onGetBookPreviewUrl?.invoke(recommendation.title) ?: ""
@@ -267,7 +269,9 @@ fun RecommendationCard(
                     TextButton(
                         onClick = {
                             coroutineScope.launch {
-                                val url = if (isVideo) {
+                                val url = if (recommendation.url.isNotBlank()) {
+                                    recommendation.url
+                                } else if (isVideo) {
                                     "https://www.youtube.com/results?search_query=${java.net.URLEncoder.encode(recommendation.title, "UTF-8")}+kids"
                                 } else {
                                     onGetBookPreviewUrl?.invoke(recommendation.title) ?: ""

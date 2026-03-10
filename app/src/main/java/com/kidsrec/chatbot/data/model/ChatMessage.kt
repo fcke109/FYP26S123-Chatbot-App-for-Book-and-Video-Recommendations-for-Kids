@@ -46,10 +46,11 @@ data class Recommendation(
     val description: String = "",
     val imageUrl: String = "",
     val reason: String = "",
-    val relevanceScore: Double = 0.0
+    val relevanceScore: Double = 0.0,
+    val url: String = ""
 ) {
     // No-arg constructor for Firestore
-    constructor() : this("", RecommendationType.BOOK, "", "", "", "", 0.0)
+    constructor() : this("", RecommendationType.BOOK, "", "", "", "", 0.0, "")
 }
 
 enum class RecommendationType {

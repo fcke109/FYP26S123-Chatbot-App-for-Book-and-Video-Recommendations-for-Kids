@@ -36,7 +36,8 @@ class FavoritesManager @Inject constructor(
         type: RecommendationType,
         title: String,
         description: String,
-        imageUrl: String
+        imageUrl: String,
+        url: String = ""
     ): Result<Unit> {
         return try {
             val favorite = Favorite(
@@ -46,7 +47,8 @@ class FavoritesManager @Inject constructor(
                 type = type,
                 title = title,
                 description = description,
-                imageUrl = imageUrl
+                imageUrl = imageUrl,
+                url = url
             )
             firestore.collection("favorites")
                 .document(userId)
