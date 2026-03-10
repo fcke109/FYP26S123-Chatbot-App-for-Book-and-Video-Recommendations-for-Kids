@@ -74,14 +74,15 @@ class RecommendationEngine @Inject constructor() {
             .map { book -> book to scoreBook(book, user, favorites) }
             .sortedByDescending { it.second }
             .take(limit)
-            .map { (book, _) ->
+            .map { (book, score) ->
                 Recommendation(
                     id = UUID.randomUUID().toString(),
                     type = RecommendationType.BOOK,
                     title = book.title,
                     description = book.description,
                     imageUrl = book.coverUrl,
-                    reason = generateReason(book, user)
+                    reason = generateReason(book, user),
+                    relevanceScore = score
                 )
             }
     }

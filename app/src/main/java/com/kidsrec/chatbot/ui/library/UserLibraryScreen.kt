@@ -77,14 +77,14 @@ fun UserLibraryScreen(
                                     itemId = book.id,
                                     type = RecommendationType.BOOK,
                                     title = book.title,
-                                    description = book.description ?: "",
-                                    imageUrl = book.coverUrl ?: ""
+                                    description = book.description,
+                                    imageUrl = book.coverUrl
                                 )
                             }
                         },
                         onClick = {
-                            val url = book.readerUrl ?: ""
-                            if (url.isNotEmpty()) onViewBook(book.title, url)
+                            val url = book.readerUrl.ifBlank { book.bookUrl }
+                            if (url.isNotBlank()) onViewBook(book.title, url)
                         }
                     )
                 }
