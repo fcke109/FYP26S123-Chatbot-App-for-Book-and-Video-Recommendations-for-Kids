@@ -20,7 +20,8 @@ data class OpenLibraryBook(
     val author_name: List<String>? = null,
     val cover_i: Int? = null,
     val key: String,
-    val ia: List<String>? = null
+    val ia: List<String>? = null,
+    val subject: List<String>? = null
 ) {
     fun canReadOnline(): Boolean = !ia.isNullOrEmpty()
 

@@ -11,12 +11,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Book
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.OpenInNew
-import androidx.compose.material.icons.filled.PlayCircle
-import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -29,18 +25,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.kidsrec.chatbot.R
 import com.kidsrec.chatbot.data.model.ChatMessage
 import com.kidsrec.chatbot.data.model.MessageRole
 import com.kidsrec.chatbot.data.model.Recommendation
 import com.kidsrec.chatbot.data.model.RecommendationType
 import kotlinx.coroutines.launch
-import java.net.URLEncoder
 
-/**
- * DinoChatPage: The main interaction screen where kids chat with Little Dino.
- */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DinoChatPage(
     viewModel: ChatViewModel,
@@ -49,7 +41,6 @@ fun DinoChatPage(
 ) {
     val messages by viewModel.messages.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
-    val error by viewModel.error.collectAsState()
     var messageText by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
@@ -104,29 +95,30 @@ fun DinoChatPage(
             }
         }
 
-        // Error display
-        if (error != null) {
-            Surface(color = MaterialTheme.colorScheme.errorContainer, modifier = Modifier.fillMaxWidth()) {
-                Text(
-                    text = "Error: $error",
-                    modifier = Modifier.padding(8.dp),
-                    color = MaterialTheme.colorScheme.onErrorContainer,
-                    fontSize = 12.sp
-                )
-            }
-        }
-
         // Input
-        InputArea(
-            text = messageText,
-            onValueChange = { messageText = it },
-            onSend = {
-                if (messageText.isNotBlank()) {
-                    viewModel.sendMessage(messageText)
-                    messageText = ""
+        Surface(shadowElevation = 8.dp, modifier = Modifier.fillMaxWidth()) {
+            Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(
+                    value = messageText,
+                    onValueChange = { messageText = it },
+                    modifier = Modifier.weight(1f),
+                    placeholder = { Text("Ask Little Dino for a story...") },
+                    shape = RoundedCornerShape(24.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                FloatingActionButton(
+                    onClick = {
+                        if (messageText.isNotBlank()) {
+                            viewModel.sendMessage(messageText)
+                            messageText = ""
+                        }
+                    },
+                    containerColor = MaterialTheme.colorScheme.primary
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send")
                 }
             }
-        )
+        }
     }
 }
 
@@ -149,25 +141,6 @@ fun WelcomeView() {
 }
 
 @Composable
-fun InputArea(text: String, onValueChange: (String) -> Unit, onSend: () -> Unit) {
-    Surface(shadowElevation = 8.dp, modifier = Modifier.fillMaxWidth()) {
-        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            OutlinedTextField(
-                value = text,
-                onValueChange = onValueChange,
-                modifier = Modifier.weight(1f),
-                placeholder = { Text("Ask Little Dino for a story...") },
-                shape = RoundedCornerShape(24.dp)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            FloatingActionButton(onClick = onSend, containerColor = MaterialTheme.colorScheme.primary) {
-                Icon(Icons.Default.Send, contentDescription = "Send")
-            }
-        }
-    }
-}
-
-@Composable
 fun MessageBubble(
     message: ChatMessage,
     onAddToFavorites: ((Recommendation) -> Unit)? = null,
@@ -186,7 +159,11 @@ fun MessageBubble(
 
         if (!isUser && message.recommendations.isNotEmpty()) {
             Spacer(modifier = Modifier.height(8.dp))
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            LazyRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(end = 16.dp)
+            ) {
                 items(message.recommendations) { recommendation ->
                     RecommendationCard(recommendation, onAddToFavorites, onOpenRecommendation, onGetBookPreviewUrl)
                 }
@@ -203,64 +180,115 @@ fun RecommendationCard(
     onGetBookPreviewUrl: (suspend (String) -> String)? = null
 ) {
     val coroutineScope = rememberCoroutineScope()
+    val isVideo = recommendation.type == RecommendationType.VIDEO
+    
     Card(
-        modifier = Modifier.width(200.dp).clickable { 
-            coroutineScope.launch {
-                val url = onGetBookPreviewUrl?.invoke(recommendation.title) ?: ""
-                onOpenRecommendation?.invoke(url, recommendation.title, recommendation.type == RecommendationType.VIDEO)
-            }
-        },
-        shape = RoundedCornerShape(16.dp)
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            // ANN relevance score badge
-            if (recommendation.relevanceScore > 0) {
-                val pct = (recommendation.relevanceScore * 100).toInt()
-                val badgeColor = when {
-                    pct >= 70 -> Color(0xFF4CAF50)
-                    pct >= 40 -> Color(0xFFFFA726)
-                    else -> Color.Gray
+        modifier = Modifier
+            .width(220.dp)
+            .clickable { 
+                coroutineScope.launch {
+                    val url = if (isVideo) {
+                        "https://www.youtube.com/results?search_query=${java.net.URLEncoder.encode(recommendation.title, "UTF-8")}+kids"
+                    } else {
+                        onGetBookPreviewUrl?.invoke(recommendation.title) ?: ""
+                    }
+                    onOpenRecommendation?.invoke(url, recommendation.title, isVideo)
                 }
+            },
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column {
+            Box(modifier = Modifier.height(120.dp).fillMaxWidth()) {
+                if (recommendation.imageUrl.isNotEmpty()) {
+                    AsyncImage(
+                        model = recommendation.imageUrl,
+                        contentDescription = recommendation.title,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(if (isVideo) Color(0xFFFFE5E5) else Color(0xFFE5F0FF)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = if (isVideo) Icons.Default.PlayCircle else Icons.Default.Book,
+                            contentDescription = null,
+                            modifier = Modifier.size(48.dp),
+                            tint = if (isVideo) Color.Red else MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+                
+                // Type Badge
                 Surface(
-                    color = badgeColor.copy(alpha = 0.15f),
-                    contentColor = badgeColor,
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.padding(bottom = 4.dp)
+                    modifier = Modifier.padding(8.dp).align(Alignment.TopStart),
+                    color = if (isVideo) Color.Red else MaterialTheme.colorScheme.primary,
+                    shape = RoundedCornerShape(4.dp)
                 ) {
                     Text(
-                        text = "$pct% match",
+                        text = if (isVideo) "VIDEO" else "BOOK",
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                         fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }
 
-            Text(recommendation.title, fontWeight = FontWeight.Bold, fontSize = 14.sp, maxLines = 1)
-            Text(recommendation.description, fontSize = 12.sp, maxLines = 2)
-
-            // Show personalized reason from ANN engine
-            if (recommendation.reason.isNotBlank()) {
+            Column(modifier = Modifier.padding(12.dp)) {
                 Text(
-                    text = recommendation.reason,
-                    fontSize = 10.sp,
-                    color = MaterialTheme.colorScheme.primary,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = 4.dp)
+                    text = recommendation.title,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
-            }
-
-            Button(
-                onClick = {
-                    coroutineScope.launch {
-                        val url = onGetBookPreviewUrl?.invoke(recommendation.title) ?: ""
-                        onOpenRecommendation?.invoke(url, recommendation.title, recommendation.type == RecommendationType.VIDEO)
+                Text(
+                    text = recommendation.description,
+                    fontSize = 11.sp,
+                    maxLines = 2,
+                    lineHeight = 14.sp,
+                    minLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(
+                        onClick = {
+                            coroutineScope.launch {
+                                val url = if (isVideo) {
+                                    "https://www.youtube.com/results?search_query=${java.net.URLEncoder.encode(recommendation.title, "UTF-8")}+kids"
+                                } else {
+                                    onGetBookPreviewUrl?.invoke(recommendation.title) ?: ""
+                                }
+                                onOpenRecommendation?.invoke(url, recommendation.title, isVideo)
+                            }
+                        },
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Icon(if (isVideo) Icons.Default.PlayArrow else Icons.Default.MenuBook, null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text(if (isVideo) "Watch" else "Read", fontSize = 12.sp)
                     }
-                },
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
-            ) {
-                Text("View Story")
+                    
+                    IconButton(
+                        onClick = { onAddToFavorites?.invoke(recommendation) },
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(Icons.Default.FavoriteBorder, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+                    }
+                }
             }
         }
     }

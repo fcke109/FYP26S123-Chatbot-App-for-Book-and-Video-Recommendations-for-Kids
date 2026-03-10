@@ -40,11 +40,7 @@ class ChatViewModel @Inject constructor(
 
     private fun initializeConversation() {
         viewModelScope.launch {
-            val userId = accountManager.getCurrentUserId()
-            if (userId == null) {
-                _error.value = "Not logged in"
-                return@launch
-            }
+            val userId = accountManager.getCurrentUserId() ?: return@launch
             val result = chatDataManager.createConversation(userId)
             result.fold(
                 onSuccess = { conversationId ->
@@ -52,7 +48,7 @@ class ChatViewModel @Inject constructor(
                     loadMessages(userId, conversationId)
                 },
                 onFailure = { error ->
-                    _error.value = "Init failed: ${error.message}"
+                    _error.value = error.message
                 }
             )
         }
@@ -69,16 +65,8 @@ class ChatViewModel @Inject constructor(
     fun sendMessage(message: String) {
         if (message.isBlank()) return
         viewModelScope.launch {
-            val userId = accountManager.getCurrentUserId()
-            if (userId == null) {
-                _error.value = "Not logged in"
-                return@launch
-            }
-            val conversationId = currentConversationId
-            if (conversationId == null) {
-                _error.value = "Chat not ready - try restarting the app"
-                return@launch
-            }
+            val userId = accountManager.getCurrentUserId() ?: return@launch
+            val conversationId = currentConversationId ?: return@launch
             _isLoading.value = true
             _error.value = null
             val result = chatDataManager.sendMessage(userId, conversationId, message)
@@ -100,8 +88,8 @@ class ChatViewModel @Inject constructor(
             val curatedBooks = bookDataManager.getCuratedBooks().getOrNull()
             val matchingBook = curatedBooks?.firstOrNull { it.title.contains(title, ignoreCase = true) }
             
-            if (matchingBook?.readerUrl != null) {
-                return matchingBook.readerUrl!!
+            if (matchingBook != null && matchingBook.readerUrl.isNotBlank()) {
+                return matchingBook.readerUrl
             }
 
             val encodedTitle = java.net.URLEncoder.encode(title, "UTF-8")

@@ -8,7 +8,6 @@ import com.kidsrec.chatbot.data.model.Conversation
 import com.kidsrec.chatbot.data.model.MessageRole
 import com.kidsrec.chatbot.data.model.Recommendation
 import com.kidsrec.chatbot.data.model.RecommendationType
-import com.kidsrec.chatbot.data.model.User
 import com.kidsrec.chatbot.data.remote.OpenAIMessage
 import com.kidsrec.chatbot.data.remote.OpenAIRequest
 import com.kidsrec.chatbot.data.remote.OpenAIService
@@ -28,10 +27,7 @@ import javax.inject.Singleton
 class ChatDataManager @Inject constructor(
     private val firestore: FirebaseFirestore,
     private val openAIService: OpenAIService,
-    private val bookDataManager: BookDataManager,
-    private val recommendationEngine: RecommendationEngine,
-    private val accountManager: AccountManager,
-    private val favoritesManager: FavoritesManager
+    private val bookDataManager: BookDataManager
 ) {
     suspend fun sendMessage(
         userId: String,
@@ -39,275 +35,119 @@ class ChatDataManager @Inject constructor(
         message: String
     ): Result<ChatMessage> {
         return try {
-            // Fetch curated books to provide as context
             val curatedBooks = bookDataManager.getCuratedBooks().getOrDefault(emptyList())
             val curatedBooksContext = if (curatedBooks.isNotEmpty()) {
-                "Here are some books you can recommend: " + 
-                curatedBooks.joinToString(", ") { "${it.title} by ${it.author} (${it.description})" }
+                "Available curated books to suggest: " + 
+                curatedBooks.joinToString(", ") { "${it.title} by ${it.author}" }
             } else ""
 
-            // Add user message to Firestore
             val userMessage = ChatMessage(
-                id = firestore.collection("chatHistory")
-                    .document(userId)
-                    .collection("conversations")
-                    .document(conversationId)
-                    .collection("messages")
-                    .document().id,
+                id = firestore.collection("chatHistory").document(userId).collection("conversations").document(conversationId).collection("messages").document().id,
                 role = MessageRole.USER,
                 content = message,
                 timestamp = Timestamp.now()
             )
 
-            firestore.collection("chatHistory")
-                .document(userId)
-                .collection("conversations")
-                .document(conversationId)
-                .collection("messages")
-                .document(userMessage.id)
-                .set(userMessage)
-                .await()
+            firestore.collection("chatHistory").document(userId).collection("conversations").document(conversationId).collection("messages").document(userMessage.id).set(userMessage).await()
 
-            // Update conversation last updated time
-            firestore.collection("chatHistory")
-                .document(userId)
-                .collection("conversations")
-                .document(conversationId)
-                .update("lastUpdated", Timestamp.now())
-                .await()
-
-            // Get conversation history for context
             val messagesSnapshot = firestore.collection("chatHistory")
                 .document(userId)
                 .collection("conversations")
                 .document(conversationId)
                 .collection("messages")
                 .orderBy("timestamp", Query.Direction.ASCENDING)
-                .limit(10)
+                .limit(12)
                 .get()
                 .await()
 
             val conversationHistory = messagesSnapshot.documents.mapNotNull { doc ->
                 val msg = doc.toObject(ChatMessage::class.java)
-                msg?.let {
-                    OpenAIMessage(
-                        role = if (it.role == MessageRole.USER) "user" else "assistant",
-                        content = it.content
-                    )
-                }
+                msg?.let { OpenAIMessage(role = if (it.role == MessageRole.USER) "user" else "assistant", content = it.content) }
             }
 
-            // Create system prompt with curated books context
-            val systemPrompt = """You are Little Dino, a friendly dinosaur who helps kids discover amazing books and videos! Use simple, fun language.
+            val systemPrompt = """You are Little Dino, a friendly dinosaur helping kids find books and videos!
             
 $curatedBooksContext
 
-CRITICAL RULE: You MUST ALWAYS include the [RECOMMENDATIONS] block when suggesting any book, video, or content. Never just mention titles in text - always use the JSON format.
+CRITICAL: You MUST provide a mix of BOTH "BOOK" and "VIDEO" recommendations in every response.
+- Use "BOOK" for the curated books listed above or famous children's classics.
+- Use "VIDEO" for fun educational songs, nursery rhymes, or "YouTube Kids" style animated stories.
 
 Response format:
-1. Write a brief, friendly message (1-2 sentences max)
-2. ALWAYS end with recommendations in this EXACT format:
-
+1. Friendly message (1-2 sentences).
+2. End with this EXACT block:
 [RECOMMENDATIONS]
-[{"type":"BOOK","title":"Exact Book Title","description":"What it's about in 1 sentence","reason":"Why kids will love it"},{"type":"VIDEO","title":"Exact Video Title","description":"What it teaches","reason":"Why it's fun to watch"}]
+[{"type":"BOOK","title":"Book Name","description":"1 sentence desc","reason":"Why fun"},{"type":"VIDEO","title":"Video Name","description":"Fun animated story","reason":"Great to watch"}]
 [/RECOMMENDATIONS]
 
-Rules:
-- type must be "BOOK" or "VIDEO" (uppercase)
-- Always include 1-3 recommendations
-- Keep descriptions short (under 15 words)
-- Make reasons exciting for kids
-- NEVER skip the [RECOMMENDATIONS] block when suggesting content"""
+RULES:
+- 'type' MUST be "BOOK" or "VIDEO".
+- Include at least ONE VIDEO and ONE BOOK if possible.
+- Videos should be suitable for YouTube Kids search."""
 
-            // Prepare messages for OpenAI
-            val messages = mutableListOf(
-                OpenAIMessage(role = "system", content = systemPrompt)
-            )
+            val messages = mutableListOf(OpenAIMessage(role = "system", content = systemPrompt))
             messages.addAll(conversationHistory)
             messages.add(OpenAIMessage(role = "user", content = message))
 
-            // Call OpenAI API
-            val openAIRequest = OpenAIRequest(messages = messages)
-            val openAIResponse = openAIService.createChatCompletion(openAIRequest)
+            val openAIResponse = openAIService.createChatCompletion(OpenAIRequest(messages = messages))
+            val botResponse = openAIResponse.choices.firstOrNull()?.message?.content ?: "Let's find some stories!"
 
-            val botResponse = openAIResponse.choices.firstOrNull()?.message?.content
-                ?: "I'm sorry, I couldn't process that. Can you try again?"
-
-            // Parse recommendations and rank them using the recommendation engine
-            val (cleanContent, rawRecommendations) = parseRecommendations(botResponse)
-
-            // Rank recommendations using user profile and favorites (learning element)
-            val user = accountManager.getUser(userId)
-            val favorites = favoritesManager.getFavorites(userId)
-            val recommendations = if (user != null && rawRecommendations.isNotEmpty()) {
-                recommendationEngine.rankRecommendations(
-                    rawRecommendations, curatedBooks, user, favorites
-                )
-            } else {
-                rawRecommendations
-            }
+            val (cleanContent, recommendations) = parseRecommendations(botResponse)
 
             val botMessage = ChatMessage(
-                id = firestore.collection("chatHistory")
-                    .document(userId)
-                    .collection("conversations")
-                    .document(conversationId)
-                    .collection("messages")
-                    .document().id,
+                id = firestore.collection("chatHistory").document(userId).collection("conversations").document(conversationId).collection("messages").document().id,
                 role = MessageRole.ASSISTANT,
                 content = cleanContent,
                 timestamp = Timestamp.now(),
                 recommendations = recommendations
             )
 
-            firestore.collection("chatHistory")
-                .document(userId)
-                .collection("conversations")
-                .document(conversationId)
-                .collection("messages")
-                .document(botMessage.id)
-                .set(botMessage)
-                .await()
-
+            firestore.collection("chatHistory").document(userId).collection("conversations").document(conversationId).collection("messages").document(botMessage.id).set(botMessage).await()
             Result.success(botMessage)
-        } catch (e: Exception) {
-            // Fallback: use the recommendation engine to generate suggestions locally
-            try {
-                val curatedBooks = bookDataManager.getCuratedBooks().getOrDefault(emptyList())
-                val user = accountManager.getUser(userId)
-                val favorites = favoritesManager.getFavorites(userId)
-
-                val fallbackRecs = if (user != null && curatedBooks.isNotEmpty()) {
-                    recommendationEngine.getTopRecommendations(curatedBooks, user, favorites)
-                } else emptyList()
-
-                val fallbackMessage = ChatMessage(
-                    id = firestore.collection("chatHistory")
-                        .document(userId)
-                        .collection("conversations")
-                        .document(conversationId)
-                        .collection("messages")
-                        .document().id,
-                    role = MessageRole.ASSISTANT,
-                    content = "Rawr! I'm having trouble thinking right now, but here are some stories I picked just for you!",
-                    timestamp = Timestamp.now(),
-                    recommendations = fallbackRecs
-                )
-
-                firestore.collection("chatHistory")
-                    .document(userId)
-                    .collection("conversations")
-                    .document(conversationId)
-                    .collection("messages")
-                    .document(fallbackMessage.id)
-                    .set(fallbackMessage)
-                    .await()
-
-                Result.success(fallbackMessage)
-            } catch (fallbackError: Exception) {
-                Result.failure(e)
-            }
-        }
-    }
-
-    fun getMessagesFlow(userId: String, conversationId: String): Flow<List<ChatMessage>> =
-        callbackFlow {
-            val listener = firestore.collection("chatHistory")
-                .document(userId)
-                .collection("conversations")
-                .document(conversationId)
-                .collection("messages")
-                .orderBy("timestamp", Query.Direction.ASCENDING)
-                .addSnapshotListener { snapshot, error ->
-                    if (error != null) {
-                        close(error)
-                        return@addSnapshotListener
-                    }
-                    val messages = snapshot?.toObjects(ChatMessage::class.java) ?: emptyList()
-                    trySend(messages)
-                }
-
-            awaitClose { listener.remove() }
-        }
-
-    suspend fun createConversation(userId: String): Result<String> {
-        return try {
-            val conversationRef = firestore.collection("chatHistory")
-                .document(userId)
-                .collection("conversations")
-                .document()
-
-            val conversation = Conversation(
-                id = conversationRef.id,
-                userId = userId,
-                createdAt = Timestamp.now(),
-                lastUpdated = Timestamp.now()
-            )
-
-            conversationRef.set(conversation).await()
-            Result.success(conversationRef.id)
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
-    fun getConversationsFlow(userId: String): Flow<List<Conversation>> = callbackFlow {
-        val listener = firestore.collection("chatHistory")
-            .document(userId)
-            .collection("conversations")
-            .orderBy("lastUpdated", Query.Direction.DESCENDING)
-            .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    close(error)
-                    return@addSnapshotListener
-                }
-                val conversations = snapshot?.toObjects(Conversation::class.java) ?: emptyList()
-                trySend(conversations)
-            }
-
+    fun getMessagesFlow(userId: String, conversationId: String): Flow<List<ChatMessage>> = callbackFlow {
+        val listener = firestore.collection("chatHistory").document(userId).collection("conversations").document(conversationId).collection("messages").orderBy("timestamp", Query.Direction.ASCENDING).addSnapshotListener { snapshot, _ ->
+            snapshot?.let { trySend(it.toObjects(ChatMessage::class.java)) }
+        }
         awaitClose { listener.remove() }
+    }
+
+    suspend fun createConversation(userId: String): Result<String> {
+        val ref = firestore.collection("chatHistory").document(userId).collection("conversations").document()
+        ref.set(Conversation(id = ref.id, userId = userId)).await()
+        return Result.success(ref.id)
     }
 
     private fun parseRecommendations(response: String): Pair<String, List<Recommendation>> {
         val recommendations = mutableListOf<Recommendation>()
         var cleanContent = response
-
         try {
             val startTag = "[RECOMMENDATIONS]"
             val endTag = "[/RECOMMENDATIONS]"
-
             val startIndex = response.indexOf(startTag)
             val endIndex = response.indexOf(endTag)
 
-            if (startIndex != -1 && endIndex != -1 && endIndex > startIndex) {
+            if (startIndex != -1 && endIndex != -1) {
                 val jsonString = response.substring(startIndex + startTag.length, endIndex).trim()
                 cleanContent = response.substring(0, startIndex).trim()
-
                 val jsonArray = JSONArray(jsonString)
                 for (i in 0 until jsonArray.length()) {
                     val obj = jsonArray.getJSONObject(i)
-                    val type = when (obj.optString("type", "BOOK").uppercase()) {
-                        "VIDEO" -> RecommendationType.VIDEO
-                        else -> RecommendationType.BOOK
-                    }
-                    recommendations.add(
-                        Recommendation(
-                            id = UUID.randomUUID().toString(),
-                            type = type,
-                            title = obj.optString("title", ""),
-                            description = obj.optString("description", ""),
-                            reason = obj.optString("reason", ""),
-                            imageUrl = obj.optString("imageUrl", "")
-                        )
-                    )
+                    val type = if (obj.optString("type").uppercase() == "VIDEO") RecommendationType.VIDEO else RecommendationType.BOOK
+                    recommendations.add(Recommendation(
+                        id = UUID.randomUUID().toString(),
+                        type = type,
+                        title = obj.optString("title"),
+                        description = obj.optString("description"),
+                        reason = obj.optString("reason")
+                    ))
                 }
             }
-        } catch (e: Exception) {
-            cleanContent = response
-                .replace(Regex("\\[RECOMMENDATIONS\\].*?\\[/RECOMMENDATIONS\\]", RegexOption.DOT_MATCHES_ALL), "")
-                .trim()
-        }
-
+        } catch (e: Exception) { /* Silent fallback */ }
         return Pair(cleanContent, recommendations)
     }
 }

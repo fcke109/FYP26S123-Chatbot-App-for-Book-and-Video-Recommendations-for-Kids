@@ -8,29 +8,17 @@ import com.kidsrec.chatbot.data.model.Book
 import com.kidsrec.chatbot.data.model.User
 import com.kidsrec.chatbot.data.repository.AccountManager
 import com.kidsrec.chatbot.data.repository.BookDataManager
-import com.kidsrec.chatbot.data.remote.GutendexService
 import com.kidsrec.chatbot.data.remote.OpenLibraryService
-import com.kidsrec.chatbot.data.remote.StoryweaverService
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.async
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
-/**
- * AdminViewModel: Re-linked to work with renamed Managers and APIs.
- */
 @HiltViewModel
 class AdminViewModel @Inject constructor(
     private val accountManager: AccountManager,
     private val bookDataManager: BookDataManager,
-    private val gutendexService: GutendexService,
     private val openLibraryService: OpenLibraryService,
-    private val storyweaverService: StoryweaverService,
     private val firestore: FirebaseFirestore
 ) : ViewModel() {
 
@@ -47,14 +35,13 @@ class AdminViewModel @Inject constructor(
     val isSearching: StateFlow<Boolean> = _isSearching.asStateFlow()
 
     init {
-        loadUsers()
         loadCuratedBooks()
     }
 
-    private fun loadUsers() {
+    fun startManagingUsers() {
         viewModelScope.launch {
             accountManager.getAllUsersFlow()
-                .catch { e -> Log.e("AdminVM", "User load failed", e) }
+                .catch { e -> Log.e("AdminVM", "Permission denied for users list", e) }
                 .collect { userList -> _users.value = userList }
         }
     }
@@ -62,76 +49,155 @@ class AdminViewModel @Inject constructor(
     private fun loadCuratedBooks() {
         viewModelScope.launch {
             try {
-                firestore.collection("gutenberg_books")
-                    .addSnapshotListener { snapshot, _ ->
+                firestore.collection("content_books")
+                    .addSnapshotListener { snapshot, error ->
+                        if (error != null) return@addSnapshotListener
                         if (snapshot != null) {
-                            _curatedBooks.value = snapshot.toObjects(Book::class.java)
+                            _curatedBooks.value = snapshot.toObjects(Book::class.java).sortedBy { it.id }
                         }
                     }
             } catch (e: Exception) {
-                Log.e("AdminVM", "Failed to load books", e)
+                Log.e("AdminVM", "Load failed", e)
             }
+        }
+    }
+
+    fun seedOfficialLibrary() {
+        viewModelScope.launch {
+            val stories = listOf(
+                Book(
+                    id = "001", 
+                    title = "The Tale of Peter Rabbit", 
+                    author = "Beatrix Potter", 
+                    ageMin = 3, 
+                    ageMax = 8, 
+                    category = "Animals", 
+                    source = "ICDL", 
+                    language = "English", 
+                    description = "Fun rabbit stories.", 
+                    tags = listOf("rabbit", "nature"), 
+                    isKidSafe = true, 
+                    difficulty = "easy", 
+                    bookUrl = "https://archive.org/embed/taleofpeterrabbi00pott", 
+                    readerUrl = "https://archive.org/embed/taleofpeterrabbi00pott",
+                    coverUrl = "https://archive.org/services/img/taleofpeterrabbi00pott"
+                ),
+                Book(
+                    id = "002", 
+                    title = "Alice in Wonderland", 
+                    author = "Lewis Carroll", 
+                    ageMin = 6, 
+                    ageMax = 12, 
+                    category = "Fantasy", 
+                    source = "ICDL", 
+                    language = "English", 
+                    description = "Magical adventure.", 
+                    tags = listOf("magic", "adventure"), 
+                    isKidSafe = true, 
+                    difficulty = "medium", 
+                    bookUrl = "https://archive.org/embed/alicesadventures00carr_0", 
+                    readerUrl = "https://archive.org/embed/alicesadventures00carr_0",
+                    coverUrl = "https://archive.org/services/img/alicesadventures00carr_0"
+                ),
+                Book(
+                    id = "003", 
+                    title = "Cinderella", 
+                    author = "Charles Perrault", 
+                    ageMin = 3, 
+                    ageMax = 10, 
+                    category = "Fairy Tales", 
+                    source = "ICDL", 
+                    language = "English", 
+                    description = "Classic magic story.", 
+                    tags = listOf("magic", "princess"), 
+                    isKidSafe = true, 
+                    difficulty = "easy", 
+                    bookUrl = "https://archive.org/embed/cinderellaorfair00perr", 
+                    readerUrl = "https://archive.org/embed/cinderellaorfair00perr",
+                    coverUrl = "https://archive.org/services/img/cinderellaorfair00perr"
+                ),
+                Book(
+                    id = "004", 
+                    title = "The Jungle Book", 
+                    author = "Rudyard Kipling", 
+                    ageMin = 7, 
+                    ageMax = 13, 
+                    category = "Adventure", 
+                    source = "ICDL", 
+                    language = "English", 
+                    description = "Mowgli in the wild.", 
+                    tags = listOf("animals", "jungle"), 
+                    isKidSafe = true, 
+                    difficulty = "medium", 
+                    bookUrl = "https://archive.org/embed/junglebook00kipl", 
+                    readerUrl = "https://archive.org/embed/junglebook00kipl",
+                    coverUrl = "https://archive.org/services/img/junglebook00kipl"
+                ),
+                Book(
+                    id = "005", 
+                    title = "Pinocchio", 
+                    author = "Carlo Collodi", 
+                    ageMin = 5, 
+                    ageMax = 11, 
+                    category = "Adventure", 
+                    source = "ICDL", 
+                    language = "English", 
+                    description = "The wooden puppet.", 
+                    tags = listOf("magic", "puppet"), 
+                    isKidSafe = true, 
+                    difficulty = "medium", 
+                    bookUrl = "https://archive.org/embed/theadventuresofp00coll", 
+                    readerUrl = "https://archive.org/embed/theadventuresofp00coll",
+                    coverUrl = "https://archive.org/services/img/theadventuresofp00coll"
+                )
+            )
+            stories.forEach { bookDataManager.addBook(it) }
         }
     }
 
     fun searchBooks(query: String) {
         if (query.isBlank()) return
+        val lowerQuery = query.lowercase().trim()
         viewModelScope.launch {
             _isSearching.value = true
-            _searchResults.value = emptyList()
             try {
-                // RUN SEARCHES IN PARALLEL
-                val swDeferred = async {
-                    try {
-                        // Storyweaver Search
-                        val response = storyweaverService.searchStories(query)
-                        response.stories.map { story ->
-                            Book(
-                                id = "sw_${story.id}",
-                                title = story.title,
-                                author = story.authors.firstOrNull()?.name ?: "Various Authors",
-                                coverUrl = story.image_url,
-                                readerUrl = "https://storyweaver.org.in/stories/${story.slug}/read?mode=read",
-                                isPictureBook = true,
-                                readingAvailability = "Easy",
-                                ageRating = "0-10 years",
-                                description = story.synopsis ?: "Illustrated story book."
-                            )
-                        }
-                    } catch (e: Exception) {
-                        Log.e("AdminVM", "SW Error: ${e.message}")
-                        emptyList<Book>()
-                    }
-                }
+                val response = openLibraryService.searchBooks("$query subject:\"Children's fiction\" language:eng")
+                val results = response.docs.mapNotNull { doc ->
+                    val iaId = doc.ia?.firstOrNull() ?: return@mapNotNull null
+                    if (doc.cover_i == null) return@mapNotNull null
+                    
+                    val title = doc.title
+                    val author = doc.author_name?.firstOrNull() ?: "Unknown"
+                    
+                    // Basic Scoring
+                    var score = 0
+                    if (title.lowercase().contains(lowerQuery)) score += 60
+                    if (author.lowercase().contains(lowerQuery)) score += 20
+                    if (title.lowercase() == lowerQuery) score += 40
+                    
+                    // Cap score at 100
+                    val finalScore = score.coerceAtMost(100)
+                    
+                    if (finalScore > 0) {
+                        Book(
+                            id = iaId, 
+                            title = title, 
+                            author = author,
+                            coverUrl = "https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg",
+                            bookUrl = "https://archive.org/embed/$iaId",
+                            readerUrl = "https://archive.org/embed/$iaId",
+                            source = "ICDL/Archive", 
+                            ageMin = 3, 
+                            ageMax = 12, 
+                            isKidSafe = true,
+                            searchScore = finalScore
+                        )
+                    } else null
+                }.sortedByDescending { it.searchScore }
 
-                val olDeferred = async {
-                    try {
-                        // Open Library Search
-                        val response = openLibraryService.searchBooks("$query children picture books")
-                        response.docs.mapNotNull { doc ->
-                            val archiveId = doc.ia?.firstOrNull() ?: return@mapNotNull null
-                            if (doc.cover_i == null) return@mapNotNull null
-                            Book(
-                                id = archiveId,
-                                title = doc.title ?: "Story Book",
-                                author = doc.author_name?.firstOrNull() ?: "Unknown Author",
-                                coverUrl = "https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg",
-                                readerUrl = "https://archive.org/embed/$archiveId",
-                                isPictureBook = true,
-                                readingAvailability = "Intermediate",
-                                ageRating = "6-12 years",
-                                description = "Illustrated classic story."
-                            )
-                        }
-                    } catch (e: Exception) {
-                        Log.e("AdminVM", "OL Error: ${e.message}")
-                        emptyList<Book>()
-                    }
-                }
-
-                _searchResults.value = swDeferred.await() + olDeferred.await()
+                _searchResults.value = results
             } catch (e: Exception) {
-                Log.e("AdminVM", "Global Search Error: ${e.message}")
+                Log.e("AdminVM", "Search failed", e)
             } finally {
                 _isSearching.value = false
             }
@@ -139,23 +205,15 @@ class AdminViewModel @Inject constructor(
     }
 
     fun addBookToLibrary(book: Book) {
-        viewModelScope.launch {
-            try {
-                firestore.collection("gutenberg_books").document(book.id).set(book).await()
-            } catch (e: Exception) {
-                Log.e("AdminVM", "Add failed", e)
-            }
+        viewModelScope.launch { 
+            val nextNum = _curatedBooks.value.size + 1
+            val formattedId = String.format("%03d", nextNum)
+            bookDataManager.addBook(book.copy(id = formattedId))
         }
     }
 
     fun deleteBookFromLibrary(bookId: String) {
-        viewModelScope.launch {
-            try {
-                firestore.collection("gutenberg_books").document(bookId).delete().await()
-            } catch (e: Exception) {
-                Log.e("AdminVM", "Delete failed", e)
-            }
-        }
+        viewModelScope.launch { bookDataManager.deleteBook(bookId) }
     }
 
     fun logout(onSuccess: () -> Unit) {

@@ -35,6 +35,7 @@ import com.kidsrec.chatbot.ui.favorites.FavoritesViewModel
 import com.kidsrec.chatbot.ui.library.UserLibraryScreen
 import com.kidsrec.chatbot.ui.profile.ProfileScreen
 import com.kidsrec.chatbot.ui.profile.ProfileViewModel
+import com.kidsrec.chatbot.ui.reader.BookReaderScreen
 import com.kidsrec.chatbot.ui.webview.SafeWebViewScreen
 import java.net.URLDecoder
 import java.net.URLEncoder
@@ -47,6 +48,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
     object Favorites : Screen("favorites", "Favorites", Icons.Default.Favorite)
     object Profile : Screen("profile", "Profile", Icons.Default.Person)
     object Admin : Screen("admin", "Admin", Icons.Default.Shield)
+    object Reader : Screen("reader/{url}", "Reader")
     object SafeWebView : Screen("webview/{url}/{title}/{isVideo}", "WebView")
 }
 
@@ -162,8 +164,7 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean) {
                     favoritesViewModel = favoritesViewModel,
                     onViewBook = { title, url ->
                         val encodedUrl = URLEncoder.encode(url, "UTF-8")
-                        val encodedTitle = URLEncoder.encode(title, "UTF-8")
-                        navController.navigate("webview/$encodedUrl/$encodedTitle/false")
+                        navController.navigate("reader/$encodedUrl")
                     }
                 )
             }
@@ -189,10 +190,16 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean) {
                     onLogout = { authViewModel.signOut() },
                     onViewBook = { title, url, isVideo ->
                         val encodedUrl = URLEncoder.encode(url, "UTF-8")
-                        val encodedTitle = URLEncoder.encode(title, "UTF-8")
-                        navController.navigate("webview/$encodedUrl/$encodedTitle/$isVideo")
+                        navController.navigate("reader/$encodedUrl")
                     }
                 )
+            }
+            composable(
+                route = Screen.Reader.route,
+                arguments = listOf(navArgument("url") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val url = URLDecoder.decode(backStackEntry.arguments?.getString("url") ?: "", "UTF-8")
+                BookReaderScreen(url = url, onBack = { navController.popBackStack() })
             }
             composable(
                 route = Screen.SafeWebView.route,

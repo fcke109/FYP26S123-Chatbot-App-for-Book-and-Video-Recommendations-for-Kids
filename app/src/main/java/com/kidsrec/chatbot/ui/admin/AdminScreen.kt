@@ -8,7 +8,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.LibraryBooks
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -18,8 +21,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -45,6 +51,10 @@ fun AdminScreen(
     val users by viewModel.users.collectAsState()
     val books by viewModel.curatedBooks.collectAsState()
 
+    LaunchedEffect(Unit) {
+        viewModel.startManagingUsers()
+    }
+
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
@@ -68,7 +78,7 @@ fun AdminScreen(
                         label = { Text("Book Library") },
                         selected = currentScreen == "Library",
                         onClick = { currentScreen = "Library"; scope.launch { drawerState.close() } },
-                        icon = { Icon(Icons.Default.Book, null) }
+                        icon = { Icon(Icons.AutoMirrored.Filled.LibraryBooks, null) }
                     )
                     NavigationDrawerItem(
                         label = { Text("Add Books") },
@@ -133,10 +143,21 @@ fun CuratorSearchTab(
     val searchResults by viewModel.searchResults.collectAsState()
     val isSearching by viewModel.isSearching.collectAsState()
     val scope = rememberCoroutineScope()
+    
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
+
+    val onSearch = {
+        if (query.isNotBlank()) {
+            viewModel.searchBooks(query)
+            keyboardController?.hide()
+            focusManager.clearFocus()
+        }
+    }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        Text("Search Visual Kids Books", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        Text("Find illustrated stories with drawings.", style = MaterialTheme.typography.bodySmall)
+        Text("Discover ICDL Stories", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Text("Search for English picture books with drawings.", style = MaterialTheme.typography.bodySmall)
         
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -144,19 +165,28 @@ fun CuratorSearchTab(
             value = query,
             onValueChange = { query = it },
             modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("Search by title (e.g. Disney)...") },
+            placeholder = { Text("Search by title (e.g. Cat)...") },
             trailingIcon = {
-                IconButton(onClick = { viewModel.searchBooks(query) }) {
+                IconButton(onClick = onSearch) {
                     Icon(Icons.Default.Search, null)
                 }
             },
-            singleLine = true
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(onSearch = { onSearch() }),
+            singleLine = true,
+            shape = RoundedCornerShape(12.dp)
         )
 
         Spacer(modifier = Modifier.height(16.dp))
 
         if (isSearching) {
-            CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    CircularProgressIndicator()
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Searching visual library...", style = MaterialTheme.typography.bodySmall)
+                }
+            }
         } else {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 items(searchResults) { book ->
@@ -164,13 +194,14 @@ fun CuratorSearchTab(
                         book = book,
                         onAction = { 
                             viewModel.addBookToLibrary(book)
-                            scope.launch { snackbarHostState.showSnackbar("Added: ${book.title}") }
+                            scope.launch { snackbarHostState.showSnackbar("Book added successfully!") }
                         },
                         onCardClick = {
-                            val url = book.readerUrl ?: book.openLibraryUrl ?: ""
+                            val url = book.readerUrl.ifBlank { book.bookUrl }
                             if (url.isNotBlank()) onViewBook(book.title, url, false)
                         },
-                        actionIcon = Icons.Default.Add
+                        actionIcon = Icons.Default.Add,
+                        showScore = true
                     )
                 }
             }
@@ -186,25 +217,57 @@ fun BookLibraryTab(
     onViewBook: (String, String, Boolean) -> Unit
 ) {
     val scope = rememberCoroutineScope()
-    LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        item {
-            Text("Library Collection (${books.size})", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(8.dp))
+    
+    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Library Stories (${books.size})", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            
+            // FRESH START SEEDING BUTTON
+            Button(
+                onClick = { 
+                    viewModel.seedOfficialLibrary()
+                    scope.launch { snackbarHostState.showSnackbar("Seeding library 001-010...") }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+            ) {
+                Icon(Icons.Default.Upload, null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("Seed 001-010", fontSize = 12.sp)
+            }
         }
-        items(books) { book ->
-            BookAdminCard(
-                book = book,
-                onAction = { 
-                    viewModel.deleteBookFromLibrary(book.id)
-                    scope.launch { snackbarHostState.showSnackbar("Deleted: ${book.title}") }
-                },
-                onCardClick = {
-                    val url = book.readerUrl ?: book.openLibraryUrl ?: ""
-                    if (url.isNotBlank()) onViewBook(book.title, url, false)
-                },
-                actionIcon = Icons.Default.Delete,
-                actionColor = MaterialTheme.colorScheme.error
-            )
+        
+        Spacer(modifier = Modifier.height(16.dp))
+
+        if (books.isEmpty()) {
+            Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(Icons.AutoMirrored.Filled.LibraryBooks, null, modifier = Modifier.size(64.dp), tint = Color.Gray.copy(alpha = 0.5f))
+                    Text("No books in library yet.", color = Color.Gray)
+                    Text("Tap 'Seed' or use 'Add Books' to start!", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                }
+            }
+        } else {
+            LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(books) { book ->
+                    BookAdminCard(
+                        book = book,
+                        onAction = { 
+                            viewModel.deleteBookFromLibrary(book.id)
+                            scope.launch { snackbarHostState.showSnackbar("Book removed from collection") }
+                        },
+                        onCardClick = {
+                            val url = book.readerUrl.ifBlank { book.bookUrl }
+                            if (url.isNotBlank()) onViewBook(book.title, url, false)
+                        },
+                        actionIcon = Icons.Default.Delete,
+                        actionColor = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
         }
     }
 }
@@ -215,29 +278,55 @@ fun BookAdminCard(
     onAction: () -> Unit,
     onCardClick: () -> Unit,
     actionIcon: androidx.compose.ui.graphics.vector.ImageVector,
-    actionColor: Color = MaterialTheme.colorScheme.primary
+    actionColor: Color = MaterialTheme.colorScheme.primary,
+    showScore: Boolean = false
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onCardClick() }
+            .clickable { onCardClick() },
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            AsyncImage(
-                model = book.coverUrl,
-                contentDescription = null,
-                modifier = Modifier.size(60.dp).clip(RoundedCornerShape(4.dp)),
-                contentScale = ContentScale.Crop
-            )
+            Box {
+                AsyncImage(
+                    model = book.coverUrl,
+                    contentDescription = null,
+                    modifier = Modifier.size(70.dp).clip(RoundedCornerShape(8.dp)).background(Color.Gray.copy(alpha = 0.1f)),
+                    contentScale = ContentScale.Crop
+                )
+                if (showScore && book.searchScore > 0) {
+                    Surface(
+                        modifier = Modifier.align(Alignment.TopEnd).padding(2.dp),
+                        color = MaterialTheme.colorScheme.tertiary,
+                        shape = RoundedCornerShape(4.dp)
+                    ) {
+                        Text(
+                            "${book.searchScore}%", 
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp), 
+                            fontSize = 8.sp, 
+                            color = Color.White, 
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(book.title, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text("By ${book.author}", style = MaterialTheme.typography.bodySmall)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(color = MaterialTheme.colorScheme.primary, shape = CircleShape) {
+                        Text(book.id, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), fontSize = 10.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    Text(book.title, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                Text("By ${book.author}", style = MaterialTheme.typography.bodySmall, maxLines = 1)
                 Row(modifier = Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(4.dp)) {
-                        Text(book.ageRating, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), fontSize = 10.sp)
+                        Text("${book.ageMin}-${book.ageMax} yrs", modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), fontSize = 10.sp)
                     }
-                    DifficultyBadge(book.readingAvailability)
+                    DifficultyBadge(book.difficulty)
                 }
             }
             IconButton(onClick = onAction) {
@@ -249,10 +338,10 @@ fun BookAdminCard(
 
 @Composable
 fun DifficultyBadge(level: String) {
-    val color = when (level) {
-        "Easy" -> Color(0xFF4CAF50)
-        "Intermediate" -> Color(0xFF2196F3)
-        "Hard" -> Color(0xFFFF9800)
+    val color = when (level.lowercase()) {
+        "easy" -> Color(0xFF4CAF50)
+        "medium" -> Color(0xFF2196F3)
+        "hard" -> Color(0xFFFF9800)
         else -> Color.Gray
     }
     Surface(
@@ -260,26 +349,32 @@ fun DifficultyBadge(level: String) {
         contentColor = color,
         shape = RoundedCornerShape(4.dp)
     ) {
-        Text(level, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+        Text(level.uppercase(), modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), fontSize = 10.sp, fontWeight = FontWeight.Bold)
     }
 }
 
 @Composable
 fun UserManagementTab(users: List<User>) {
-    LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        item {
-            Text("Active Users", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(8.dp))
+    if (users.isEmpty()) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
         }
-        items(users) { user ->
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(user.name, fontWeight = FontWeight.Bold)
-                        PlanBadge(user.planType)
+    } else {
+        LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            item {
+                Text("Active Users", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+            items(users) { user ->
+                Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(user.name, fontWeight = FontWeight.Bold)
+                            PlanBadge(user.planType)
+                        }
+                        Text(user.email, style = MaterialTheme.typography.bodySmall)
+                        Text("Age: ${user.age}", style = MaterialTheme.typography.bodySmall)
                     }
-                    Text(user.email, style = MaterialTheme.typography.bodySmall)
-                    Text("Age: ${user.age}", style = MaterialTheme.typography.bodySmall)
                 }
             }
         }

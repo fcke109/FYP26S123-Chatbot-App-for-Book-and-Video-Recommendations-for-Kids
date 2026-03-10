@@ -6,7 +6,7 @@ import retrofit2.http.Query
 interface StoryweaverService {
     @GET("api/v1/stories")
     suspend fun searchStories(
-        @Query("search_query") query: String,
+        @Query("search_query") query: String, // Restored to search_query
         @Query("language") language: String = "English",
         @Query("per_page") limit: Int = 20
     ): StoryweaverResponse
@@ -14,10 +14,6 @@ interface StoryweaverService {
 
 data class StoryweaverResponse(
     val stories: List<SWStory>
-)
-
-data class StoryweaverStoryResponse(
-    val story: SWStory
 )
 
 data class SWStory(
