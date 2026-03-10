@@ -32,6 +32,7 @@ import com.kidsrec.chatbot.ui.chat.DinoChatPage
 import com.kidsrec.chatbot.ui.chat.ChatViewModel
 import com.kidsrec.chatbot.ui.favorites.FavoritesScreen
 import com.kidsrec.chatbot.ui.favorites.FavoritesViewModel
+import com.kidsrec.chatbot.ui.library.LibraryViewModel
 import com.kidsrec.chatbot.ui.library.UserLibraryScreen
 import com.kidsrec.chatbot.ui.profile.ProfileScreen
 import com.kidsrec.chatbot.ui.profile.ProfileViewModel
@@ -112,6 +113,7 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
+    val profileViewModel: ProfileViewModel = hiltViewModel()
 
     val bottomNavItems = if (isAdmin) emptyList() else listOf(Screen.Chat, Screen.Library, Screen.Favorites, Screen.Profile)
     val startRoute = if (isAdmin) Screen.Admin.route else Screen.Chat.route
@@ -152,19 +154,25 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean) {
                         favoritesViewModel.addFavorite(rec.id, rec.type, rec.title, rec.description, rec.imageUrl, rec.url)
                     },
                     onOpenRecommendation = { url, title, isVideo ->
+                        profileViewModel.trackReading(title, url, isVideo = isVideo)
                         val encodedUrl = URLEncoder.encode(url, "UTF-8")
-                        val encodedTitle = URLEncoder.encode(title, "UTF-8")
-                        navController.navigate("webview/$encodedUrl/$encodedTitle/$isVideo")
+                        if (isVideo) {
+                            val encodedTitle = URLEncoder.encode(title, "UTF-8")
+                            navController.navigate("webview/$encodedUrl/$encodedTitle/true")
+                        } else {
+                            navController.navigate("reader/$encodedUrl")
+                        }
                     }
                 )
             }
             composable(Screen.Library.route) {
-                val adminViewModel: AdminViewModel = hiltViewModel()
+                val libraryViewModel: LibraryViewModel = hiltViewModel()
                 val favoritesViewModel: FavoritesViewModel = hiltViewModel()
                 UserLibraryScreen(
-                    viewModel = adminViewModel,
+                    viewModel = libraryViewModel,
                     favoritesViewModel = favoritesViewModel,
                     onViewBook = { title, url ->
+                        profileViewModel.trackReading(title, url)
                         val encodedUrl = URLEncoder.encode(url, "UTF-8")
                         navController.navigate("reader/$encodedUrl")
                     }
@@ -175,14 +183,18 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean) {
                 FavoritesScreen(
                     viewModel = favoritesViewModel,
                     onOpenFavorite = { url, title, isVideo ->
+                        profileViewModel.trackReading(title, url, isVideo = isVideo)
                         val encodedUrl = URLEncoder.encode(url, "UTF-8")
-                        val encodedTitle = URLEncoder.encode(title, "UTF-8")
-                        navController.navigate("webview/$encodedUrl/$encodedTitle/$isVideo")
+                        if (isVideo) {
+                            val encodedTitle = URLEncoder.encode(title, "UTF-8")
+                            navController.navigate("webview/$encodedUrl/$encodedTitle/true")
+                        } else {
+                            navController.navigate("reader/$encodedUrl")
+                        }
                     }
                 )
             }
             composable(Screen.Profile.route) {
-                val profileViewModel: ProfileViewModel = hiltViewModel()
                 ProfileScreen(authViewModel = authViewModel, profileViewModel = profileViewModel)
             }
             composable(Screen.Admin.route) {

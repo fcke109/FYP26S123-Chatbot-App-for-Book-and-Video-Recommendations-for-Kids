@@ -29,11 +29,12 @@ data class Conversation(
     val id: String = "",
     val userId: String = "",
     val messages: List<ChatMessage> = emptyList(),
+    val preview: String = "",
     val createdAt: Timestamp = Timestamp.now(),
     val lastUpdated: Timestamp = Timestamp.now()
 ) {
     // No-arg constructor for Firestore
-    constructor() : this("", "", emptyList(), Timestamp.now(), Timestamp.now())
+    constructor() : this("", "", emptyList(), "", Timestamp.now(), Timestamp.now())
 }
 
 @Keep

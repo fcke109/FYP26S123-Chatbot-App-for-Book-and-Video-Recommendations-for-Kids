@@ -145,7 +145,7 @@ class RecommendationEngine @Inject constructor() {
         return maxSimilarity.coerceIn(0.0, 1.0)
     }
 
-    private fun scoreRecommendation(
+    fun scoreRecommendation(
         rec: Recommendation,
         user: User,
         favorites: List<Favorite>

@@ -28,11 +28,15 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.kidsrec.chatbot.R
 import com.kidsrec.chatbot.data.model.ChatMessage
+import com.kidsrec.chatbot.data.model.Conversation
 import com.kidsrec.chatbot.data.model.MessageRole
 import com.kidsrec.chatbot.data.model.Recommendation
 import com.kidsrec.chatbot.data.model.RecommendationType
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Locale
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DinoChatPage(
     viewModel: ChatViewModel,
@@ -41,9 +45,11 @@ fun DinoChatPage(
 ) {
     val messages by viewModel.messages.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val conversations by viewModel.conversations.collectAsState()
     var messageText by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
+    var showHistorySheet by remember { mutableStateOf(false) }
 
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) {
@@ -53,10 +59,32 @@ fun DinoChatPage(
         }
     }
 
+    // Chat History Bottom Sheet
+    if (showHistorySheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showHistorySheet = false }
+        ) {
+            ChatHistorySheet(
+                conversations = conversations,
+                onSelectConversation = { conversationId ->
+                    viewModel.loadConversation(conversationId)
+                    showHistorySheet = false
+                },
+                onNewChat = {
+                    viewModel.startNewConversation()
+                    showHistorySheet = false
+                }
+            )
+        }
+    }
+
     Column(modifier = Modifier.fillMaxSize()) {
         // Header
         Surface(color = MaterialTheme.colorScheme.primary, modifier = Modifier.fillMaxWidth()) {
-            Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Image(
                     painter = painterResource(id = R.drawable.little_dino),
                     contentDescription = null,
@@ -64,9 +92,12 @@ fun DinoChatPage(
                     contentScale = ContentScale.Fit
                 )
                 Spacer(modifier = Modifier.width(12.dp))
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text("Little Dino", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
                     Text("Your visual story-time buddy", fontSize = 12.sp, color = Color.White.copy(alpha = 0.8f))
+                }
+                IconButton(onClick = { showHistorySheet = true }) {
+                    Icon(Icons.Default.History, contentDescription = "Chat History", tint = Color.White)
                 }
             }
         }
@@ -239,6 +270,23 @@ fun RecommendationCard(
                         fontWeight = FontWeight.Bold
                     )
                 }
+
+                // ANN Match Score Badge
+                if (recommendation.relevanceScore > 0) {
+                    Surface(
+                        modifier = Modifier.padding(8.dp).align(Alignment.TopEnd),
+                        color = Color(0xFF4CAF50),
+                        shape = RoundedCornerShape(4.dp)
+                    ) {
+                        Text(
+                            text = "${(recommendation.relevanceScore * 100).toInt()}% Match",
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            fontSize = 10.sp,
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
             }
 
             Column(modifier = Modifier.padding(12.dp)) {
@@ -258,7 +306,19 @@ fun RecommendationCard(
                     overflow = TextOverflow.Ellipsis,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                
+
+                if (recommendation.reason.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = recommendation.reason,
+                        fontSize = 10.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+
                 Spacer(modifier = Modifier.height(8.dp))
                 
                 Row(
@@ -302,5 +362,96 @@ fun RecommendationCard(
 fun TypingIndicator() {
     Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(16.dp)) {
         Text("Dino is thinking...", modifier = Modifier.padding(12.dp), fontSize = 12.sp)
+    }
+}
+
+@Composable
+fun ChatHistorySheet(
+    conversations: List<Conversation>,
+    onSelectConversation: (String) -> Unit,
+    onNewChat: () -> Unit
+) {
+    val dateFormat = remember { SimpleDateFormat("MMM d, h:mm a", Locale.getDefault()) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .padding(bottom = 32.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Chat History",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            FilledTonalButton(onClick = onNewChat) {
+                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("New Chat")
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        if (conversations.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxWidth().padding(32.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("No past conversations yet!", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        } else {
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.heightIn(max = 400.dp)
+            ) {
+                items(conversations) { conversation ->
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onSelectConversation(conversation.id) },
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.ChatBubbleOutline,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = conversation.preview.ifBlank { "Empty conversation" },
+                                    fontWeight = FontWeight.Medium,
+                                    fontSize = 14.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = dateFormat.format(conversation.lastUpdated.toDate()),
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Icon(
+                                Icons.Default.ChevronRight,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 }
