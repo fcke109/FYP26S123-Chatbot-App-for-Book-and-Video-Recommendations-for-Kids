@@ -33,7 +33,7 @@ fun BookReaderScreen(
     ) { padding ->
         Column(modifier = Modifier.padding(padding).fillMaxSize()) {
             // Interactive Flip-Book Reader (Archive.org theater mode)
-            val readerUrl = book.readerUrl ?: "https://openlibrary.org${book.openLibraryUrl}"
+            val readerUrl = book.readerUrl.ifBlank { book.bookUrl }
             
             AndroidView(
                 factory = { context ->

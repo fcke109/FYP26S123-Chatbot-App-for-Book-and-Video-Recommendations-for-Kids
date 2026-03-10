@@ -9,20 +9,9 @@ import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/**
- * RecommendationEngine: A simplified ANN-inspired scoring engine that ranks
- * content based on user profile features and learned preferences from favorites.
- *
- * Architecture (simplified neural network concept):
- * - Input layer: user features (age, interests, reading level, favorite history)
- * - Weights: static weights that determine feature importance
- * - Scoring function: weighted sum of feature match scores
- * - Output: ranked list of recommendations
- */
 @Singleton
 class RecommendationEngine @Inject constructor() {
 
-    // --- Weights (analogous to trained ANN weights) ---
     companion object {
         const val WEIGHT_INTEREST_MATCH = 0.35
         const val WEIGHT_AGE_MATCH = 0.25
@@ -35,24 +24,8 @@ class RecommendationEngine @Inject constructor() {
             "Intermediate" to 3,
             "Advanced" to 4
         )
-
-        private val AGE_RANGE_MAP = mapOf(
-            "3-5 years" to 4,
-            "4-6 years" to 5,
-            "5-7 years" to 6,
-            "6-8 years" to 7,
-            "7-9 years" to 8,
-            "8-10 years" to 9,
-            "9-12 years" to 10,
-            "10-12 years" to 11,
-            "12+ years" to 13
-        )
     }
 
-    /**
-     * Score a single book against a user profile and their favorites.
-     * Returns a value between 0.0 and 1.0.
-     */
     fun scoreBook(book: Book, user: User, favorites: List<Favorite>): Double {
         val interestScore = computeInterestScore(book, user.interests)
         val ageScore = computeAgeScore(book, user.age)
@@ -66,10 +39,6 @@ class RecommendationEngine @Inject constructor() {
             .coerceIn(0.0, 1.0)
     }
 
-    /**
-     * Rank a list of AI-generated recommendations using user profile data.
-     * Recommendations with higher relevance scores appear first.
-     */
     fun rankRecommendations(
         recommendations: List<Recommendation>,
         curatedBooks: List<Book>,
@@ -91,10 +60,6 @@ class RecommendationEngine @Inject constructor() {
         }.sortedByDescending { it.relevanceScore }
     }
 
-    /**
-     * Generate top recommendations directly from the curated books collection.
-     * Used as a fallback when the AI service is unavailable.
-     */
     fun getTopRecommendations(
         curatedBooks: List<Book>,
         user: User,
@@ -115,19 +80,17 @@ class RecommendationEngine @Inject constructor() {
                     id = UUID.randomUUID().toString(),
                     type = RecommendationType.BOOK,
                     title = book.title,
-                    description = book.description ?: "A great book for you!",
-                    imageUrl = book.coverUrl ?: "",
+                    description = book.description,
+                    imageUrl = book.coverUrl,
                     reason = generateReason(book, user),
                     relevanceScore = score
                 )
             }
     }
 
-    // --- Scoring functions (analogous to activation functions) ---
-
     private fun computeInterestScore(book: Book, interests: List<String>): Double {
         if (interests.isEmpty()) return 0.5
-        val bookText = "${book.title} ${book.description ?: ""} ${book.author}".lowercase()
+        val bookText = "${book.title} ${book.description} ${book.author}".lowercase()
         val matchCount = interests.count { interest ->
             bookText.contains(interest.lowercase())
         }
@@ -135,10 +98,7 @@ class RecommendationEngine @Inject constructor() {
     }
 
     private fun computeAgeScore(book: Book, userAge: Int): Double {
-        val bookAge = AGE_RANGE_MAP.entries
-            .firstOrNull { book.ageRating.contains(it.key, ignoreCase = true) }
-            ?.value ?: 7
-        val ageDiff = kotlin.math.abs(userAge - bookAge)
+        val ageDiff = kotlin.math.abs(userAge - ((book.ageMin + book.ageMax) / 2.0))
         return when {
             ageDiff <= 1 -> 1.0
             ageDiff <= 2 -> 0.8
@@ -151,10 +111,9 @@ class RecommendationEngine @Inject constructor() {
     private fun computeReadingLevelScore(book: Book, readingLevel: String): Double {
         val userLevel = READING_LEVEL_MAP[readingLevel] ?: 2
         val bookLevel = when {
-            book.readingAvailability.contains("Beginner", ignoreCase = true) -> 1
-            book.readingAvailability.contains("Early", ignoreCase = true) -> 2
-            book.readingAvailability.contains("Intermediate", ignoreCase = true) -> 3
-            book.readingAvailability.contains("Advanced", ignoreCase = true) -> 4
+            book.difficulty.contains("easy", ignoreCase = true) -> 1
+            book.difficulty.contains("medium", ignoreCase = true) -> 2
+            book.difficulty.contains("hard", ignoreCase = true) -> 3
             else -> 2
         }
         val diff = kotlin.math.abs(userLevel - bookLevel)
@@ -166,14 +125,10 @@ class RecommendationEngine @Inject constructor() {
         }
     }
 
-    /**
-     * Learning element: computes similarity between a book and the user's
-     * favorite history. Books similar to past favorites score higher.
-     */
     private fun computeFavoriteSimilarity(book: Book, favorites: List<Favorite>): Double {
         if (favorites.isEmpty()) return 0.5
 
-        val bookWords = "${book.title} ${book.description ?: ""}".lowercase()
+        val bookWords = "${book.title} ${book.description}".lowercase()
             .split(Regex("\\W+")).filter { it.length > 2 }.toSet()
 
         if (bookWords.isEmpty()) return 0.5
@@ -190,10 +145,6 @@ class RecommendationEngine @Inject constructor() {
         return maxSimilarity.coerceIn(0.0, 1.0)
     }
 
-    /**
-     * Score a recommendation that doesn't have a matching curated book.
-     * Uses text-based matching against user profile.
-     */
     private fun scoreRecommendation(
         rec: Recommendation,
         user: User,
@@ -223,7 +174,7 @@ class RecommendationEngine @Inject constructor() {
 
     private fun generateReason(book: Book, user: User): String {
         val matchingInterests = user.interests.filter { interest ->
-            "${book.title} ${book.description ?: ""}".contains(interest, ignoreCase = true)
+            "${book.title} ${book.description}".contains(interest, ignoreCase = true)
         }
         return if (matchingInterests.isNotEmpty()) {
             "Picked for you because you love ${matchingInterests.joinToString(" and ")}!"

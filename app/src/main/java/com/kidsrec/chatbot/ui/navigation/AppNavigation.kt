@@ -187,7 +187,7 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean) {
             composable(Screen.Admin.route) {
                 val adminViewModel: AdminViewModel = hiltViewModel()
                 AdminScreen(
-                    viewModel = adminViewModel, 
+                    viewModel = adminViewModel,
                     onLogout = { authViewModel.signOut() },
                     onViewBook = { title, url, isVideo ->
                         val encodedUrl = URLEncoder.encode(url, "UTF-8")

@@ -1,37 +1,32 @@
 package com.kidsrec.chatbot.data.model
 
 import com.google.firebase.Timestamp
+import com.google.firebase.firestore.Exclude
 
+/**
+ * Official Book Model for content_books
+ * Every book is numbered starting from 001
+ */
 data class Book(
-    val id: String = "",
+    val id: String = "",           // e.g., 001, 002...
     val title: String = "",
     val author: String = "",
-    val coverUrl: String? = null,
-    val description: String? = null,
-    val ageRating: String = "6-8 years",
-    val readingAvailability: String = "Intermediate",
-    
-    // Support for Visual Picture Books
-    val pageUrls: List<String> = emptyList(), 
-    val isPictureBook: Boolean = true,
-
-    // Reading links
-    val readerUrl: String? = null,
-    val openLibraryUrl: String? = null,
-    val gutenbergHtmlUrl: String? = null,
-    val gutenbergTxtUrl: String? = null,
-    
-    val createdAt: Timestamp = Timestamp.now()
-)
-
-data class Video(
-    val id: String = "",
-    val title: String = "",
-    val channel: String = "",
+    val ageMin: Int = 0,
+    val ageMax: Int = 15,
+    val category: String = "",     // e.g., Adventure, Animal Stories
+    val source: String = "ICDL",
+    val language: String = "English",
     val description: String = "",
-    val thumbnailUrl: String = "",
-    val videoUrl: String = "",
-    val ageRange: String = "Ages 6-8",
-    val category: String = "",
-    val duration: Int = 0
-)
+    val tags: List<String> = emptyList(),
+    val isKidSafe: Boolean = true,
+    val difficulty: String = "easy", // easy, medium, hard
+    val bookUrl: String = "",      // Interactive URL (no preview pages)
+    val readerUrl: String = "",    // Direct reader URL
+    val coverUrl: String = "",
+    val createdAt: Timestamp = Timestamp.now(),
+    
+    @get:Exclude @set:Exclude
+    var searchScore: Int = 0       // Match percentage for search results
+) {
+    val ageRating: String get() = "$ageMin-$ageMax yrs"
+}
