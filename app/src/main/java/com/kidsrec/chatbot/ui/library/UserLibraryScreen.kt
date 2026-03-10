@@ -78,7 +78,8 @@ fun UserLibraryScreen(
                                     type = RecommendationType.BOOK,
                                     title = book.title,
                                     description = book.description,
-                                    imageUrl = book.coverUrl
+                                    imageUrl = book.coverUrl,
+                                    url = book.readerUrl.ifBlank { book.bookUrl }
                                 )
                             }
                         },

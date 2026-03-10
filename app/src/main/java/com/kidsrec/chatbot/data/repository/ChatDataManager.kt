@@ -3,6 +3,7 @@ package com.kidsrec.chatbot.data.repository
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
+import com.kidsrec.chatbot.data.model.Book
 import com.kidsrec.chatbot.data.model.ChatMessage
 import com.kidsrec.chatbot.data.model.Conversation
 import com.kidsrec.chatbot.data.model.MessageRole
@@ -66,7 +67,7 @@ class ChatDataManager @Inject constructor(
             }
 
             val systemPrompt = """You are Little Dino, a friendly dinosaur helping kids find books and videos!
-            
+
 $curatedBooksContext
 
 CRITICAL: You MUST provide a mix of BOTH "BOOK" and "VIDEO" recommendations in every response.
@@ -77,13 +78,15 @@ Response format:
 1. Friendly message (1-2 sentences).
 2. End with this EXACT block:
 [RECOMMENDATIONS]
-[{"type":"BOOK","title":"Book Name","description":"1 sentence desc","reason":"Why fun"},{"type":"VIDEO","title":"Video Name","description":"Fun animated story","reason":"Great to watch"}]
+[{"type":"BOOK","title":"Book Name","description":"1 sentence desc","reason":"Why fun"},{"type":"VIDEO","title":"Video Name","description":"Fun animated story","reason":"Great to watch","url":"https://www.youtube.com/watch?v=VIDEO_ID"}]
 [/RECOMMENDATIONS]
 
 RULES:
 - 'type' MUST be "BOOK" or "VIDEO".
 - Include at least ONE VIDEO and ONE BOOK if possible.
-- Videos should be suitable for YouTube Kids search."""
+- For VIDEO: include a "url" field with the direct YouTube watch link (https://www.youtube.com/watch?v=...) if you know it. If unsure, omit the url field.
+- For BOOK: do NOT include a url field (we handle book links internally).
+- Videos should be suitable for kids."""
 
             val messages = mutableListOf(OpenAIMessage(role = "system", content = systemPrompt))
             messages.addAll(conversationHistory)
@@ -92,7 +95,8 @@ RULES:
             val openAIResponse = openAIService.createChatCompletion(OpenAIRequest(messages = messages))
             val botResponse = openAIResponse.choices.firstOrNull()?.message?.content ?: "Let's find some stories!"
 
-            val (cleanContent, recommendations) = parseRecommendations(botResponse)
+            val (cleanContent, parsedRecs) = parseRecommendations(botResponse)
+            val recommendations = attachBookUrls(parsedRecs, curatedBooks)
 
             val botMessage = ChatMessage(
                 id = firestore.collection("chatHistory").document(userId).collection("conversations").document(conversationId).collection("messages").document().id,
@@ -143,11 +147,37 @@ RULES:
                         type = type,
                         title = obj.optString("title"),
                         description = obj.optString("description"),
-                        reason = obj.optString("reason")
+                        reason = obj.optString("reason"),
+                        url = obj.optString("url", "")
                     ))
                 }
             }
         } catch (e: Exception) { /* Silent fallback */ }
         return Pair(cleanContent, recommendations)
+    }
+
+    /**
+     * Match BOOK recommendations against curated books and attach direct reader URLs.
+     */
+    private fun attachBookUrls(
+        recommendations: List<Recommendation>,
+        curatedBooks: List<Book>
+    ): List<Recommendation> {
+        if (curatedBooks.isEmpty()) return recommendations
+        return recommendations.map { rec ->
+            if (rec.type == RecommendationType.BOOK && rec.url.isBlank()) {
+                val matchingBook = curatedBooks.firstOrNull { book ->
+                    book.title.contains(rec.title, ignoreCase = true) ||
+                        rec.title.contains(book.title, ignoreCase = true)
+                }
+                if (matchingBook != null) {
+                    val bookUrl = matchingBook.readerUrl.ifBlank { matchingBook.bookUrl }
+                    rec.copy(
+                        url = bookUrl,
+                        imageUrl = rec.imageUrl.ifBlank { matchingBook.coverUrl }
+                    )
+                } else rec
+            } else rec
+        }
     }
 }

@@ -82,7 +82,8 @@ class RecommendationEngine @Inject constructor() {
                     description = book.description,
                     imageUrl = book.coverUrl,
                     reason = generateReason(book, user),
-                    relevanceScore = score
+                    relevanceScore = score,
+                    url = book.readerUrl.ifBlank { book.bookUrl }
                 )
             }
     }

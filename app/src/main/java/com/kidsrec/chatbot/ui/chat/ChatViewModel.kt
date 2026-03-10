@@ -86,16 +86,22 @@ class ChatViewModel @Inject constructor(
     suspend fun getBookPreviewUrl(title: String): String {
         return try {
             val curatedBooks = bookDataManager.getCuratedBooks().getOrNull()
-            val matchingBook = curatedBooks?.firstOrNull { it.title.contains(title, ignoreCase = true) }
-            
-            if (matchingBook != null && matchingBook.readerUrl.isNotBlank()) {
-                return matchingBook.readerUrl
+            // Fuzzy match: check both directions for partial title matches
+            val matchingBook = curatedBooks?.firstOrNull { book ->
+                book.title.contains(title, ignoreCase = true) ||
+                    title.contains(book.title, ignoreCase = true)
+            }
+
+            if (matchingBook != null) {
+                val url = matchingBook.readerUrl.ifBlank { matchingBook.bookUrl }
+                if (url.isNotBlank()) return url
             }
 
             val encodedTitle = java.net.URLEncoder.encode(title, "UTF-8")
             "https://archive.org/details/texts?query=$encodedTitle+children+picture+books"
         } catch (e: Exception) {
-            "https://archive.org/details/texts?query=$title"
+            val encodedTitle = java.net.URLEncoder.encode(title, "UTF-8")
+            "https://archive.org/details/texts?query=$encodedTitle"
         }
     }
 }

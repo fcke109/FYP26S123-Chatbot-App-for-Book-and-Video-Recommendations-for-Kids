@@ -59,7 +59,7 @@ class AuthViewModel @Inject constructor(
                     if (email.lowercase() == "admin@littledino.com" && password == "dino123") {
                         signUp(email, password, "Admin", 99, emptyList(), "Advanced", PlanType.ADMIN)
                     } else {
-                        _authState.value = AuthState.Error(error.message ?: "Login failed")
+                        _authState.value = AuthState.Error(mapFirebaseError(error.message))
                     }
                 }
             )
@@ -95,7 +95,7 @@ class AuthViewModel @Inject constructor(
                     loadUserData(user.uid)
                 },
                 onFailure = { error ->
-                    _authState.value = AuthState.Error(error.message ?: "Registration failed")
+                    _authState.value = AuthState.Error(mapFirebaseError(error.message))
                 }
             )
         }
@@ -112,6 +112,29 @@ class AuthViewModel @Inject constructor(
     fun updateUser(user: User) {
         viewModelScope.launch {
             accountManager.updateUser(user)
+        }
+    }
+
+    private fun mapFirebaseError(message: String?): String {
+        if (message == null) return "Something went wrong. Please try again."
+        val msg = message.lowercase()
+        return when {
+            msg.contains("badly formatted") -> "Please enter a valid email address."
+            msg.contains("password is invalid") || msg.contains("wrong password") ||
+                msg.contains("credential is incorrect") || msg.contains("invalid credential") ||
+                msg.contains("malformed or has expired") ->
+                "Incorrect email or password. Please try again."
+            msg.contains("no user record") || msg.contains("no account") ->
+                "No account found with this email."
+            msg.contains("already in use") ->
+                "This email is already registered. Try logging in."
+            msg.contains("too many") || msg.contains("blocked") ->
+                "Too many attempts. Please wait and try again."
+            msg.contains("at least 6 characters") || msg.contains("weak password") ->
+                "Password must be at least 6 characters."
+            msg.contains("network") || msg.contains("timeout") ->
+                "Network error. Please check your connection."
+            else -> "Something went wrong. Please try again."
         }
     }
 }

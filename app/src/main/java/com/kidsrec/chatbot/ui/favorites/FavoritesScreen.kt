@@ -96,13 +96,13 @@ fun FavoritesScreen(
                                 onRemove = { viewModel.removeFavorite(favorite.itemId) },
                                 onOpen = {
                                     val isVideo = favorite.type == RecommendationType.VIDEO
-                                    // Visual Reader Priority: If it's a book, try to reconstruct the visual URL
-                                    // (Realistically we should store readerUrl in Favorite too, but for now we fallback)
-                                    val url = if (isVideo) {
+                                    // Use stored URL if available, otherwise fallback to search
+                                    val url = if (favorite.url.isNotBlank()) {
+                                        favorite.url
+                                    } else if (isVideo) {
                                         val encodedTitle = URLEncoder.encode(favorite.title, "UTF-8")
                                         "https://www.youtube.com/results?search_query=$encodedTitle+for+kids"
                                     } else {
-                                        // Use the cover image domain to infer Archive.org if possible, or fallback to search
                                         "https://archive.org/details/texts?query=${URLEncoder.encode(favorite.title, "UTF-8")}"
                                     }
                                     onOpenFavorite?.invoke(url, favorite.title, isVideo)

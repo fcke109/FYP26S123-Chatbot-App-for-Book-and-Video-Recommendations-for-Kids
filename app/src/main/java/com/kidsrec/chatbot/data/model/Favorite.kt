@@ -15,8 +15,9 @@ data class Favorite(
     val title: String = "",
     val description: String = "",
     val imageUrl: String = "",
+    val url: String = "",
     val addedAt: Timestamp = Timestamp.now()
 ) {
     // No-arg constructor for Firestore
-    constructor() : this("", "", "", RecommendationType.BOOK, "", "", "", Timestamp.now())
+    constructor() : this("", "", "", RecommendationType.BOOK, "", "", "", "", Timestamp.now())
 }

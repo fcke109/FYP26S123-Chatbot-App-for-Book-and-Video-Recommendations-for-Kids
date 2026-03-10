@@ -149,7 +149,7 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean) {
                 DinoChatPage(
                     viewModel = chatViewModel,
                     onAddToFavorites = { rec ->
-                        favoritesViewModel.addFavorite(rec.id, rec.type, rec.title, rec.description, rec.imageUrl)
+                        favoritesViewModel.addFavorite(rec.id, rec.type, rec.title, rec.description, rec.imageUrl, rec.url)
                     },
                     onOpenRecommendation = { url, title, isVideo ->
                         val encodedUrl = URLEncoder.encode(url, "UTF-8")
