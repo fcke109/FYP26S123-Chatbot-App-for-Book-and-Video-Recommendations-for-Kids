@@ -69,13 +69,15 @@ fun AppNavigation() {
         is AuthState.Authenticated -> {
             MainScreen(authViewModel, isAdmin)
         }
-        is AuthState.Unauthenticated -> {
-            AuthNavigation(authViewModel)
-        }
-        else -> {
+        is AuthState.Initial -> {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }
+        }
+        else -> {
+            // Unauthenticated, Loading, and Error all show the login screen
+            // so the user can see errors and retry
+            AuthNavigation(authViewModel)
         }
     }
 }
