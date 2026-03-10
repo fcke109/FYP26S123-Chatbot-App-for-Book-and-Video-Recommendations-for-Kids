@@ -1,7 +1,7 @@
 package com.kidsrec.chatbot.ui.reader
 
 import android.annotation.SuppressLint
-import android.webkit.WebChromeClient
+import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.layout.*
@@ -11,18 +11,21 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
-import com.kidsrec.chatbot.data.model.Book
 
+/**
+ * BookReaderScreen: A dedicated visual reader for ICDL books.
+ * Features strict domain security to allow visual storytelling content.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BookReaderScreen(
-    book: Book,
+    url: String,
     onBack: () -> Unit
 ) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(book.title) },
+                title = { Text("Visual Storybook") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.Close, contentDescription = "Close")
@@ -32,9 +35,6 @@ fun BookReaderScreen(
         }
     ) { padding ->
         Column(modifier = Modifier.padding(padding).fillMaxSize()) {
-            // Interactive Flip-Book Reader (Archive.org theater mode)
-            val readerUrl = book.readerUrl.ifBlank { book.bookUrl }
-            
             AndroidView(
                 factory = { context ->
                     WebView(context).apply {
@@ -44,10 +44,28 @@ fun BookReaderScreen(
                         settings.loadWithOverviewMode = true
                         settings.useWideViewPort = true
                         
-                        webViewClient = WebViewClient()
-                        webChromeClient = WebChromeClient()
-                        
-                        loadUrl(readerUrl)
+                        webViewClient = object : WebViewClient() {
+                            override fun shouldOverrideUrlLoading(
+                                view: WebView?, 
+                                request: WebResourceRequest?
+                            ): Boolean {
+                                val target = request?.url?.toString().orEmpty()
+                                
+                                // UNBLOCKED DOMAINS for Visual ICDL Books
+                                val allowed = listOf(
+                                    "childrenslibrary.org",
+                                    "archive.org",
+                                    "ia80", "ia60", "ia90", "ia70"
+                                )
+                                
+                                return if (allowed.any { target.contains(it) }) {
+                                    false // allow navigation
+                                } else {
+                                    true  // block unsafe links
+                                }
+                            }
+                        }
+                        loadUrl(url)
                     }
                 },
                 modifier = Modifier.fillMaxSize()

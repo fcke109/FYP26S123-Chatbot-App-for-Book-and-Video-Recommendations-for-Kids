@@ -47,17 +47,16 @@ class RecommendationEngine @Inject constructor() {
     ): List<Recommendation> {
         if (recommendations.isEmpty()) return recommendations
 
-        return recommendations.map { rec ->
+        return recommendations.sortedByDescending { rec ->
             val matchingBook = curatedBooks.firstOrNull {
                 it.title.equals(rec.title, ignoreCase = true)
             }
-            val score = if (matchingBook != null) {
+            if (matchingBook != null) {
                 scoreBook(matchingBook, user, favorites)
             } else {
                 scoreRecommendation(rec, user, favorites)
             }
-            rec.copy(relevanceScore = score)
-        }.sortedByDescending { it.relevanceScore }
+        }
     }
 
     fun getTopRecommendations(

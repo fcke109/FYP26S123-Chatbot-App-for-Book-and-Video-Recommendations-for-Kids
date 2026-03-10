@@ -1,5 +1,6 @@
 package com.kidsrec.chatbot.ui.favorites
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kidsrec.chatbot.data.model.Favorite
@@ -33,6 +34,10 @@ class FavoritesViewModel @Inject constructor(
             _isLoading.value = true
             favoritesManager.getFavoritesFlow(userId)
                 .onEach { _isLoading.value = false }
+                .catch { e -> 
+                    Log.e("FavoritesVM", "Permission denied or load failed", e)
+                    _isLoading.value = false
+                }
                 .collect { items -> _favorites.value = items }
         }
     }

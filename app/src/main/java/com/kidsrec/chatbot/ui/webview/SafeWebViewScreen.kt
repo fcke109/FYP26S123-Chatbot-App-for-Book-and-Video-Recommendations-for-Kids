@@ -8,12 +8,10 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,7 +23,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SafeWebViewScreen(
     url: String,
@@ -38,7 +35,7 @@ fun SafeWebViewScreen(
     var webView by remember { mutableStateOf<WebView?>(null) }
     var canGoBack by remember { mutableStateOf(false) }
 
-    // UNBLOCKED domains for Visual Kid Books
+    // UNBLOCKED domains for Visual Kid Books and Videos
     val allowedDomains = listOf(
         "storyweaver.org.in",
         "archive.org",
@@ -47,6 +44,7 @@ fun SafeWebViewScreen(
         "covers.openlibrary.org",
         "youtube.com",
         "youtu.be",
+        "youtubekids.com",
         "google.com",
         "gstatic.com",
         "cloudflare.com"
@@ -78,7 +76,11 @@ fun SafeWebViewScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.Lock, "Safe", tint = Color.White, modifier = Modifier.size(14.dp))
                             Spacer(Modifier.width(4.dp))
-                            Text("Safe Visual Reader", fontSize = 10.sp, color = Color.White.copy(alpha = 0.8f))
+                            Text(
+                                text = if (isVideo) "Safe Video Player" else "Safe Visual Reader", 
+                                fontSize = 10.sp, 
+                                color = Color.White.copy(alpha = 0.8f)
+                            )
                         }
                         Text(title, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
@@ -150,7 +152,10 @@ fun SafeWebViewScreen(
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                         Spacer(Modifier.height(16.dp))
-                        Text("Opening Visual Story...", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            text = if (isVideo) "Loading Video..." else "Opening Visual Story...", 
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }
