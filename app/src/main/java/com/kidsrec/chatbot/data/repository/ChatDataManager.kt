@@ -6,9 +6,11 @@ import com.google.firebase.firestore.Query
 import com.kidsrec.chatbot.data.model.Book
 import com.kidsrec.chatbot.data.model.ChatMessage
 import com.kidsrec.chatbot.data.model.Conversation
+import com.kidsrec.chatbot.data.model.Favorite
 import com.kidsrec.chatbot.data.model.MessageRole
 import com.kidsrec.chatbot.data.model.Recommendation
 import com.kidsrec.chatbot.data.model.RecommendationType
+import com.kidsrec.chatbot.data.model.User
 import com.kidsrec.chatbot.data.remote.OpenAIMessage
 import com.kidsrec.chatbot.data.remote.OpenAIRequest
 import com.kidsrec.chatbot.data.remote.OpenAIService
@@ -28,7 +30,10 @@ import javax.inject.Singleton
 class ChatDataManager @Inject constructor(
     private val firestore: FirebaseFirestore,
     private val openAIService: OpenAIService,
-    private val bookDataManager: BookDataManager
+    private val bookDataManager: BookDataManager,
+    private val recommendationEngine: RecommendationEngine,
+    private val accountManager: AccountManager,
+    private val favoritesManager: FavoritesManager
 ) {
     suspend fun sendMessage(
         userId: String,
@@ -50,6 +55,10 @@ class ChatDataManager @Inject constructor(
             )
 
             firestore.collection("chatHistory").document(userId).collection("conversations").document(conversationId).collection("messages").document(userMessage.id).set(userMessage).await()
+
+            // Update conversation metadata for chat history
+            firestore.collection("chatHistory").document(userId).collection("conversations").document(conversationId)
+                .update(mapOf("lastUpdated" to Timestamp.now(), "preview" to message.take(80))).await()
 
             val messagesSnapshot = firestore.collection("chatHistory")
                 .document(userId)
@@ -96,7 +105,8 @@ RULES:
             val botResponse = openAIResponse.choices.firstOrNull()?.message?.content ?: "Let's find some stories!"
 
             val (cleanContent, parsedRecs) = parseRecommendations(botResponse)
-            val recommendations = attachBookUrls(parsedRecs, curatedBooks)
+            val withUrls = attachBookUrls(parsedRecs, curatedBooks)
+            val recommendations = scoreWithANN(withUrls, curatedBooks, userId)
 
             val botMessage = ChatMessage(
                 id = firestore.collection("chatHistory").document(userId).collection("conversations").document(conversationId).collection("messages").document().id,
@@ -124,6 +134,23 @@ RULES:
         val ref = firestore.collection("chatHistory").document(userId).collection("conversations").document()
         ref.set(Conversation(id = ref.id, userId = userId)).await()
         return Result.success(ref.id)
+    }
+
+    fun getConversationsFlow(userId: String, limit: Int = 20): Flow<List<Conversation>> = callbackFlow {
+        val listener = firestore.collection("chatHistory")
+            .document(userId)
+            .collection("conversations")
+            .orderBy("lastUpdated", Query.Direction.DESCENDING)
+            .limit(limit.toLong())
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    trySend(emptyList())
+                    return@addSnapshotListener
+                }
+                val conversations = snapshot?.toObjects(Conversation::class.java) ?: emptyList()
+                trySend(conversations)
+            }
+        awaitClose { listener.remove() }
     }
 
     private fun parseRecommendations(response: String): Pair<String, List<Recommendation>> {
@@ -154,6 +181,36 @@ RULES:
             }
         } catch (e: Exception) { /* Silent fallback */ }
         return Pair(cleanContent, recommendations)
+    }
+
+    /**
+     * Score each recommendation using the ANN engine for the current user.
+     */
+    private suspend fun scoreWithANN(
+        recommendations: List<Recommendation>,
+        curatedBooks: List<Book>,
+        userId: String
+    ): List<Recommendation> {
+        return try {
+            val userDoc = firestore.collection("users").document(userId).get().await()
+            val user = userDoc.toObject(User::class.java) ?: return recommendations
+            val favorites = favoritesManager.getFavorites(userId)
+
+            recommendations.map { rec ->
+                val matchingBook = curatedBooks.firstOrNull { book ->
+                    book.title.contains(rec.title, ignoreCase = true) ||
+                        rec.title.contains(book.title, ignoreCase = true)
+                }
+                val score = if (matchingBook != null) {
+                    recommendationEngine.scoreBook(matchingBook, user, favorites)
+                } else {
+                    recommendationEngine.scoreRecommendation(rec, user, favorites)
+                }
+                rec.copy(relevanceScore = score)
+            }.sortedByDescending { it.relevanceScore }
+        } catch (e: Exception) {
+            recommendations
+        }
     }
 
     /**

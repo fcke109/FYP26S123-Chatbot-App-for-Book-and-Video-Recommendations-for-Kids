@@ -1,7 +1,11 @@
 package com.kidsrec.chatbot.ui.profile
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -9,9 +13,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import com.kidsrec.chatbot.data.model.ReadingHistory
 import com.kidsrec.chatbot.ui.auth.AuthViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -22,6 +32,7 @@ fun ProfileScreen(
 ) {
     val user by authViewModel.currentUser.collectAsState()
     val updateSuccess by profileViewModel.updateSuccess.collectAsState()
+    val readingHistory by profileViewModel.readingHistory.collectAsState()
 
     var isEditing by remember { mutableStateOf(false) }
     var name by remember { mutableStateOf("") }
@@ -262,6 +273,78 @@ fun ProfileScreen(
                                 }
                             }
                         }
+                    }
+
+                    // Recently Read Section
+                    if (readingHistory.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(24.dp))
+                        RecentlyReadSection(readingHistory)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun RecentlyReadSection(history: List<ReadingHistory>) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.History, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "Recently Read",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(history) { entry ->
+                Card(
+                    modifier = Modifier.width(120.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                ) {
+                    Column {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(100.dp)
+                                .background(
+                                    if (entry.isVideo) Color(0xFFFFE5E5) else Color(0xFFE5F0FF)
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (entry.coverUrl.isNotBlank()) {
+                                AsyncImage(
+                                    model = entry.coverUrl,
+                                    contentDescription = entry.title,
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = if (entry.isVideo) Icons.Default.PlayCircle else Icons.Default.MenuBook,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(36.dp),
+                                    tint = if (entry.isVideo) Color.Red else MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                        Text(
+                            text = entry.title,
+                            modifier = Modifier.padding(8.dp),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
                 }
             }

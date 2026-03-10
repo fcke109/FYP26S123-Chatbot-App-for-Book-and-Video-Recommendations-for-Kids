@@ -3,10 +3,12 @@ package com.kidsrec.chatbot.ui.chat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kidsrec.chatbot.data.model.ChatMessage
+import com.kidsrec.chatbot.data.model.Conversation
 import com.kidsrec.chatbot.data.repository.AccountManager
 import com.kidsrec.chatbot.data.repository.BookDataManager
 import com.kidsrec.chatbot.data.repository.ChatDataManager
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -32,10 +34,15 @@ class ChatViewModel @Inject constructor(
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
+    private val _conversations = MutableStateFlow<List<Conversation>>(emptyList())
+    val conversations: StateFlow<List<Conversation>> = _conversations.asStateFlow()
+
     private var currentConversationId: String? = null
+    private var messagesJob: Job? = null
 
     init {
         initializeConversation()
+        loadConversationsList()
     }
 
     private fun initializeConversation() {
@@ -54,11 +61,48 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    private fun loadMessages(userId: String, conversationId: String) {
+    private fun loadConversationsList() {
         viewModelScope.launch {
+            val userId = accountManager.getCurrentUserId() ?: return@launch
+            chatDataManager.getConversationsFlow(userId).collect { convos ->
+                // Only show conversations that have at least one message (non-empty preview)
+                _conversations.value = convos.filter { it.preview.isNotBlank() }
+            }
+        }
+    }
+
+    private fun loadMessages(userId: String, conversationId: String) {
+        // Cancel previous message listener
+        messagesJob?.cancel()
+        messagesJob = viewModelScope.launch {
             chatDataManager.getMessagesFlow(userId, conversationId).collect { messages ->
                 _messages.value = messages
             }
+        }
+    }
+
+    fun loadConversation(conversationId: String) {
+        viewModelScope.launch {
+            val userId = accountManager.getCurrentUserId() ?: return@launch
+            currentConversationId = conversationId
+            loadMessages(userId, conversationId)
+        }
+    }
+
+    fun startNewConversation() {
+        viewModelScope.launch {
+            val userId = accountManager.getCurrentUserId() ?: return@launch
+            _messages.value = emptyList()
+            val result = chatDataManager.createConversation(userId)
+            result.fold(
+                onSuccess = { conversationId ->
+                    currentConversationId = conversationId
+                    loadMessages(userId, conversationId)
+                },
+                onFailure = { error ->
+                    _error.value = error.message
+                }
+            )
         }
     }
 
