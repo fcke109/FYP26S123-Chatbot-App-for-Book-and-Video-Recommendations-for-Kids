@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kidsrec.chatbot.data.model.Book
 import com.kidsrec.chatbot.data.model.Recommendation
+import com.kidsrec.chatbot.data.remote.OpenLibraryService
 import com.kidsrec.chatbot.data.repository.AccountManager
 import com.kidsrec.chatbot.data.repository.BookDataManager
 import com.kidsrec.chatbot.data.repository.FavoritesManager
@@ -20,7 +21,8 @@ class LibraryViewModel @Inject constructor(
     private val bookDataManager: BookDataManager,
     private val recommendationEngine: RecommendationEngine,
     private val accountManager: AccountManager,
-    private val favoritesManager: FavoritesManager
+    private val favoritesManager: FavoritesManager,
+    private val openLibraryService: OpenLibraryService
 ) : ViewModel() {
 
     private val _curatedBooks = MutableStateFlow<List<Book>>(emptyList())
@@ -41,11 +43,41 @@ class LibraryViewModel @Inject constructor(
             _isLoading.value = true
             try {
                 val books = bookDataManager.getCuratedBooks().getOrDefault(emptyList())
-                _curatedBooks.value = books
-                loadTopPicks(books)
+                if (books.isNotEmpty()) {
+                    _curatedBooks.value = books
+                    loadTopPicks(books)
+                } else {
+                    loadFromOpenLibrary()
+                }
             } catch (_: Exception) { }
             _isLoading.value = false
         }
+    }
+
+    private suspend fun loadFromOpenLibrary() {
+        try {
+            val response = openLibraryService.searchBooks("children picture books", limit = 20)
+            val books = response.docs
+                .filter { it.canReadOnline() }
+                .take(12)
+                .map { olBook ->
+                    Book(
+                        id = olBook.key,
+                        title = olBook.title,
+                        author = olBook.getAuthorString(),
+                        description = olBook.subject?.take(3)?.joinToString(", ") ?: "",
+                        coverUrl = olBook.getCoverUrl("M") ?: "",
+                        source = "OpenLibrary",
+                        readerUrl = olBook.getReadUrl() ?: olBook.getOpenLibraryUrl(),
+                        bookUrl = olBook.getOpenLibraryUrl(),
+                        ageMin = 3,
+                        ageMax = 12,
+                        difficulty = "easy"
+                    )
+                }
+            _curatedBooks.value = books
+            loadTopPicks(books)
+        } catch (_: Exception) { }
     }
 
     private suspend fun loadTopPicks(books: List<Book>) {
