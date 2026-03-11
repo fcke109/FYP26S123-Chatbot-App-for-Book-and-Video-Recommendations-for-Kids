@@ -4,14 +4,17 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kidsrec.chatbot.data.model.ChatMessage
 import com.kidsrec.chatbot.data.model.Conversation
+import com.kidsrec.chatbot.data.remote.OpenLibraryService
 import com.kidsrec.chatbot.data.repository.AccountManager
 import com.kidsrec.chatbot.data.repository.BookDataManager
 import com.kidsrec.chatbot.data.repository.ChatDataManager
 import dagger.hilt.android.lifecycle.HiltViewModel
+import android.util.Log
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -22,7 +25,8 @@ import javax.inject.Inject
 class ChatViewModel @Inject constructor(
     private val chatDataManager: ChatDataManager,
     private val accountManager: AccountManager,
-    private val bookDataManager: BookDataManager
+    private val bookDataManager: BookDataManager,
+    private val openLibraryService: OpenLibraryService
 ) : ViewModel() {
 
     private val _messages = MutableStateFlow<List<ChatMessage>>(emptyList())
@@ -64,10 +68,12 @@ class ChatViewModel @Inject constructor(
     private fun loadConversationsList() {
         viewModelScope.launch {
             val userId = accountManager.getCurrentUserId() ?: return@launch
-            chatDataManager.getConversationsFlow(userId).collect { convos ->
-                // Only show conversations that have at least one message (non-empty preview)
-                _conversations.value = convos.filter { it.preview.isNotBlank() }
-            }
+            chatDataManager.getConversationsFlow(userId)
+                .catch { e -> Log.e("ChatVM", "Failed to load conversations", e) }
+                .collect { convos ->
+                    // Only show conversations that have at least one message (non-empty preview)
+                    _conversations.value = convos.filter { it.preview.isNotBlank() }
+                }
         }
     }
 
@@ -75,9 +81,11 @@ class ChatViewModel @Inject constructor(
         // Cancel previous message listener
         messagesJob?.cancel()
         messagesJob = viewModelScope.launch {
-            chatDataManager.getMessagesFlow(userId, conversationId).collect { messages ->
-                _messages.value = messages
-            }
+            chatDataManager.getMessagesFlow(userId, conversationId)
+                .catch { e -> Log.e("ChatVM", "Failed to load messages", e) }
+                .collect { messages ->
+                    _messages.value = messages
+                }
         }
     }
 
@@ -126,11 +134,11 @@ class ChatViewModel @Inject constructor(
 
     /**
      * Get the best interactive reader link for a book title.
+     * Searches curated books first, then Open Library for a direct reader.
      */
     suspend fun getBookPreviewUrl(title: String): String {
         return try {
             val curatedBooks = bookDataManager.getCuratedBooks().getOrNull()
-            // Fuzzy match: check both directions for partial title matches
             val matchingBook = curatedBooks?.firstOrNull { book ->
                 book.title.contains(title, ignoreCase = true) ||
                     title.contains(book.title, ignoreCase = true)
@@ -141,11 +149,20 @@ class ChatViewModel @Inject constructor(
                 if (url.isNotBlank()) return url
             }
 
+            // Search Open Library for a direct reader link
+            val response = openLibraryService.searchBooks("$title children", limit = 5)
+            val readable = response.docs.firstOrNull { it.canReadOnline() }
+            if (readable != null) {
+                val readUrl = readable.getReadUrl()
+                if (readUrl != null) return readUrl
+            }
+
+            // Fallback: Open Library search filtered to readable books
             val encodedTitle = java.net.URLEncoder.encode(title, "UTF-8")
-            "https://archive.org/details/texts?query=$encodedTitle+children+picture+books"
+            "https://openlibrary.org/search?q=$encodedTitle&mode=ebooks&has_fulltext=true"
         } catch (e: Exception) {
             val encodedTitle = java.net.URLEncoder.encode(title, "UTF-8")
-            "https://archive.org/details/texts?query=$encodedTitle"
+            "https://openlibrary.org/search?q=$encodedTitle&mode=ebooks"
         }
     }
 }

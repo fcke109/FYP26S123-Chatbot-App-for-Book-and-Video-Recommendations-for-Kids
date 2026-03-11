@@ -51,11 +51,14 @@ fun BookReaderScreen(
                             ): Boolean {
                                 val target = request?.url?.toString().orEmpty()
                                 
-                                // UNBLOCKED DOMAINS for Visual ICDL Books
+                                // UNBLOCKED DOMAINS for Visual Book Readers
                                 val allowed = listOf(
                                     "childrenslibrary.org",
                                     "archive.org",
-                                    "ia80", "ia60", "ia90", "ia70"
+                                    "ia80", "ia60", "ia90", "ia70",
+                                    "openlibrary.org",
+                                    "storyweaver.org.in",
+                                    "covers.openlibrary.org"
                                 )
                                 
                                 return if (allowed.any { target.contains(it) }) {
