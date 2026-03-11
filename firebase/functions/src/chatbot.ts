@@ -1,6 +1,7 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import OpenAI from "openai";
+import {ChatCompletionMessageParam} from "openai/resources/chat/completions";
 
 const openai = new OpenAI({
   apiKey: functions.config().openai?.key || process.env.OPENAI_API_KEY,
@@ -64,13 +65,14 @@ export const chatWithBot = functions.https.onCall(
         .limit(10)
         .get();
 
-      const conversationHistory = messagesSnapshot.docs.map((doc) => {
-        const msg = doc.data();
-        return {
-          role: msg.role === "USER" ? "user" : "assistant",
-          content: msg.content,
-        };
-      });
+      const conversationHistory: ChatCompletionMessageParam[] =
+        messagesSnapshot.docs.map((doc) => {
+          const msg = doc.data();
+          return {
+            role: msg.role === "USER" ? "user" as const : "assistant" as const,
+            content: msg.content,
+          };
+        });
 
       // Create system prompt based on user age
       const systemPrompt = createSystemPrompt(userProfile);
