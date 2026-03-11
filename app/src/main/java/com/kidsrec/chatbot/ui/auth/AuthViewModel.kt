@@ -6,9 +6,11 @@ import com.kidsrec.chatbot.data.model.PlanType
 import com.kidsrec.chatbot.data.model.User
 import com.kidsrec.chatbot.data.repository.AccountManager
 import dagger.hilt.android.lifecycle.HiltViewModel
+import android.util.Log
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -39,9 +41,13 @@ class AuthViewModel @Inject constructor(
 
     private fun loadUserData(userId: String) {
         viewModelScope.launch {
-            accountManager.getUserFlow(userId).collect { user ->
-                _currentUser.value = user
-            }
+            accountManager.getUserFlow(userId)
+                .catch { e ->
+                    Log.e("AuthVM", "Failed to load user data", e)
+                }
+                .collect { user ->
+                    _currentUser.value = user
+                }
         }
     }
 

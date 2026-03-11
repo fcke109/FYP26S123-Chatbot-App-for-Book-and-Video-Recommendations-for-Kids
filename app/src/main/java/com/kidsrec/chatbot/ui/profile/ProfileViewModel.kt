@@ -2,6 +2,7 @@ package com.kidsrec.chatbot.ui.profile
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import android.util.Log
 import com.kidsrec.chatbot.data.model.ReadingHistory
 import com.kidsrec.chatbot.data.model.User
 import com.kidsrec.chatbot.data.repository.AccountManager
@@ -10,6 +11,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -41,19 +43,28 @@ class ProfileViewModel @Inject constructor(
             val userId = accountManager.getCurrentUserId() ?: return@launch
             _isLoading.value = true
 
-            accountManager.getUserFlow(userId).collect { user ->
-                _user.value = user
-                _isLoading.value = false
-            }
+            accountManager.getUserFlow(userId)
+                .catch { e ->
+                    Log.e("ProfileVM", "Failed to load user", e)
+                    _isLoading.value = false
+                }
+                .collect { user ->
+                    _user.value = user
+                    _isLoading.value = false
+                }
         }
     }
 
     private fun loadReadingHistory() {
         viewModelScope.launch {
             val userId = accountManager.getCurrentUserId() ?: return@launch
-            readingHistoryManager.getHistoryFlow(userId, limit = 5).collect { history ->
-                _readingHistory.value = history
-            }
+            readingHistoryManager.getHistoryFlow(userId, limit = 5)
+                .catch { e ->
+                    Log.e("ProfileVM", "Failed to load reading history", e)
+                }
+                .collect { history ->
+                    _readingHistory.value = history
+                }
         }
     }
 

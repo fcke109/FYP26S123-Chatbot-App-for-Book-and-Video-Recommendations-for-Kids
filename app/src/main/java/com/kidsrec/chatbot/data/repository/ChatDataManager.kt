@@ -131,9 +131,13 @@ RULES:
     }
 
     suspend fun createConversation(userId: String): Result<String> {
-        val ref = firestore.collection("chatHistory").document(userId).collection("conversations").document()
-        ref.set(Conversation(id = ref.id, userId = userId)).await()
-        return Result.success(ref.id)
+        return try {
+            val ref = firestore.collection("chatHistory").document(userId).collection("conversations").document()
+            ref.set(Conversation(id = ref.id, userId = userId)).await()
+            Result.success(ref.id)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
     fun getConversationsFlow(userId: String, limit: Int = 20): Flow<List<Conversation>> = callbackFlow {
