@@ -76,7 +76,7 @@ class RecommendationEngine @Inject constructor() {
             .take(limit)
             .map { (book, score) ->
                 Recommendation(
-                    id = UUID.randomUUID().toString(),
+                    id = book.id,
                     type = RecommendationType.BOOK,
                     title = book.title,
                     description = book.description,

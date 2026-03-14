@@ -7,9 +7,7 @@ import com.kidsrec.chatbot.data.model.User
 import com.kidsrec.chatbot.data.repository.AccountManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import android.util.Log
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -24,6 +22,10 @@ class AuthViewModel @Inject constructor(
 
     private val _currentUser = MutableStateFlow<User?>(null)
     val currentUser: StateFlow<User?> = _currentUser.asStateFlow()
+
+    val isAdmin: StateFlow<Boolean> = _currentUser.map { user ->
+        user?.email?.lowercase() == "admin@littledino.com" || user?.planType == PlanType.ADMIN
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     init {
         checkAuthState()
@@ -96,7 +98,6 @@ class AuthViewModel @Inject constructor(
                         planType = planType
                     )
                     accountManager.updateUser(userDoc)
-
                     _authState.value = AuthState.Authenticated(user.uid)
                     loadUserData(user.uid)
                 },
@@ -122,25 +123,15 @@ class AuthViewModel @Inject constructor(
     }
 
     private fun mapFirebaseError(message: String?): String {
-        if (message == null) return "Something went wrong. Please try again."
+        if (message == null) return "Something went wrong."
         val msg = message.lowercase()
         return when {
-            msg.contains("badly formatted") -> "Please enter a valid email address."
-            msg.contains("password is invalid") || msg.contains("wrong password") ||
-                msg.contains("credential is incorrect") || msg.contains("invalid credential") ||
-                msg.contains("malformed or has expired") ->
-                "Incorrect email or password. Please try again."
-            msg.contains("no user record") || msg.contains("no account") ->
-                "No account found with this email."
-            msg.contains("already in use") ->
-                "This email is already registered. Try logging in."
-            msg.contains("too many") || msg.contains("blocked") ->
-                "Too many attempts. Please wait and try again."
-            msg.contains("at least 6 characters") || msg.contains("weak password") ->
-                "Password must be at least 6 characters."
-            msg.contains("network") || msg.contains("timeout") ->
-                "Network error. Please check your connection."
-            else -> "Something went wrong. Please try again."
+            msg.contains("badly formatted") -> "Valid email required."
+            msg.contains("wrong password") || msg.contains("invalid credential") -> "Incorrect email or password."
+            msg.contains("no user record") -> "No account found."
+            msg.contains("already in use") -> "Email already registered."
+            msg.contains("network") -> "Network error."
+            else -> "Something went wrong."
         }
     }
 }

@@ -6,7 +6,6 @@ import com.google.firebase.firestore.Query
 import com.kidsrec.chatbot.data.model.Book
 import com.kidsrec.chatbot.data.model.ChatMessage
 import com.kidsrec.chatbot.data.model.Conversation
-import com.kidsrec.chatbot.data.model.Favorite
 import com.kidsrec.chatbot.data.model.MessageRole
 import com.kidsrec.chatbot.data.model.Recommendation
 import com.kidsrec.chatbot.data.model.RecommendationType
@@ -56,7 +55,6 @@ class ChatDataManager @Inject constructor(
 
             firestore.collection("chatHistory").document(userId).collection("conversations").document(conversationId).collection("messages").document(userMessage.id).set(userMessage).await()
 
-            // Update conversation metadata for chat history
             firestore.collection("chatHistory").document(userId).collection("conversations").document(conversationId)
                 .update(mapOf("lastUpdated" to Timestamp.now(), "preview" to message.take(80))).await()
 
@@ -80,21 +78,20 @@ class ChatDataManager @Inject constructor(
 $curatedBooksContext
 
 CRITICAL: You MUST provide a mix of BOTH "BOOK" and "VIDEO" recommendations in every response.
-- Use "BOOK" for the curated books listed above or famous children's classics.
-- Use "VIDEO" for fun educational songs, nursery rhymes, or "YouTube Kids" style animated stories.
+- Use "BOOK" for curated books or classics.
+- Use "VIDEO" for YouTube Kids style animated stories/songs.
 
 Response format:
 1. Friendly message (1-2 sentences).
 2. End with this EXACT block:
 [RECOMMENDATIONS]
-[{"type":"BOOK","title":"Book Name","description":"1 sentence desc","reason":"Why fun"},{"type":"VIDEO","title":"Video Name","description":"Fun animated story","reason":"Great to watch","url":"https://www.youtube.com/watch?v=VIDEO_ID"}]
+[{"type":"BOOK","title":"Book Name","description":"1 sentence desc","reason":"Why fun"},{"type":"VIDEO","title":"Video Name","description":"Fun animated story","reason":"Great to watch","url":"https://www.youtube.com/watch?v=VIDEO_ID","imageUrl":"https://img.youtube.com/vi/VIDEO_ID/hqdefault.jpg"}]
 [/RECOMMENDATIONS]
 
 RULES:
 - 'type' MUST be "BOOK" or "VIDEO".
-- Include at least ONE VIDEO and ONE BOOK if possible.
-- For VIDEO: include a "url" field with the direct YouTube watch link (https://www.youtube.com/watch?v=...) if you know it. If unsure, omit the url field.
-- For BOOK: do NOT include a url field (we handle book links internally).
+- For VIDEO: ALWAYS include "url" (YouTube watch link) and "imageUrl" (YouTube thumbnail link: https://img.youtube.com/vi/VIDEO_ID/hqdefault.jpg).
+- For BOOK: do NOT include "url" or "imageUrl" if it matches a curated book (we will attach them).
 - Videos should be suitable for kids."""
 
             val messages = mutableListOf(OpenAIMessage(role = "system", content = systemPrompt))
@@ -173,13 +170,19 @@ RULES:
                 for (i in 0 until jsonArray.length()) {
                     val obj = jsonArray.getJSONObject(i)
                     val type = if (obj.optString("type").uppercase() == "VIDEO") RecommendationType.VIDEO else RecommendationType.BOOK
+                    val title = obj.optString("title")
+                    
+                    // Generate a stable ID based on title and type if no database ID is available
+                    val stableId = "rec_" + (title + type.name).hashCode().toString()
+                    
                     recommendations.add(Recommendation(
-                        id = UUID.randomUUID().toString(),
+                        id = stableId,
                         type = type,
-                        title = obj.optString("title"),
+                        title = title,
                         description = obj.optString("description"),
                         reason = obj.optString("reason"),
-                        url = obj.optString("url", "")
+                        url = obj.optString("url", ""),
+                        imageUrl = obj.optString("imageUrl", "")
                     ))
                 }
             }
@@ -187,9 +190,6 @@ RULES:
         return Pair(cleanContent, recommendations)
     }
 
-    /**
-     * Score each recommendation using the ANN engine for the current user.
-     */
     private suspend fun scoreWithANN(
         recommendations: List<Recommendation>,
         curatedBooks: List<Book>,
@@ -217,16 +217,13 @@ RULES:
         }
     }
 
-    /**
-     * Match BOOK recommendations against curated books and attach direct reader URLs.
-     */
     private fun attachBookUrls(
         recommendations: List<Recommendation>,
         curatedBooks: List<Book>
     ): List<Recommendation> {
         if (curatedBooks.isEmpty()) return recommendations
         return recommendations.map { rec ->
-            if (rec.type == RecommendationType.BOOK && rec.url.isBlank()) {
+            if (rec.type == RecommendationType.BOOK) {
                 val matchingBook = curatedBooks.firstOrNull { book ->
                     book.title.contains(rec.title, ignoreCase = true) ||
                         rec.title.contains(book.title, ignoreCase = true)
@@ -234,8 +231,9 @@ RULES:
                 if (matchingBook != null) {
                     val bookUrl = matchingBook.readerUrl.ifBlank { matchingBook.bookUrl }
                     rec.copy(
+                        id = matchingBook.id, // CRITICAL: Use the real book ID so favoriting matches the library
                         url = bookUrl,
-                        imageUrl = rec.imageUrl.ifBlank { matchingBook.coverUrl }
+                        imageUrl = matchingBook.coverUrl
                     )
                 } else rec
             } else rec

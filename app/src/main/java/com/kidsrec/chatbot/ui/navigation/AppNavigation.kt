@@ -50,7 +50,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
     object Profile : Screen("profile", "Profile", Icons.Default.Person)
     object Admin : Screen("admin", "Admin", Icons.Default.Shield)
     object Reader : Screen("reader/{url}", "Reader")
-    object SafeWebView : Screen("webview/{url}/{title}/{isVideo}", "WebView")
+    object SafeWebView : Screen("webview/{url}/{title}/{isVideo}/{itemId}/{imageUrl}/{description}", "WebView")
 }
 
 @Composable
@@ -78,8 +78,6 @@ fun AppNavigation() {
             }
         }
         else -> {
-            // Unauthenticated, Loading, and Error all show the login screen
-            // so the user can see errors and retry
             AuthNavigation(authViewModel)
         }
     }
@@ -120,7 +118,7 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean) {
 
     Scaffold(
         bottomBar = {
-            if (bottomNavItems.isNotEmpty() && currentDestination?.route in bottomNavItems.map { it.route }) {
+            if (bottomNavItems.isNotEmpty() && currentDestination?.route?.startsWith("webview") == false && currentDestination?.route in bottomNavItems.map { it.route }) {
                 NavigationBar {
                     bottomNavItems.forEach { screen ->
                         NavigationBarItem(
@@ -150,18 +148,14 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean) {
                 val favoritesViewModel: FavoritesViewModel = hiltViewModel()
                 DinoChatPage(
                     viewModel = chatViewModel,
-                    onAddToFavorites = { rec ->
-                        favoritesViewModel.addFavorite(rec.id, rec.type, rec.title, rec.description, rec.imageUrl, rec.url)
-                    },
-                    onOpenRecommendation = { url, title, isVideo ->
+                    favoritesViewModel = favoritesViewModel,
+                    onOpenRecommendation = { url: String, title: String, isVideo: Boolean, itemId: String, imageUrl: String, description: String ->
                         profileViewModel.trackReading(title, url, isVideo = isVideo)
                         val encodedUrl = URLEncoder.encode(url, "UTF-8")
-                        if (isVideo) {
-                            val encodedTitle = URLEncoder.encode(title, "UTF-8")
-                            navController.navigate("webview/$encodedUrl/$encodedTitle/true")
-                        } else {
-                            navController.navigate("reader/$encodedUrl")
-                        }
+                        val encodedTitle = URLEncoder.encode(title, "UTF-8")
+                        val encodedImg = URLEncoder.encode(if (imageUrl.isBlank()) "none" else imageUrl, "UTF-8")
+                        val encodedDesc = URLEncoder.encode(if (description.isBlank()) "none" else description, "UTF-8")
+                        navController.navigate("webview/$encodedUrl/$encodedTitle/$isVideo/$itemId/$encodedImg/$encodedDesc")
                     }
                 )
             }
@@ -171,10 +165,13 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean) {
                 UserLibraryScreen(
                     viewModel = libraryViewModel,
                     favoritesViewModel = favoritesViewModel,
-                    onViewBook = { title, url ->
-                        profileViewModel.trackReading(title, url)
+                    onOpenRecommendation = { url: String, title: String, isVideo: Boolean, itemId: String, imageUrl: String, description: String ->
+                        profileViewModel.trackReading(title, url, isVideo = isVideo)
                         val encodedUrl = URLEncoder.encode(url, "UTF-8")
-                        navController.navigate("reader/$encodedUrl")
+                        val encodedTitle = URLEncoder.encode(title, "UTF-8")
+                        val encodedImg = URLEncoder.encode(if (imageUrl.isBlank()) "none" else imageUrl, "UTF-8")
+                        val encodedDesc = URLEncoder.encode(if (description.isBlank()) "none" else description, "UTF-8")
+                        navController.navigate("webview/$encodedUrl/$encodedTitle/$isVideo/$itemId/$encodedImg/$encodedDesc")
                     }
                 )
             }
@@ -182,15 +179,13 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean) {
                 val favoritesViewModel: FavoritesViewModel = hiltViewModel()
                 FavoritesScreen(
                     viewModel = favoritesViewModel,
-                    onOpenFavorite = { url, title, isVideo ->
+                    onOpenFavorite = { url: String, title: String, isVideo: Boolean, itemId: String, imageUrl: String, description: String ->
                         profileViewModel.trackReading(title, url, isVideo = isVideo)
                         val encodedUrl = URLEncoder.encode(url, "UTF-8")
-                        if (isVideo) {
-                            val encodedTitle = URLEncoder.encode(title, "UTF-8")
-                            navController.navigate("webview/$encodedUrl/$encodedTitle/true")
-                        } else {
-                            navController.navigate("reader/$encodedUrl")
-                        }
+                        val encodedTitle = URLEncoder.encode(title, "UTF-8")
+                        val encodedImg = URLEncoder.encode(if (imageUrl.isBlank()) "none" else imageUrl, "UTF-8")
+                        val encodedDesc = URLEncoder.encode(if (description.isBlank()) "none" else description, "UTF-8")
+                        navController.navigate("webview/$encodedUrl/$encodedTitle/$isVideo/$itemId/$encodedImg/$encodedDesc")
                     }
                 )
             }
@@ -204,7 +199,9 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean) {
                     onLogout = { authViewModel.signOut() },
                     onViewBook = { title, url, isVideo ->
                         val encodedUrl = URLEncoder.encode(url, "UTF-8")
-                        navController.navigate("reader/$encodedUrl")
+                        val encodedTitle = URLEncoder.encode(title, "UTF-8")
+                        // Admin doesn't need all these for now, or use defaults
+                        navController.navigate("webview/$encodedUrl/$encodedTitle/$isVideo/admin/none/none")
                     }
                 )
             }
@@ -220,13 +217,31 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean) {
                 arguments = listOf(
                     navArgument("url") { type = NavType.StringType },
                     navArgument("title") { type = NavType.StringType },
-                    navArgument("isVideo") { type = NavType.BoolType }
+                    navArgument("isVideo") { type = NavType.BoolType },
+                    navArgument("itemId") { type = NavType.StringType },
+                    navArgument("imageUrl") { type = NavType.StringType },
+                    navArgument("description") { type = NavType.StringType }
                 )
             ) { backStackEntry ->
                 val url = URLDecoder.decode(backStackEntry.arguments?.getString("url") ?: "", "UTF-8")
                 val title = URLDecoder.decode(backStackEntry.arguments?.getString("title") ?: "", "UTF-8")
                 val isVideo = backStackEntry.arguments?.getBoolean("isVideo") ?: false
-                SafeWebViewScreen(url = url, title = title, isVideo = isVideo, onClose = { navController.popBackStack() })
+                val itemId = backStackEntry.arguments?.getString("itemId") ?: ""
+                val imageUrl = URLDecoder.decode(backStackEntry.arguments?.getString("imageUrl") ?: "", "UTF-8")
+                val description = URLDecoder.decode(backStackEntry.arguments?.getString("description") ?: "", "UTF-8")
+                
+                val favoritesViewModel: FavoritesViewModel = hiltViewModel()
+                
+                SafeWebViewScreen(
+                    url = url, 
+                    title = title, 
+                    isVideo = isVideo, 
+                    itemId = itemId,
+                    imageUrl = imageUrl,
+                    description = description,
+                    favoritesViewModel = favoritesViewModel,
+                    onClose = { navController.popBackStack() }
+                )
             }
         }
     }

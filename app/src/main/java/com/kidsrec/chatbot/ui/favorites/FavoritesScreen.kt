@@ -34,7 +34,7 @@ import java.net.URLEncoder
 @Composable
 fun FavoritesScreen(
     viewModel: FavoritesViewModel,
-    onOpenFavorite: ((url: String, title: String, isVideo: Boolean) -> Unit)? = null
+    onOpenFavorite: (String, String, Boolean, String, String, String) -> Unit
 ) {
     val favorites by viewModel.favorites.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -96,7 +96,6 @@ fun FavoritesScreen(
                                 onRemove = { viewModel.removeFavorite(favorite.itemId) },
                                 onOpen = {
                                     val isVideo = favorite.type == RecommendationType.VIDEO
-                                    // Use stored URL if available, otherwise fallback to search
                                     val url = if (favorite.url.isNotBlank()) {
                                         favorite.url
                                     } else if (isVideo) {
@@ -105,7 +104,14 @@ fun FavoritesScreen(
                                     } else {
                                         "https://archive.org/details/texts?query=${URLEncoder.encode(favorite.title, "UTF-8")}"
                                     }
-                                    onOpenFavorite?.invoke(url, favorite.title, isVideo)
+                                    onOpenFavorite(
+                                        url, 
+                                        favorite.title, 
+                                        isVideo, 
+                                        favorite.itemId, 
+                                        favorite.imageUrl, 
+                                        favorite.description
+                                    )
                                 }
                             )
                         }
@@ -137,7 +143,6 @@ fun FavoriteCard(
                     .fillMaxWidth()
                     .height(150.dp)
             ) {
-                // FIXED: Use AsyncImage to show the REAL book cover
                 if (favorite.imageUrl.isNotEmpty()) {
                     AsyncImage(
                         model = favorite.imageUrl,
@@ -146,7 +151,6 @@ fun FavoriteCard(
                         contentScale = ContentScale.Crop
                     )
                 } else {
-                    // Fallback placeholder
                     Surface(
                         modifier = Modifier.fillMaxSize(),
                         color = if (isVideo)
@@ -168,7 +172,6 @@ fun FavoriteCard(
                     }
                 }
 
-                // Remove Button
                 IconButton(
                     onClick = onRemove,
                     modifier = Modifier

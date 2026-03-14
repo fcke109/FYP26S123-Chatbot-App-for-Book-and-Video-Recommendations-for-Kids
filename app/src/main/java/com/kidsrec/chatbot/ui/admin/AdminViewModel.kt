@@ -162,7 +162,7 @@ class AdminViewModel @Inject constructor(
             _isSearching.value = true
             try {
                 val response = openLibraryService.searchBooks("$query subject:\"Children's fiction\" language:eng")
-                val results = response.docs.mapNotNull { doc ->
+                val results: List<Book> = response.docs.mapNotNull { doc ->
                     val iaId = doc.ia?.firstOrNull() ?: return@mapNotNull null
                     if (doc.cover_i == null) return@mapNotNull null
                     
@@ -189,9 +189,8 @@ class AdminViewModel @Inject constructor(
                             source = "ICDL/Archive", 
                             ageMin = 3, 
                             ageMax = 12, 
-                            isKidSafe = true,
-                            searchScore = finalScore
-                        )
+                            isKidSafe = true
+                        ).apply { searchScore = finalScore }
                     } else null
                 }.sortedByDescending { it.searchScore }
 

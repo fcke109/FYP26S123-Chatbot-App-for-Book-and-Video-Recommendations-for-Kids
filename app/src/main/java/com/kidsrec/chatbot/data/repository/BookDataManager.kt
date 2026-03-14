@@ -16,7 +16,8 @@ class BookDataManager @Inject constructor(
     suspend fun getCuratedBooks(): Result<List<Book>> {
         return try {
             val snapshot = collection.orderBy("id", Query.Direction.ASCENDING).get().await()
-            Result.success(snapshot.toObjects(Book::class.java))
+            val books = snapshot.documents.mapNotNull { it.toObject(Book::class.java)?.copy(id = it.id) }
+            Result.success(books)
         } catch (e: Exception) { Result.failure(e) }
     }
 

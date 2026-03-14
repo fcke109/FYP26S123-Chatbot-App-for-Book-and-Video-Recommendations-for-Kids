@@ -61,8 +61,9 @@ class LibraryViewModel @Inject constructor(
                 .filter { it.canReadOnline() }
                 .take(12)
                 .map { olBook ->
+                    val sanitizedId = olBook.key.removePrefix("/").replace("/", "_")
                     Book(
-                        id = olBook.key,
+                        id = sanitizedId,
                         title = olBook.title,
                         author = olBook.getAuthorString(),
                         description = olBook.subject?.take(3)?.joinToString(", ") ?: "",

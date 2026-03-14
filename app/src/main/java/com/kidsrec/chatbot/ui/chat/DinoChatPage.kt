@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -32,6 +33,7 @@ import com.kidsrec.chatbot.data.model.Conversation
 import com.kidsrec.chatbot.data.model.MessageRole
 import com.kidsrec.chatbot.data.model.Recommendation
 import com.kidsrec.chatbot.data.model.RecommendationType
+import com.kidsrec.chatbot.ui.favorites.FavoritesViewModel
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -40,12 +42,14 @@ import java.util.Locale
 @Composable
 fun DinoChatPage(
     viewModel: ChatViewModel,
-    onAddToFavorites: ((Recommendation) -> Unit)? = null,
-    onOpenRecommendation: ((url: String, title: String, isVideo: Boolean) -> Unit)? = null
+    favoritesViewModel: FavoritesViewModel,
+    onOpenRecommendation: (String, String, Boolean, String, String, String) -> Unit
 ) {
     val messages by viewModel.messages.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val conversations by viewModel.conversations.collectAsState()
+    val favoriteItems by favoritesViewModel.favorites.collectAsState()
+    
     var messageText by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
@@ -59,11 +63,8 @@ fun DinoChatPage(
         }
     }
 
-    // Chat History Bottom Sheet
     if (showHistorySheet) {
-        ModalBottomSheet(
-            onDismissRequest = { showHistorySheet = false }
-        ) {
+        ModalBottomSheet(onDismissRequest = { showHistorySheet = false }) {
             ChatHistorySheet(
                 conversations = conversations,
                 onSelectConversation = { conversationId ->
@@ -79,7 +80,6 @@ fun DinoChatPage(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // Header
         Surface(color = MaterialTheme.colorScheme.primary, modifier = Modifier.fillMaxWidth()) {
             Row(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
@@ -102,7 +102,6 @@ fun DinoChatPage(
             }
         }
 
-        // Chat List
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             if (messages.isEmpty()) {
                 WelcomeView()
@@ -116,7 +115,29 @@ fun DinoChatPage(
                     items(messages) { message ->
                         MessageBubble(
                             message = message,
-                            onAddToFavorites = onAddToFavorites,
+                            favoriteItems = favoriteItems,
+                            onToggleFavorite = { rec ->
+                                val isFav = favoriteItems.any { it.itemId == rec.id }
+                                if (isFav) {
+                                    favoritesViewModel.removeFavorite(rec.id)
+                                } else {
+                                    coroutineScope.launch {
+                                        val resolvedUrl = if (rec.type == RecommendationType.VIDEO) {
+                                            rec.url
+                                        } else {
+                                            viewModel.getBookPreviewUrl(rec.title).ifBlank { rec.url }
+                                        }
+                                        favoritesViewModel.addFavorite(
+                                            itemId = rec.id,
+                                            type = rec.type,
+                                            title = rec.title,
+                                            description = rec.description,
+                                            imageUrl = rec.imageUrl,
+                                            url = resolvedUrl
+                                        )
+                                    }
+                                }
+                            },
                             onOpenRecommendation = onOpenRecommendation,
                             onGetBookPreviewUrl = { title -> viewModel.getBookPreviewUrl(title) }
                         )
@@ -126,7 +147,6 @@ fun DinoChatPage(
             }
         }
 
-        // Input
         Surface(shadowElevation = 8.dp, modifier = Modifier.fillMaxWidth()) {
             Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                 OutlinedTextField(
@@ -174,8 +194,9 @@ fun WelcomeView() {
 @Composable
 fun MessageBubble(
     message: ChatMessage,
-    onAddToFavorites: ((Recommendation) -> Unit)? = null,
-    onOpenRecommendation: ((url: String, title: String, isVideo: Boolean) -> Unit)? = null,
+    favoriteItems: List<com.kidsrec.chatbot.data.model.Favorite>,
+    onToggleFavorite: (Recommendation) -> Unit,
+    onOpenRecommendation: (String, String, Boolean, String, String, String) -> Unit,
     onGetBookPreviewUrl: (suspend (String) -> String)? = null
 ) {
     val isUser = message.role == MessageRole.USER
@@ -196,7 +217,14 @@ fun MessageBubble(
                 contentPadding = PaddingValues(end = 16.dp)
             ) {
                 items(message.recommendations) { recommendation ->
-                    RecommendationCard(recommendation, onAddToFavorites, onOpenRecommendation, onGetBookPreviewUrl)
+                    val isFavorited = favoriteItems.any { it.itemId == recommendation.id }
+                    RecommendationCard(
+                        recommendation = recommendation, 
+                        isFavorited = isFavorited,
+                        onToggleFavorite = { onToggleFavorite(recommendation) }, 
+                        onOpenRecommendation = onOpenRecommendation, 
+                        onGetBookPreviewUrl = onGetBookPreviewUrl
+                    )
                 }
             }
         }
@@ -206,8 +234,9 @@ fun MessageBubble(
 @Composable
 fun RecommendationCard(
     recommendation: Recommendation,
-    onAddToFavorites: ((Recommendation) -> Unit)? = null,
-    onOpenRecommendation: ((url: String, title: String, isVideo: Boolean) -> Unit)? = null,
+    isFavorited: Boolean,
+    onToggleFavorite: () -> Unit,
+    onOpenRecommendation: (String, String, Boolean, String, String, String) -> Unit,
     onGetBookPreviewUrl: (suspend (String) -> String)? = null
 ) {
     val coroutineScope = rememberCoroutineScope()
@@ -218,14 +247,21 @@ fun RecommendationCard(
             .width(220.dp)
             .clickable {
                 coroutineScope.launch {
-                    val url = if (recommendation.url.isNotBlank()) {
+                    val finalUrl = if (isVideo) {
                         recommendation.url
-                    } else if (isVideo) {
-                        "https://www.youtube.com/results?search_query=${java.net.URLEncoder.encode(recommendation.title, "UTF-8")}+kids"
                     } else {
-                        onGetBookPreviewUrl?.invoke(recommendation.title) ?: ""
+                        onGetBookPreviewUrl?.invoke(recommendation.title) ?: recommendation.url
                     }
-                    onOpenRecommendation?.invoke(url, recommendation.title, isVideo)
+                    if (finalUrl.isNotBlank()) {
+                        onOpenRecommendation(
+                            finalUrl, 
+                            recommendation.title, 
+                            isVideo,
+                            recommendation.id,
+                            recommendation.imageUrl,
+                            recommendation.description
+                        )
+                    }
                 }
             },
         shape = RoundedCornerShape(16.dp),
@@ -242,9 +278,7 @@ fun RecommendationCard(
                     )
                 } else {
                     Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(if (isVideo) Color(0xFFFFE5E5) else Color(0xFFE5F0FF)),
+                        modifier = Modifier.fillMaxSize().background(if (isVideo) Color(0xFFFFE5E5) else Color(0xFFE5F0FF)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
@@ -256,7 +290,6 @@ fun RecommendationCard(
                     }
                 }
                 
-                // Type Badge
                 Surface(
                     modifier = Modifier.padding(8.dp).align(Alignment.TopStart),
                     color = if (isVideo) Color.Red else MaterialTheme.colorScheme.primary,
@@ -271,7 +304,6 @@ fun RecommendationCard(
                     )
                 }
 
-                // ANN Match Score Badge
                 if (recommendation.relevanceScore > 0) {
                     Surface(
                         modifier = Modifier.padding(8.dp).align(Alignment.TopEnd),
@@ -309,14 +341,7 @@ fun RecommendationCard(
 
                 if (recommendation.reason.isNotBlank()) {
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = recommendation.reason,
-                        fontSize = 10.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Medium
-                    )
+                    Text(text = recommendation.reason, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium)
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -329,34 +354,48 @@ fun RecommendationCard(
                     TextButton(
                         onClick = {
                             coroutineScope.launch {
-                                val url = if (recommendation.url.isNotBlank()) {
+                                val finalUrl = if (isVideo) {
                                     recommendation.url
-                                } else if (isVideo) {
-                                    "https://www.youtube.com/results?search_query=${java.net.URLEncoder.encode(recommendation.title, "UTF-8")}+kids"
                                 } else {
-                                    onGetBookPreviewUrl?.invoke(recommendation.title) ?: ""
+                                    onGetBookPreviewUrl?.invoke(recommendation.title) ?: recommendation.url
                                 }
-                                onOpenRecommendation?.invoke(url, recommendation.title, isVideo)
+                                if (finalUrl.isNotBlank()) {
+                                    onOpenRecommendation(
+                                        finalUrl, 
+                                        recommendation.title, 
+                                        isVideo,
+                                        recommendation.id,
+                                        recommendation.imageUrl,
+                                        recommendation.description
+                                    )
+                                }
                             }
                         },
                         contentPadding = PaddingValues(0.dp)
                     ) {
-                        Icon(if (isVideo) Icons.Default.PlayArrow else Icons.Default.MenuBook, null, modifier = Modifier.size(16.dp))
+                        Icon(if (isVideo) Icons.Default.PlayArrow else Icons.AutoMirrored.Filled.MenuBook, null, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(4.dp))
                         Text(if (isVideo) "Watch" else "Read", fontSize = 12.sp)
                     }
                     
                     IconButton(
-                        onClick = { onAddToFavorites?.invoke(recommendation) },
+                        onClick = { onToggleFavorite(recommendation) },
                         modifier = Modifier.size(32.dp)
                     ) {
-                        Icon(Icons.Default.FavoriteBorder, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+                        Icon(
+                            imageVector = if (isFavorited) Icons.Default.Favorite else Icons.Default.FavoriteBorder, 
+                            contentDescription = "Toggle Favorite", 
+                            modifier = Modifier.size(20.dp), 
+                            tint = if (isFavorited) Color.Red else MaterialTheme.colorScheme.primary
+                        )
                     }
                 }
             }
         }
     }
 }
+
+private fun RowScope.onToggleFavorite(recommendation: Recommendation) {}
 
 @Composable
 fun TypingIndicator() {
@@ -374,22 +413,14 @@ fun ChatHistorySheet(
     val dateFormat = remember { SimpleDateFormat("MMM d, h:mm a", Locale.getDefault()) }
 
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .padding(bottom = 32.dp)
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 32.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "Chat History",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
+            Text(text = "Chat History", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
             FilledTonalButton(onClick = onNewChat) {
                 Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(4.dp))
@@ -400,54 +431,24 @@ fun ChatHistorySheet(
         Spacer(modifier = Modifier.height(12.dp))
 
         if (conversations.isEmpty()) {
-            Box(
-                modifier = Modifier.fillMaxWidth().padding(32.dp),
-                contentAlignment = Alignment.Center
-            ) {
+            Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
                 Text("No past conversations yet!", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         } else {
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.heightIn(max = 400.dp)
-            ) {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.heightIn(max = 400.dp)) {
                 items(conversations) { conversation ->
                     Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onSelectConversation(conversation.id) },
+                        modifier = Modifier.fillMaxWidth().clickable { onSelectConversation(conversation.id) },
                         shape = RoundedCornerShape(12.dp)
                     ) {
-                        Row(
-                            modifier = Modifier.padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                Icons.Default.ChatBubbleOutline,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(24.dp)
-                            )
+                        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.ChatBubbleOutline, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
                             Spacer(modifier = Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = conversation.preview.ifBlank { "Empty conversation" },
-                                    fontWeight = FontWeight.Medium,
-                                    fontSize = 14.sp,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Text(
-                                    text = dateFormat.format(conversation.lastUpdated.toDate()),
-                                    fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                                Text(text = conversation.preview.ifBlank { "Empty conversation" }, fontWeight = FontWeight.Medium, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(text = dateFormat.format(conversation.lastUpdated.toDate()), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
-                            Icon(
-                                Icons.Default.ChevronRight,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
