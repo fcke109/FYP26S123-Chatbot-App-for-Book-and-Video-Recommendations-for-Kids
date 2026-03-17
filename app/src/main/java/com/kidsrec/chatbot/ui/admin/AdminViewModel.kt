@@ -48,110 +48,9 @@ class AdminViewModel @Inject constructor(
 
     private fun loadCuratedBooks() {
         viewModelScope.launch {
-            try {
-                firestore.collection("content_books")
-                    .addSnapshotListener { snapshot, error ->
-                        if (error != null) return@addSnapshotListener
-                        if (snapshot != null) {
-                            _curatedBooks.value = snapshot.toObjects(Book::class.java).sortedBy { it.id }
-                        }
-                    }
-            } catch (e: Exception) {
-                Log.e("AdminVM", "Load failed", e)
-            }
-        }
-    }
-
-    fun seedOfficialLibrary() {
-        viewModelScope.launch {
-            val stories = listOf(
-                Book(
-                    id = "001", 
-                    title = "The Tale of Peter Rabbit", 
-                    author = "Beatrix Potter", 
-                    ageMin = 3, 
-                    ageMax = 8, 
-                    category = "Animals", 
-                    source = "ICDL", 
-                    language = "English", 
-                    description = "Fun rabbit stories.", 
-                    tags = listOf("rabbit", "nature"), 
-                    isKidSafe = true, 
-                    difficulty = "easy", 
-                    bookUrl = "https://archive.org/embed/taleofpeterrabbi00pott", 
-                    readerUrl = "https://archive.org/embed/taleofpeterrabbi00pott",
-                    coverUrl = "https://archive.org/services/img/taleofpeterrabbi00pott"
-                ),
-                Book(
-                    id = "002", 
-                    title = "Alice in Wonderland", 
-                    author = "Lewis Carroll", 
-                    ageMin = 6, 
-                    ageMax = 12, 
-                    category = "Fantasy", 
-                    source = "ICDL", 
-                    language = "English", 
-                    description = "Magical adventure.", 
-                    tags = listOf("magic", "adventure"), 
-                    isKidSafe = true, 
-                    difficulty = "medium", 
-                    bookUrl = "https://archive.org/embed/alicesadventures00carr_0", 
-                    readerUrl = "https://archive.org/embed/alicesadventures00carr_0",
-                    coverUrl = "https://archive.org/services/img/alicesadventures00carr_0"
-                ),
-                Book(
-                    id = "003", 
-                    title = "Cinderella", 
-                    author = "Charles Perrault", 
-                    ageMin = 3, 
-                    ageMax = 10, 
-                    category = "Fairy Tales", 
-                    source = "ICDL", 
-                    language = "English", 
-                    description = "Classic magic story.", 
-                    tags = listOf("magic", "princess"), 
-                    isKidSafe = true, 
-                    difficulty = "easy", 
-                    bookUrl = "https://archive.org/embed/cinderellaorfair00perr", 
-                    readerUrl = "https://archive.org/embed/cinderellaorfair00perr",
-                    coverUrl = "https://archive.org/services/img/cinderellaorfair00perr"
-                ),
-                Book(
-                    id = "004", 
-                    title = "The Jungle Book", 
-                    author = "Rudyard Kipling", 
-                    ageMin = 7, 
-                    ageMax = 13, 
-                    category = "Adventure", 
-                    source = "ICDL", 
-                    language = "English", 
-                    description = "Mowgli in the wild.", 
-                    tags = listOf("animals", "jungle"), 
-                    isKidSafe = true, 
-                    difficulty = "medium", 
-                    bookUrl = "https://archive.org/embed/junglebook00kipl", 
-                    readerUrl = "https://archive.org/embed/junglebook00kipl",
-                    coverUrl = "https://archive.org/services/img/junglebook00kipl"
-                ),
-                Book(
-                    id = "005", 
-                    title = "Pinocchio", 
-                    author = "Carlo Collodi", 
-                    ageMin = 5, 
-                    ageMax = 11, 
-                    category = "Adventure", 
-                    source = "ICDL", 
-                    language = "English", 
-                    description = "The wooden puppet.", 
-                    tags = listOf("magic", "puppet"), 
-                    isKidSafe = true, 
-                    difficulty = "medium", 
-                    bookUrl = "https://archive.org/embed/theadventuresofp00coll", 
-                    readerUrl = "https://archive.org/embed/theadventuresofp00coll",
-                    coverUrl = "https://archive.org/services/img/theadventuresofp00coll"
-                )
-            )
-            stories.forEach { bookDataManager.addBook(it) }
+            bookDataManager.getCuratedBooksFlow()
+                .catch { e -> Log.e("AdminVM", "Load failed", e) }
+                .collect { books -> _curatedBooks.value = books }
         }
     }
 
@@ -205,9 +104,26 @@ class AdminViewModel @Inject constructor(
 
     fun addBookToLibrary(book: Book) {
         viewModelScope.launch { 
-            val nextNum = _curatedBooks.value.size + 1
-            val formattedId = String.format("%03d", nextNum)
-            bookDataManager.addBook(book.copy(id = formattedId))
+            // The DataManager will now automatically pick the next sequential ID
+            bookDataManager.addBook(book.copy(id = "")) 
+        }
+    }
+
+    /**
+     * Re-assigns numeric IDs to all books in the library to clean them up.
+     */
+    fun cleanLibraryIds() {
+        viewModelScope.launch {
+            val currentBooks = _curatedBooks.value.toList()
+            currentBooks.forEachIndexed { index, book ->
+                val newId = String.format("%03d", index + 1)
+                if (book.id != newId) {
+                    // Delete the old record
+                    bookDataManager.deleteBook(book.id)
+                    // Save it with the new numeric ID
+                    bookDataManager.addBook(book.copy(id = newId))
+                }
+            }
         }
     }
 

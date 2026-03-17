@@ -379,7 +379,7 @@ fun RecommendationCard(
                     }
                     
                     IconButton(
-                        onClick = { onToggleFavorite(recommendation) },
+                        onClick = onToggleFavorite,
                         modifier = Modifier.size(32.dp)
                     ) {
                         Icon(
@@ -394,8 +394,6 @@ fun RecommendationCard(
         }
     }
 }
-
-private fun RowScope.onToggleFavorite(recommendation: Recommendation) {}
 
 @Composable
 fun TypingIndicator() {

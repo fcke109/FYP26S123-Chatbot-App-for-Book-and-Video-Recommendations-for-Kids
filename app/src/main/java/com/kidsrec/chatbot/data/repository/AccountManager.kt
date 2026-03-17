@@ -1,5 +1,6 @@
 package com.kidsrec.chatbot.data.repository
 
+import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.firestore.FirebaseFirestore
@@ -84,7 +85,8 @@ class AccountManager @Inject constructor(
             .document(userId)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    close(error)
+                    Log.e("AccountManager", "Error fetching user flow: ${error.message}")
+                    trySend(null)
                     return@addSnapshotListener
                 }
                 val user = snapshot?.toObject(User::class.java)
@@ -98,7 +100,8 @@ class AccountManager @Inject constructor(
         val listener = firestore.collection("users")
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    close(error)
+                    Log.e("AccountManager", "Error fetching all users flow: ${error.message}")
+                    trySend(emptyList())
                     return@addSnapshotListener
                 }
                 val users = snapshot?.toObjects(User::class.java) ?: emptyList()

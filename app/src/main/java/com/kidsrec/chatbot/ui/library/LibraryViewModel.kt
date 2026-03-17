@@ -1,5 +1,6 @@
 package com.kidsrec.chatbot.ui.library
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kidsrec.chatbot.data.model.Book
@@ -13,6 +14,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -35,27 +38,40 @@ class LibraryViewModel @Inject constructor(
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
     init {
-        loadBooks()
+        observeBooks()
     }
 
-    private fun loadBooks() {
+    private fun observeBooks() {
         viewModelScope.launch {
             _isLoading.value = true
-            try {
-                val books = bookDataManager.getCuratedBooks().getOrDefault(emptyList())
-                if (books.isNotEmpty()) {
-                    _curatedBooks.value = books
-                    loadTopPicks(books)
-                } else {
-                    loadFromOpenLibrary()
+            Log.d("LibraryVM", "Starting to observe Curated Books...")
+            
+            bookDataManager.getCuratedBooksFlow()
+                .catch { e ->
+                    Log.e("LibraryVM", "FATAL Error observing books: ${e.message}")
+                    loadFromOpenLibrary() // Fallback on hard failure
                 }
-            } catch (_: Exception) { }
-            _isLoading.value = false
+                .collectLatest { books ->
+                    Log.d("LibraryVM", "Received ${books.size} books from Firestore")
+                    
+                    if (books.isNotEmpty()) {
+                        // We found admin books! Show them.
+                        _curatedBooks.value = books
+                        loadTopPicks(books)
+                        _isLoading.value = false
+                    } else {
+                        // Library is empty or blocked by rules.
+                        Log.w("LibraryVM", "Curated library is empty. Checking OpenLibrary fallback...")
+                        loadFromOpenLibrary()
+                        _isLoading.value = false
+                    }
+                }
         }
     }
 
     private suspend fun loadFromOpenLibrary() {
         try {
+            Log.d("LibraryVM", "Fetching fallback books from OpenLibrary...")
             val response = openLibraryService.searchBooks("children picture books", limit = 20)
             val books = response.docs
                 .filter { it.canReadOnline() }
@@ -76,9 +92,15 @@ class LibraryViewModel @Inject constructor(
                         difficulty = "easy"
                     )
                 }
-            _curatedBooks.value = books
-            loadTopPicks(books)
-        } catch (_: Exception) { }
+            
+            // Only update if we don't have curated books already
+            if (_curatedBooks.value.isEmpty()) {
+                _curatedBooks.value = books
+                loadTopPicks(books)
+            }
+        } catch (e: Exception) {
+            Log.e("LibraryVM", "Failed to load from OpenLibrary: ${e.message}")
+        }
     }
 
     private suspend fun loadTopPicks(books: List<Book>) {
@@ -88,6 +110,8 @@ class LibraryViewModel @Inject constructor(
             val favorites = favoritesManager.getFavorites(userId)
             val picks = recommendationEngine.getTopRecommendations(books, user, favorites, limit = 4)
             _topPicks.value = picks
-        } catch (_: Exception) { }
+        } catch (e: Exception) {
+            Log.e("LibraryVM", "Failed to load top picks: ${e.message}")
+        }
     }
 }

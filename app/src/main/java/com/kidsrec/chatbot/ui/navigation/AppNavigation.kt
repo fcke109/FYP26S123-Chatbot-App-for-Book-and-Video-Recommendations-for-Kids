@@ -9,8 +9,18 @@ import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Shield
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -27,9 +37,12 @@ import androidx.navigation.navArgument
 import com.kidsrec.chatbot.data.model.PlanType
 import com.kidsrec.chatbot.ui.admin.AdminScreen
 import com.kidsrec.chatbot.ui.admin.AdminViewModel
-import com.kidsrec.chatbot.ui.auth.*
-import com.kidsrec.chatbot.ui.chat.DinoChatPage
+import com.kidsrec.chatbot.ui.auth.AuthState
+import com.kidsrec.chatbot.ui.auth.AuthViewModel
+import com.kidsrec.chatbot.ui.auth.LoginScreen
+import com.kidsrec.chatbot.ui.auth.RegisterScreen
 import com.kidsrec.chatbot.ui.chat.ChatViewModel
+import com.kidsrec.chatbot.ui.chat.DinoChatPage
 import com.kidsrec.chatbot.ui.favorites.FavoritesScreen
 import com.kidsrec.chatbot.ui.favorites.FavoritesViewModel
 import com.kidsrec.chatbot.ui.library.LibraryViewModel
@@ -38,19 +51,82 @@ import com.kidsrec.chatbot.ui.profile.ProfileScreen
 import com.kidsrec.chatbot.ui.profile.ProfileViewModel
 import com.kidsrec.chatbot.ui.reader.BookReaderScreen
 import com.kidsrec.chatbot.ui.webview.SafeWebViewScreen
-import java.net.URLDecoder
 import java.net.URLEncoder
+import java.util.regex.Pattern
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector? = null) {
     object Login : Screen("login", "Login")
     object Register : Screen("register", "Register")
     object Chat : Screen("chat", "Chat", Icons.Default.Chat)
-    object Library : Screen("library", "Library", Icons.AutoMirrored.Filled.MenuBook) 
+    object Library : Screen("library", "Library", Icons.AutoMirrored.Filled.MenuBook)
     object Favorites : Screen("favorites", "Favorites", Icons.Default.Favorite)
     object Profile : Screen("profile", "Profile", Icons.Default.Person)
     object Admin : Screen("admin", "Admin", Icons.Default.Shield)
     object Reader : Screen("reader/{url}", "Reader")
-    object SafeWebView : Screen("webview/{url}/{title}/{isVideo}/{itemId}/{imageUrl}/{description}", "WebView")
+    object SafeWebView : Screen(
+        "webview?url={url}&title={title}&isVideo={isVideo}&itemId={itemId}&imageUrl={imageUrl}&description={description}",
+        "WebView"
+    )
+}
+
+// --- HELPER FUNCTIONS ---
+
+private fun normalizeContentUrl(url: String): String {
+    return url.trim().replace("http://", "https://")
+}
+
+private fun isKnownBookUrl(url: String): Boolean {
+    val lower = url.trim().lowercase()
+    return lower.contains("archive.org") ||
+            lower.contains("openlibrary.org") ||
+            lower.contains("storyweaver.org") ||
+            lower.contains("storyweaver.org.in") ||
+            lower.contains("childrenslibrary.org") ||
+            lower.contains("icdlbooks.org") ||
+            lower.contains("books.google.")
+}
+
+private fun extractYoutubeId(url: String): String? {
+    if (url.isBlank()) return null
+    val regexList = listOf(
+        Regex("""v=([a-zA-Z0-9_-]{11})"""),
+        Regex("""youtu\.be/([a-zA-Z0-9_-]{11})"""),
+        Regex("""embed/([a-zA-Z0-9_-]{11})"""),
+        Regex("""shorts/([a-zA-Z0-9_-]{11})"""),
+        Regex("""youtubekids\.com/watch\?v=([a-zA-Z0-9_-]{11})"""),
+        Regex("""youtubekids\.com/embed/([a-zA-Z0-9_-]{11})""")
+    )
+    for (regex in regexList) {
+        val match = regex.find(url)
+        if (match != null) return match.groupValues[1]
+    }
+    return null
+}
+
+private fun buildSafeWebViewRoute(
+    url: String,
+    title: String,
+    isVideo: Boolean,
+    itemId: String,
+    imageUrl: String,
+    description: String
+): String {
+    val cleanUrl = normalizeContentUrl(url)
+    
+    // Strict Decision Logic
+    val finalIsVideo = when {
+        isKnownBookUrl(cleanUrl) -> false
+        extractYoutubeId(cleanUrl) != null -> true
+        else -> false
+    }
+
+    val encodedUrl = URLEncoder.encode(cleanUrl, "UTF-8")
+    val encodedTitle = URLEncoder.encode(title, "UTF-8")
+    val encodedImg = URLEncoder.encode(if (imageUrl.isBlank()) "none" else imageUrl, "UTF-8")
+    val encodedDesc = URLEncoder.encode(if (description.isBlank()) "none" else description, "UTF-8")
+    val encodedItemId = URLEncoder.encode(itemId, "UTF-8")
+
+    return "webview?url=$encodedUrl&title=$encodedTitle&isVideo=$finalIsVideo&itemId=$encodedItemId&imageUrl=$encodedImg&description=$encodedDesc"
 }
 
 @Composable
@@ -61,25 +137,19 @@ fun AppNavigation() {
 
     val isAdmin by remember(currentUser, authState) {
         derivedStateOf {
-            val firebaseEmail = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.email?.lowercase()
-            firebaseEmail == "admin@littledino.com" || 
-            currentUser?.email?.lowercase() == "admin@littledino.com" ||
-            currentUser?.planType == PlanType.ADMIN
+            val firebaseEmail =
+                com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.email?.lowercase()
+
+            firebaseEmail == "admin@littledino.com" ||
+                    currentUser?.email?.lowercase() == "admin@littledino.com" ||
+                    currentUser?.planType == PlanType.ADMIN
         }
     }
 
     when (authState) {
-        is AuthState.Authenticated -> {
-            MainScreen(authViewModel, isAdmin)
-        }
-        is AuthState.Initial -> {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
-        }
-        else -> {
-            AuthNavigation(authViewModel)
-        }
+        is AuthState.Authenticated -> MainScreen(authViewModel, isAdmin)
+        is AuthState.Initial -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+        else -> AuthNavigation(authViewModel)
     }
 }
 
@@ -88,19 +158,10 @@ fun AuthNavigation(authViewModel: AuthViewModel) {
     val navController = rememberNavController()
     NavHost(navController = navController, startDestination = Screen.Login.route) {
         composable(Screen.Login.route) {
-            LoginScreen(
-                onLoginSuccess = {},
-                onAdminLogin = {}, 
-                onNavigateToRegister = { navController.navigate(Screen.Register.route) },
-                viewModel = authViewModel
-            )
+            LoginScreen(onLoginSuccess = {}, onAdminLogin = {}, onNavigateToRegister = { navController.navigate(Screen.Register.route) }, viewModel = authViewModel)
         }
         composable(Screen.Register.route) {
-            RegisterScreen(
-                onRegisterSuccess = {},
-                onNavigateToLogin = { navController.navigate(Screen.Login.route) },
-                viewModel = authViewModel
-            )
+            RegisterScreen(onRegisterSuccess = {}, onNavigateToLogin = { navController.navigate(Screen.Login.route) }, viewModel = authViewModel)
         }
     }
 }
@@ -118,7 +179,10 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean) {
 
     Scaffold(
         bottomBar = {
-            if (bottomNavItems.isNotEmpty() && currentDestination?.route?.startsWith("webview") == false && currentDestination?.route in bottomNavItems.map { it.route }) {
+            if (bottomNavItems.isNotEmpty() &&
+                currentDestination?.route?.startsWith("webview") == false &&
+                currentDestination?.route in bottomNavItems.map { it.route }
+            ) {
                 NavigationBar {
                     bottomNavItems.forEach { screen ->
                         NavigationBarItem(
@@ -138,110 +202,65 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean) {
             }
         }
     ) { innerPadding ->
-        NavHost(
-            navController = navController,
-            startDestination = startRoute,
-            modifier = Modifier.padding(innerPadding)
-        ) {
+        NavHost(navController = navController, startDestination = startRoute, modifier = Modifier.padding(innerPadding)) {
+            
             composable(Screen.Chat.route) {
                 val chatViewModel: ChatViewModel = hiltViewModel()
                 val favoritesViewModel: FavoritesViewModel = hiltViewModel()
-                DinoChatPage(
-                    viewModel = chatViewModel,
-                    favoritesViewModel = favoritesViewModel,
-                    onOpenRecommendation = { url: String, title: String, isVideo: Boolean, itemId: String, imageUrl: String, description: String ->
-                        profileViewModel.trackReading(title, url, isVideo = isVideo)
-                        val encodedUrl = URLEncoder.encode(url, "UTF-8")
-                        val encodedTitle = URLEncoder.encode(title, "UTF-8")
-                        val encodedImg = URLEncoder.encode(if (imageUrl.isBlank()) "none" else imageUrl, "UTF-8")
-                        val encodedDesc = URLEncoder.encode(if (description.isBlank()) "none" else description, "UTF-8")
-                        navController.navigate("webview/$encodedUrl/$encodedTitle/$isVideo/$itemId/$encodedImg/$encodedDesc")
-                    }
-                )
+                DinoChatPage(viewModel = chatViewModel, favoritesViewModel = favoritesViewModel, onOpenRecommendation = { url, title, isVideo, itemId, imageUrl, description ->
+                    profileViewModel.trackReading(title, url, isVideo = isVideo)
+                    navController.navigate(buildSafeWebViewRoute(url, title, isVideo, itemId, imageUrl, description))
+                })
             }
+
             composable(Screen.Library.route) {
                 val libraryViewModel: LibraryViewModel = hiltViewModel()
                 val favoritesViewModel: FavoritesViewModel = hiltViewModel()
-                UserLibraryScreen(
-                    viewModel = libraryViewModel,
-                    favoritesViewModel = favoritesViewModel,
-                    onOpenRecommendation = { url: String, title: String, isVideo: Boolean, itemId: String, imageUrl: String, description: String ->
-                        profileViewModel.trackReading(title, url, isVideo = isVideo)
-                        val encodedUrl = URLEncoder.encode(url, "UTF-8")
-                        val encodedTitle = URLEncoder.encode(title, "UTF-8")
-                        val encodedImg = URLEncoder.encode(if (imageUrl.isBlank()) "none" else imageUrl, "UTF-8")
-                        val encodedDesc = URLEncoder.encode(if (description.isBlank()) "none" else description, "UTF-8")
-                        navController.navigate("webview/$encodedUrl/$encodedTitle/$isVideo/$itemId/$encodedImg/$encodedDesc")
-                    }
-                )
+                UserLibraryScreen(viewModel = libraryViewModel, favoritesViewModel = favoritesViewModel, onOpenRecommendation = { url, title, isVideo, itemId, imageUrl, description ->
+                    profileViewModel.trackReading(title, url, isVideo = isVideo)
+                    navController.navigate(buildSafeWebViewRoute(url, title, isVideo, itemId, imageUrl, description))
+                })
             }
+
             composable(Screen.Favorites.route) {
                 val favoritesViewModel: FavoritesViewModel = hiltViewModel()
-                FavoritesScreen(
-                    viewModel = favoritesViewModel,
-                    onOpenFavorite = { url: String, title: String, isVideo: Boolean, itemId: String, imageUrl: String, description: String ->
-                        profileViewModel.trackReading(title, url, isVideo = isVideo)
-                        val encodedUrl = URLEncoder.encode(url, "UTF-8")
-                        val encodedTitle = URLEncoder.encode(title, "UTF-8")
-                        val encodedImg = URLEncoder.encode(if (imageUrl.isBlank()) "none" else imageUrl, "UTF-8")
-                        val encodedDesc = URLEncoder.encode(if (description.isBlank()) "none" else description, "UTF-8")
-                        navController.navigate("webview/$encodedUrl/$encodedTitle/$isVideo/$itemId/$encodedImg/$encodedDesc")
-                    }
-                )
+                FavoritesScreen(viewModel = favoritesViewModel, onOpenFavorite = { url, title, isVideo, itemId, imageUrl, description ->
+                    profileViewModel.trackReading(title, url, isVideo = isVideo)
+                    navController.navigate(buildSafeWebViewRoute(url, title, isVideo, itemId, imageUrl, description))
+                })
             }
-            composable(Screen.Profile.route) {
-                ProfileScreen(authViewModel = authViewModel, profileViewModel = profileViewModel)
-            }
+
+            composable(Screen.Profile.route) { ProfileScreen(hiltViewModel(), profileViewModel) }
+
             composable(Screen.Admin.route) {
                 val adminViewModel: AdminViewModel = hiltViewModel()
-                AdminScreen(
-                    viewModel = adminViewModel,
-                    onLogout = { authViewModel.signOut() },
-                    onViewBook = { title, url, isVideo ->
-                        val encodedUrl = URLEncoder.encode(url, "UTF-8")
-                        val encodedTitle = URLEncoder.encode(title, "UTF-8")
-                        // Admin doesn't need all these for now, or use defaults
-                        navController.navigate("webview/$encodedUrl/$encodedTitle/$isVideo/admin/none/none")
-                    }
-                )
+                AdminScreen(viewModel = adminViewModel, onLogout = { authViewModel.signOut() }, onViewBook = { title, url, isVideo ->
+                    navController.navigate(buildSafeWebViewRoute(url, title, isVideo, "admin", "none", "none"))
+                })
             }
-            composable(
-                route = Screen.Reader.route,
-                arguments = listOf(navArgument("url") { type = NavType.StringType })
-            ) { backStackEntry ->
-                val url = URLDecoder.decode(backStackEntry.arguments?.getString("url") ?: "", "UTF-8")
-                BookReaderScreen(url = url, onBack = { navController.popBackStack() })
-            }
-            composable(
-                route = Screen.SafeWebView.route,
-                arguments = listOf(
-                    navArgument("url") { type = NavType.StringType },
-                    navArgument("title") { type = NavType.StringType },
-                    navArgument("isVideo") { type = NavType.BoolType },
-                    navArgument("itemId") { type = NavType.StringType },
-                    navArgument("imageUrl") { type = NavType.StringType },
-                    navArgument("description") { type = NavType.StringType }
-                )
-            ) { backStackEntry ->
-                val url = URLDecoder.decode(backStackEntry.arguments?.getString("url") ?: "", "UTF-8")
-                val title = URLDecoder.decode(backStackEntry.arguments?.getString("title") ?: "", "UTF-8")
-                val isVideo = backStackEntry.arguments?.getBoolean("isVideo") ?: false
-                val itemId = backStackEntry.arguments?.getString("itemId") ?: ""
-                val imageUrl = URLDecoder.decode(backStackEntry.arguments?.getString("imageUrl") ?: "", "UTF-8")
-                val description = URLDecoder.decode(backStackEntry.arguments?.getString("description") ?: "", "UTF-8")
-                
-                val favoritesViewModel: FavoritesViewModel = hiltViewModel()
-                
+
+            composable(Screen.SafeWebView.route, arguments = listOf(
+                navArgument("url") { type = NavType.StringType; defaultValue = "" },
+                navArgument("title") { type = NavType.StringType; defaultValue = "" },
+                navArgument("isVideo") { type = NavType.BoolType; defaultValue = false },
+                navArgument("itemId") { type = NavType.StringType; defaultValue = "" },
+                navArgument("imageUrl") { type = NavType.StringType; defaultValue = "" },
+                navArgument("description") { type = NavType.StringType; defaultValue = "" }
+            )) { bse ->
                 SafeWebViewScreen(
-                    url = url, 
-                    title = title, 
-                    isVideo = isVideo, 
-                    itemId = itemId,
-                    imageUrl = imageUrl,
-                    description = description,
-                    favoritesViewModel = favoritesViewModel,
+                    url = bse.arguments?.getString("url") ?: "",
+                    title = bse.arguments?.getString("title") ?: "",
+                    isVideo = bse.arguments?.getBoolean("isVideo") ?: false,
+                    itemId = bse.arguments?.getString("itemId") ?: "",
+                    imageUrl = bse.arguments?.getString("imageUrl") ?: "",
+                    description = bse.arguments?.getString("description") ?: "",
+                    favoritesViewModel = hiltViewModel(),
                     onClose = { navController.popBackStack() }
                 )
+            }
+
+            composable(Screen.Reader.route, arguments = listOf(navArgument("url") { type = NavType.StringType })) { bse ->
+                BookReaderScreen(url = bse.arguments?.getString("url") ?: "", onBack = { navController.popBackStack() })
             }
         }
     }

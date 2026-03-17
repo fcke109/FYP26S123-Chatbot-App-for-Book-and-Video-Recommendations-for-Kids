@@ -178,26 +178,13 @@ fun BookLibraryTab(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text("Curated Library (${books.size})", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            
-            Button(
-                onClick = { 
-                    viewModel.seedOfficialLibrary()
-                    scope.launch { snackbarHostState.showSnackbar("Seeding starter stories...") }
-                },
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Icon(Icons.Default.AutoFixHigh, null, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(4.dp))
-                Text("Seed Starter", fontSize = 12.sp)
-            }
         }
         
         Spacer(modifier = Modifier.height(12.dp))
 
         if (books.isEmpty()) {
             Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                Text("No books added. Use 'Add Books' or 'Seed' to start.", color = Color.Gray)
+                Text("No books added. Use 'Add Books' to start.", color = Color.Gray)
             }
         } else {
             LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
