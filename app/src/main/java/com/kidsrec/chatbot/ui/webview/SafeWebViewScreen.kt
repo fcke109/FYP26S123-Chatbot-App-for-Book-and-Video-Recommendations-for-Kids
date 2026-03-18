@@ -58,22 +58,24 @@ fun SafeWebViewScreen(
         try {
             Log.d("KidsRecWebView", "Opening video externally: $url")
 
-            val youtubeIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+            val uri = Uri.parse(url)
+
+            val genericIntent = Intent(Intent.ACTION_VIEW, uri).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+
+            val youtubeIntent = Intent(Intent.ACTION_VIEW, uri).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 setPackage("com.google.android.youtube")
             }
 
-            val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-
             val launched = when {
-                youtubeIntent.resolveActivity(context.packageManager) != null -> {
-                    context.startActivity(youtubeIntent)
+                genericIntent.resolveActivity(context.packageManager) != null -> {
+                    context.startActivity(genericIntent)
                     true
                 }
-                browserIntent.resolveActivity(context.packageManager) != null -> {
-                    context.startActivity(browserIntent)
+                youtubeIntent.resolveActivity(context.packageManager) != null -> {
+                    context.startActivity(youtubeIntent)
                     true
                 }
                 else -> false
@@ -85,9 +87,6 @@ fun SafeWebViewScreen(
                 launchFailed = true
                 Log.e("KidsRecWebView", "No app found to open video URL")
             }
-        } catch (e: ActivityNotFoundException) {
-            launchFailed = true
-            Log.e("KidsRecWebView", "No activity found for video URL", e)
         } catch (e: Exception) {
             launchFailed = true
             Log.e("KidsRecWebView", "Failed to open video externally", e)
@@ -101,22 +100,29 @@ fun SafeWebViewScreen(
                 .background(MaterialTheme.colorScheme.background),
             contentAlignment = Alignment.Center
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                if (launchFailed) {
+            if (launchFailed) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
                         text = "Could not open video.",
                         style = MaterialTheme.typography.titleMedium
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = decodedTitle,
+                        text = "Try opening this link in a browser:",
                         color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = url,
+                        color = MaterialTheme.colorScheme.primary
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Button(onClick = onClose) {
                         Text("Go Back")
                     }
-                } else {
+                }
+            } else {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
