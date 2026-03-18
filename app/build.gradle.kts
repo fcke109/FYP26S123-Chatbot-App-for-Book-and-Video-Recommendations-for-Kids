@@ -32,8 +32,9 @@ android {
             useSupportLibrary = true
         }
 
-        // Read API key from local.properties
+        // Read API keys from local.properties
         buildConfigField("String", "OPENAI_API_KEY", "\"${localProperties.getProperty("OPENAI_API_KEY", "")}\"")
+        buildConfigField("String", "YOUTUBE_API_KEY", "\"${localProperties.getProperty("YOUTUBE_API_KEY", "")}\"")
     }
 
     buildTypes {

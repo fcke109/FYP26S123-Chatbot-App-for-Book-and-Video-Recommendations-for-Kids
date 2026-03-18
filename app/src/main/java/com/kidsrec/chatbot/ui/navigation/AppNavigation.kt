@@ -1,5 +1,6 @@
 package com.kidsrec.chatbot.ui.navigation
 
+import android.util.Log
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -52,7 +53,6 @@ import com.kidsrec.chatbot.ui.profile.ProfileViewModel
 import com.kidsrec.chatbot.ui.reader.BookReaderScreen
 import com.kidsrec.chatbot.ui.webview.SafeWebViewScreen
 import java.net.URLEncoder
-import java.util.regex.Pattern
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector? = null) {
     object Login : Screen("login", "Login")
@@ -69,7 +69,9 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
     )
 }
 
-// --- HELPER FUNCTIONS ---
+// -----------------------------
+// HELPER FUNCTIONS
+// -----------------------------
 
 private fun normalizeContentUrl(url: String): String {
     return url.trim().replace("http://", "https://")
@@ -86,20 +88,35 @@ private fun isKnownBookUrl(url: String): Boolean {
             lower.contains("books.google.")
 }
 
+private fun isYoutubeLikeUrl(url: String): Boolean {
+    val lower = url.trim().lowercase()
+    return lower.contains("youtube.com") ||
+            lower.contains("youtu.be") ||
+            lower.contains("m.youtube.com") ||
+            lower.contains("youtube-nocookie.com") ||
+            lower.contains("youtubekids.com")
+}
+
 private fun extractYoutubeId(url: String): String? {
     if (url.isBlank()) return null
-    val regexList = listOf(
-        Regex("""v=([a-zA-Z0-9_-]{11})"""),
+
+    val patterns = listOf(
+        Regex("""[?&]v=([a-zA-Z0-9_-]{11})"""),
         Regex("""youtu\.be/([a-zA-Z0-9_-]{11})"""),
         Regex("""embed/([a-zA-Z0-9_-]{11})"""),
         Regex("""shorts/([a-zA-Z0-9_-]{11})"""),
+        Regex("""live/([a-zA-Z0-9_-]{11})"""),
         Regex("""youtubekids\.com/watch\?v=([a-zA-Z0-9_-]{11})"""),
         Regex("""youtubekids\.com/embed/([a-zA-Z0-9_-]{11})""")
     )
-    for (regex in regexList) {
-        val match = regex.find(url)
-        if (match != null) return match.groupValues[1]
+
+    for (pattern in patterns) {
+        val match = pattern.find(url)
+        if (match != null) {
+            return match.groupValues[1]
+        }
     }
+
     return null
 }
 
@@ -112,13 +129,22 @@ private fun buildSafeWebViewRoute(
     description: String
 ): String {
     val cleanUrl = normalizeContentUrl(url)
-    
-    // Strict Decision Logic
+
+    // FORCE correct mode from URL when possible
     val finalIsVideo = when {
+        cleanUrl.isBlank() -> isVideo
         isKnownBookUrl(cleanUrl) -> false
-        extractYoutubeId(cleanUrl) != null -> true
-        else -> false
+        isYoutubeLikeUrl(cleanUrl) || extractYoutubeId(cleanUrl) != null -> true
+        else -> isVideo
     }
+
+    Log.d("KidsRecNav", "Original URL: $url")
+    Log.d("KidsRecNav", "Clean URL: $cleanUrl")
+    Log.d("KidsRecNav", "Incoming isVideo: $isVideo")
+    Log.d("KidsRecNav", "Is known book URL: ${isKnownBookUrl(cleanUrl)}")
+    Log.d("KidsRecNav", "Is YouTube-like URL: ${isYoutubeLikeUrl(cleanUrl)}")
+    Log.d("KidsRecNav", "Extracted video ID: ${extractYoutubeId(cleanUrl)}")
+    Log.d("KidsRecNav", "Final isVideo: $finalIsVideo")
 
     val encodedUrl = URLEncoder.encode(cleanUrl, "UTF-8")
     val encodedTitle = URLEncoder.encode(title, "UTF-8")
@@ -148,7 +174,13 @@ fun AppNavigation() {
 
     when (authState) {
         is AuthState.Authenticated -> MainScreen(authViewModel, isAdmin)
-        is AuthState.Initial -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+        is AuthState.Initial -> Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator()
+        }
+
         else -> AuthNavigation(authViewModel)
     }
 }
@@ -156,12 +188,26 @@ fun AppNavigation() {
 @Composable
 fun AuthNavigation(authViewModel: AuthViewModel) {
     val navController = rememberNavController()
-    NavHost(navController = navController, startDestination = Screen.Login.route) {
+
+    NavHost(
+        navController = navController,
+        startDestination = Screen.Login.route
+    ) {
         composable(Screen.Login.route) {
-            LoginScreen(onLoginSuccess = {}, onAdminLogin = {}, onNavigateToRegister = { navController.navigate(Screen.Register.route) }, viewModel = authViewModel)
+            LoginScreen(
+                onLoginSuccess = {},
+                onAdminLogin = {},
+                onNavigateToRegister = { navController.navigate(Screen.Register.route) },
+                viewModel = authViewModel
+            )
         }
+
         composable(Screen.Register.route) {
-            RegisterScreen(onRegisterSuccess = {}, onNavigateToLogin = { navController.navigate(Screen.Login.route) }, viewModel = authViewModel)
+            RegisterScreen(
+                onRegisterSuccess = {},
+                onNavigateToLogin = { navController.navigate(Screen.Login.route) },
+                viewModel = authViewModel
+            )
         }
     }
 }
@@ -174,24 +220,36 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean) {
     val currentDestination = navBackStackEntry?.destination
     val profileViewModel: ProfileViewModel = hiltViewModel()
 
-    val bottomNavItems = if (isAdmin) emptyList() else listOf(Screen.Chat, Screen.Library, Screen.Favorites, Screen.Profile)
+    val bottomNavItems = if (isAdmin) {
+        emptyList()
+    } else {
+        listOf(Screen.Chat, Screen.Library, Screen.Favorites, Screen.Profile)
+    }
+
     val startRoute = if (isAdmin) Screen.Admin.route else Screen.Chat.route
 
     Scaffold(
         bottomBar = {
-            if (bottomNavItems.isNotEmpty() &&
+            if (
+                bottomNavItems.isNotEmpty() &&
                 currentDestination?.route?.startsWith("webview") == false &&
                 currentDestination?.route in bottomNavItems.map { it.route }
             ) {
                 NavigationBar {
                     bottomNavItems.forEach { screen ->
                         NavigationBarItem(
-                            icon = { screen.icon?.let { Icon(it, contentDescription = screen.title) } },
+                            icon = {
+                                screen.icon?.let {
+                                    Icon(it, contentDescription = screen.title)
+                                }
+                            },
                             label = { Text(screen.title) },
                             selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
                             onClick = {
                                 navController.navigate(screen.route) {
-                                    popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
+                                    }
                                     launchSingleTop = true
                                     restoreState = true
                                 }
@@ -202,65 +260,155 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean) {
             }
         }
     ) { innerPadding ->
-        NavHost(navController = navController, startDestination = startRoute, modifier = Modifier.padding(innerPadding)) {
-            
+
+        NavHost(
+            navController = navController,
+            startDestination = startRoute,
+            modifier = Modifier.padding(innerPadding)
+        ) {
+
             composable(Screen.Chat.route) {
                 val chatViewModel: ChatViewModel = hiltViewModel()
                 val favoritesViewModel: FavoritesViewModel = hiltViewModel()
-                DinoChatPage(viewModel = chatViewModel, favoritesViewModel = favoritesViewModel, onOpenRecommendation = { url, title, isVideo, itemId, imageUrl, description ->
-                    profileViewModel.trackReading(title, url, isVideo = isVideo)
-                    navController.navigate(buildSafeWebViewRoute(url, title, isVideo, itemId, imageUrl, description))
-                })
+
+                DinoChatPage(
+                    viewModel = chatViewModel,
+                    favoritesViewModel = favoritesViewModel,
+                    onOpenRecommendation = { url, title, isVideo, itemId, imageUrl, description ->
+                        profileViewModel.trackReading(title, url, isVideo = isVideo)
+                        navController.navigate(
+                            buildSafeWebViewRoute(
+                                url = url,
+                                title = title,
+                                isVideo = isVideo,
+                                itemId = itemId,
+                                imageUrl = imageUrl,
+                                description = description
+                            )
+                        )
+                    }
+                )
             }
 
             composable(Screen.Library.route) {
                 val libraryViewModel: LibraryViewModel = hiltViewModel()
                 val favoritesViewModel: FavoritesViewModel = hiltViewModel()
-                UserLibraryScreen(viewModel = libraryViewModel, favoritesViewModel = favoritesViewModel, onOpenRecommendation = { url, title, isVideo, itemId, imageUrl, description ->
-                    profileViewModel.trackReading(title, url, isVideo = isVideo)
-                    navController.navigate(buildSafeWebViewRoute(url, title, isVideo, itemId, imageUrl, description))
-                })
+
+                UserLibraryScreen(
+                    viewModel = libraryViewModel,
+                    favoritesViewModel = favoritesViewModel,
+                    onOpenRecommendation = { url, title, isVideo, itemId, imageUrl, description ->
+                        profileViewModel.trackReading(title, url, isVideo = isVideo)
+                        navController.navigate(
+                            buildSafeWebViewRoute(
+                                url = url,
+                                title = title,
+                                isVideo = isVideo,
+                                itemId = itemId,
+                                imageUrl = imageUrl,
+                                description = description
+                            )
+                        )
+                    }
+                )
             }
 
             composable(Screen.Favorites.route) {
                 val favoritesViewModel: FavoritesViewModel = hiltViewModel()
-                FavoritesScreen(viewModel = favoritesViewModel, onOpenFavorite = { url, title, isVideo, itemId, imageUrl, description ->
-                    profileViewModel.trackReading(title, url, isVideo = isVideo)
-                    navController.navigate(buildSafeWebViewRoute(url, title, isVideo, itemId, imageUrl, description))
-                })
+
+                FavoritesScreen(
+                    viewModel = favoritesViewModel,
+                    onOpenFavorite = { url, title, isVideo, itemId, imageUrl, description ->
+                        profileViewModel.trackReading(title, url, isVideo = isVideo)
+                        navController.navigate(
+                            buildSafeWebViewRoute(
+                                url = url,
+                                title = title,
+                                isVideo = isVideo,
+                                itemId = itemId,
+                                imageUrl = imageUrl,
+                                description = description
+                            )
+                        )
+                    }
+                )
             }
 
-            composable(Screen.Profile.route) { ProfileScreen(hiltViewModel(), profileViewModel) }
+            composable(Screen.Profile.route) {
+                ProfileScreen(
+                    hiltViewModel(),
+                    profileViewModel
+                )
+            }
 
             composable(Screen.Admin.route) {
                 val adminViewModel: AdminViewModel = hiltViewModel()
-                AdminScreen(viewModel = adminViewModel, onLogout = { authViewModel.signOut() }, onViewBook = { title, url, isVideo ->
-                    navController.navigate(buildSafeWebViewRoute(url, title, isVideo, "admin", "none", "none"))
-                })
+
+                AdminScreen(
+                    viewModel = adminViewModel,
+                    onLogout = { authViewModel.signOut() },
+                    onViewBook = { title, url, isVideo ->
+                        navController.navigate(
+                            buildSafeWebViewRoute(
+                                url = url,
+                                title = title,
+                                isVideo = isVideo,
+                                itemId = "admin",
+                                imageUrl = "none",
+                                description = "none"
+                            )
+                        )
+                    }
+                )
             }
 
-            composable(Screen.SafeWebView.route, arguments = listOf(
-                navArgument("url") { type = NavType.StringType; defaultValue = "" },
-                navArgument("title") { type = NavType.StringType; defaultValue = "" },
-                navArgument("isVideo") { type = NavType.BoolType; defaultValue = false },
-                navArgument("itemId") { type = NavType.StringType; defaultValue = "" },
-                navArgument("imageUrl") { type = NavType.StringType; defaultValue = "" },
-                navArgument("description") { type = NavType.StringType; defaultValue = "" }
-            )) { bse ->
+            composable(
+                Screen.SafeWebView.route,
+                arguments = listOf(
+                    navArgument("url") {
+                        type = NavType.StringType
+                        defaultValue = ""
+                    },
+                    navArgument("title") {
+                        type = NavType.StringType
+                        defaultValue = ""
+                    },
+                    navArgument("isVideo") {
+                        type = NavType.BoolType
+                        defaultValue = false
+                    },
+                    navArgument("itemId") {
+                        type = NavType.StringType
+                        defaultValue = ""
+                    },
+                    navArgument("imageUrl") {
+                        type = NavType.StringType
+                        defaultValue = ""
+                    },
+                    navArgument("description") {
+                        type = NavType.StringType
+                        defaultValue = ""
+                    }
+                )
+            ) { bse ->
                 SafeWebViewScreen(
                     url = bse.arguments?.getString("url") ?: "",
                     title = bse.arguments?.getString("title") ?: "",
                     isVideo = bse.arguments?.getBoolean("isVideo") ?: false,
-                    itemId = bse.arguments?.getString("itemId") ?: "",
-                    imageUrl = bse.arguments?.getString("imageUrl") ?: "",
-                    description = bse.arguments?.getString("description") ?: "",
-                    favoritesViewModel = hiltViewModel(),
                     onClose = { navController.popBackStack() }
                 )
             }
 
-            composable(Screen.Reader.route, arguments = listOf(navArgument("url") { type = NavType.StringType })) { bse ->
-                BookReaderScreen(url = bse.arguments?.getString("url") ?: "", onBack = { navController.popBackStack() })
+            composable(
+                Screen.Reader.route,
+                arguments = listOf(
+                    navArgument("url") { type = NavType.StringType }
+                )
+            ) { bse ->
+                BookReaderScreen(
+                    url = bse.arguments?.getString("url") ?: "",
+                    onBack = { navController.popBackStack() }
+                )
             }
         }
     }
