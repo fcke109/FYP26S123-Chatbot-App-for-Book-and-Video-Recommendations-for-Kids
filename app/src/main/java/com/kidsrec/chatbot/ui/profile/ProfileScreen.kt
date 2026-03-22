@@ -1,6 +1,7 @@
 package com.kidsrec.chatbot.ui.profile
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -28,7 +29,8 @@ import com.kidsrec.chatbot.ui.auth.AuthViewModel
 @Composable
 fun ProfileScreen(
     authViewModel: AuthViewModel,
-    profileViewModel: ProfileViewModel
+    profileViewModel: ProfileViewModel,
+    onItemClick: (url: String, title: String, isVideo: Boolean) -> Unit = { _, _, _ -> }
 ) {
     val user by authViewModel.currentUser.collectAsState()
     val updateSuccess by profileViewModel.updateSuccess.collectAsState()
@@ -275,10 +277,10 @@ fun ProfileScreen(
                         }
                     }
 
-                    // Recently Read Section
+                    // Recently Read & Watched Section
                     if (readingHistory.isNotEmpty()) {
                         Spacer(modifier = Modifier.height(24.dp))
-                        RecentlyReadSection(readingHistory)
+                        RecentlyReadSection(readingHistory, onItemClick)
                     }
                 }
             }
@@ -287,13 +289,16 @@ fun ProfileScreen(
 }
 
 @Composable
-fun RecentlyReadSection(history: List<ReadingHistory>) {
+fun RecentlyReadSection(
+    history: List<ReadingHistory>,
+    onItemClick: (url: String, title: String, isVideo: Boolean) -> Unit
+) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Default.History, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = "Recently Read",
+                text = "Recently Read & Watched",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
@@ -307,7 +312,9 @@ fun RecentlyReadSection(history: List<ReadingHistory>) {
         ) {
             items(history) { entry ->
                 Card(
-                    modifier = Modifier.width(120.dp),
+                    modifier = Modifier
+                        .width(120.dp)
+                        .clickable { onItemClick(entry.url, entry.title, entry.isVideo) },
                     shape = RoundedCornerShape(12.dp),
                     elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
                 ) {
@@ -321,7 +328,7 @@ fun RecentlyReadSection(history: List<ReadingHistory>) {
                                 ),
                             contentAlignment = Alignment.Center
                         ) {
-                            if (entry.coverUrl.isNotBlank()) {
+                            if (entry.coverUrl.isNotBlank() && entry.coverUrl != "none") {
                                 AsyncImage(
                                     model = entry.coverUrl,
                                     contentDescription = entry.title,

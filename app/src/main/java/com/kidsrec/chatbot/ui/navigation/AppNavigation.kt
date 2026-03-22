@@ -275,7 +275,7 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean) {
                     viewModel = chatViewModel,
                     favoritesViewModel = favoritesViewModel,
                     onOpenRecommendation = { url, title, isVideo, itemId, imageUrl, description ->
-                        profileViewModel.trackReading(title, url, isVideo = isVideo)
+                        profileViewModel.trackReading(title, url, coverUrl = imageUrl, isVideo = isVideo)
                         navController.navigate(
                             buildSafeWebViewRoute(
                                 url = url,
@@ -298,7 +298,7 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean) {
                     viewModel = libraryViewModel,
                     favoritesViewModel = favoritesViewModel,
                     onOpenRecommendation = { url, title, isVideo, itemId, imageUrl, description ->
-                        profileViewModel.trackReading(title, url, isVideo = isVideo)
+                        profileViewModel.trackReading(title, url, coverUrl = imageUrl, isVideo = isVideo)
                         navController.navigate(
                             buildSafeWebViewRoute(
                                 url = url,
@@ -319,7 +319,7 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean) {
                 FavoritesScreen(
                     viewModel = favoritesViewModel,
                     onOpenFavorite = { url, title, isVideo, itemId, imageUrl, description ->
-                        profileViewModel.trackReading(title, url, isVideo = isVideo)
+                        profileViewModel.trackReading(title, url, coverUrl = imageUrl, isVideo = isVideo)
                         navController.navigate(
                             buildSafeWebViewRoute(
                                 url = url,
@@ -336,8 +336,20 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean) {
 
             composable(Screen.Profile.route) {
                 ProfileScreen(
-                    hiltViewModel(),
-                    profileViewModel
+                    authViewModel = hiltViewModel(),
+                    profileViewModel = profileViewModel,
+                    onItemClick = { url, title, isVideo ->
+                        navController.navigate(
+                            buildSafeWebViewRoute(
+                                url = url,
+                                title = title,
+                                isVideo = isVideo,
+                                itemId = "history",
+                                imageUrl = "none",
+                                description = "none"
+                            )
+                        )
+                    }
                 )
             }
 
