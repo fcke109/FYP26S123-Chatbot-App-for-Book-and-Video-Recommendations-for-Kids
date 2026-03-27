@@ -52,6 +52,7 @@ import com.kidsrec.chatbot.ui.profile.ProfileScreen
 import com.kidsrec.chatbot.ui.profile.ProfileViewModel
 import com.kidsrec.chatbot.ui.reader.BookReaderScreen
 import com.kidsrec.chatbot.ui.webview.SafeWebViewScreen
+import com.kidsrec.chatbot.ui.webview.YouTubePlayerScreen
 import java.net.URLEncoder
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector? = null) {
@@ -66,6 +67,10 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
     object SafeWebView : Screen(
         "webview?url={url}&title={title}&isVideo={isVideo}&itemId={itemId}&imageUrl={imageUrl}&description={description}",
         "WebView"
+    )
+    object YouTubePlayer : Screen(
+        "youtube_player?videoId={videoId}&title={title}",
+        "YouTube Player"
     )
 }
 
@@ -120,30 +125,43 @@ private fun extractYoutubeId(url: String): String? {
     return null
 }
 
-private fun buildSafeWebViewRoute(
+private fun buildYouTubePlayerRoute(videoId: String, title: String): String {
+    val encodedId = URLEncoder.encode(videoId, "UTF-8")
+    val encodedTitle = URLEncoder.encode(title, "UTF-8")
+    return "youtube_player?videoId=$encodedId&title=$encodedTitle"
+}
+
+private fun buildContentRoute(
     url: String,
     title: String,
     isVideo: Boolean,
-    itemId: String,
-    imageUrl: String,
-    description: String
+    itemId: String = "",
+    imageUrl: String = "",
+    description: String = ""
 ): String {
     val cleanUrl = normalizeContentUrl(url)
+
+    Log.d("KidsRecNav", "Original URL: $url")
+    Log.d("KidsRecNav", "Clean URL: $cleanUrl")
+    Log.d("KidsRecNav", "Incoming isVideo: $isVideo")
+
+    // Route YouTube videos to in-app player (only if URL is actually YouTube)
+    if (isYoutubeLikeUrl(cleanUrl)) {
+        val youtubeId = extractYoutubeId(cleanUrl)
+        if (youtubeId != null) {
+            Log.d("KidsRecNav", "Routing to in-app YouTube player for ID: $youtubeId")
+            return buildYouTubePlayerRoute(youtubeId, title)
+        }
+    }
 
     // FORCE correct mode from URL when possible
     val finalIsVideo = when {
         cleanUrl.isBlank() -> isVideo
         isKnownBookUrl(cleanUrl) -> false
-        isYoutubeLikeUrl(cleanUrl) || extractYoutubeId(cleanUrl) != null -> true
+        isYoutubeLikeUrl(cleanUrl) -> true
         else -> isVideo
     }
 
-    Log.d("KidsRecNav", "Original URL: $url")
-    Log.d("KidsRecNav", "Clean URL: $cleanUrl")
-    Log.d("KidsRecNav", "Incoming isVideo: $isVideo")
-    Log.d("KidsRecNav", "Is known book URL: ${isKnownBookUrl(cleanUrl)}")
-    Log.d("KidsRecNav", "Is YouTube-like URL: ${isYoutubeLikeUrl(cleanUrl)}")
-    Log.d("KidsRecNav", "Extracted video ID: ${extractYoutubeId(cleanUrl)}")
     Log.d("KidsRecNav", "Final isVideo: $finalIsVideo")
 
     val encodedUrl = URLEncoder.encode(cleanUrl, "UTF-8")
@@ -277,7 +295,7 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean) {
                     onOpenRecommendation = { url, title, isVideo, itemId, imageUrl, description ->
                         profileViewModel.trackReading(title, url, coverUrl = imageUrl, isVideo = isVideo)
                         navController.navigate(
-                            buildSafeWebViewRoute(
+                            buildContentRoute(
                                 url = url,
                                 title = title,
                                 isVideo = isVideo,
@@ -300,7 +318,7 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean) {
                     onOpenRecommendation = { url, title, isVideo, itemId, imageUrl, description ->
                         profileViewModel.trackReading(title, url, coverUrl = imageUrl, isVideo = isVideo)
                         navController.navigate(
-                            buildSafeWebViewRoute(
+                            buildContentRoute(
                                 url = url,
                                 title = title,
                                 isVideo = isVideo,
@@ -321,7 +339,7 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean) {
                     onOpenFavorite = { url, title, isVideo, itemId, imageUrl, description ->
                         profileViewModel.trackReading(title, url, coverUrl = imageUrl, isVideo = isVideo)
                         navController.navigate(
-                            buildSafeWebViewRoute(
+                            buildContentRoute(
                                 url = url,
                                 title = title,
                                 isVideo = isVideo,
@@ -340,7 +358,7 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean) {
                     profileViewModel = profileViewModel,
                     onItemClick = { url, title, isVideo ->
                         navController.navigate(
-                            buildSafeWebViewRoute(
+                            buildContentRoute(
                                 url = url,
                                 title = title,
                                 isVideo = isVideo,
@@ -361,7 +379,7 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean) {
                     onLogout = { authViewModel.signOut() },
                     onViewBook = { title, url, isVideo ->
                         navController.navigate(
-                            buildSafeWebViewRoute(
+                            buildContentRoute(
                                 url = url,
                                 title = title,
                                 isVideo = isVideo,
@@ -408,6 +426,26 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean) {
                     title = bse.arguments?.getString("title") ?: "",
                     isVideo = bse.arguments?.getBoolean("isVideo") ?: false,
                     onClose = { navController.popBackStack() }
+                )
+            }
+
+            composable(
+                Screen.YouTubePlayer.route,
+                arguments = listOf(
+                    navArgument("videoId") {
+                        type = NavType.StringType
+                        defaultValue = ""
+                    },
+                    navArgument("title") {
+                        type = NavType.StringType
+                        defaultValue = ""
+                    }
+                )
+            ) { bse ->
+                YouTubePlayerScreen(
+                    videoId = bse.arguments?.getString("videoId") ?: "",
+                    title = bse.arguments?.getString("title") ?: "",
+                    onBack = { navController.popBackStack() }
                 )
             }
 

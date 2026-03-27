@@ -13,6 +13,7 @@ import com.kidsrec.chatbot.data.model.User
 import com.kidsrec.chatbot.data.remote.OpenAIMessage
 import com.kidsrec.chatbot.data.remote.OpenAIRequest
 import com.kidsrec.chatbot.data.remote.OpenAIService
+import com.kidsrec.chatbot.data.remote.OpenLibraryService
 import com.kidsrec.chatbot.data.remote.YouTubeService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
@@ -31,7 +32,8 @@ class ChatDataManager @Inject constructor(
     private val bookDataManager: BookDataManager,
     private val recommendationEngine: RecommendationEngine,
     private val accountManager: AccountManager,
-    private val favoritesManager: FavoritesManager
+    private val favoritesManager: FavoritesManager,
+    private val openLibraryService: OpenLibraryService
 ) {
 
     private data class ApprovedVideo(
@@ -192,8 +194,8 @@ $curatedBooksContext
 $approvedVideosContext
 
 CRITICAL RULES:
-1. You may recommend books from the curated books list above.
-2. You may recommend videos. If you recommend a video NOT in the approved list, provide a clear, kid-friendly title.
+1. You may recommend books. Prefer curated books when relevant, but if the child asks about a specific topic (e.g. "baby shark", "peppa pig", "dinosaurs"), you SHOULD also recommend a book closely matching their topic, even if it is not in the curated list.
+2. You may recommend videos. Prefer approved videos when relevant, but if the child asks about a specific topic, recommend a video matching what they asked for, even if it is not in the approved list.
 3. For any recommendation, provide a reason why it is fun for the child.
 4. Always include a mix of BOTH:
    - at least 1 BOOK
@@ -213,8 +215,8 @@ Response format:
 
 RULES FOR JSON:
 - type must be BOOK or VIDEO
-- for BOOK, title must match EXACTLY one item from the curated books list
-- for VIDEO, if the title matches an approved video, use that title. Otherwise, invent a kid-friendly topic.
+- for BOOK, if a curated book matches the child's interest, use that exact title. Otherwise, use a real, well-known children's book title related to what they asked for (e.g. for "baby shark", suggest "Baby Shark" by Pinkfong or a similar real book).
+- for VIDEO, if the title matches an approved video, use that exact title. Otherwise, use a clear searchable title closely matching what the child asked for (e.g. "Baby Shark Dance" not a generic title).
 - do NOT include url
 - do NOT include imageUrl
 - keep descriptions short
@@ -388,7 +390,8 @@ RULES FOR JSON:
                     }
                 }
             }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            android.util.Log.e("ChatDataManager", "Failed to parse recommendations", e)
         }
 
         return Pair(cleanContent, recommendations)
@@ -413,10 +416,39 @@ RULES FOR JSON:
                             title = matchingBook.title,
                             description = if (rec.description.isBlank()) matchingBook.description else rec.description,
                             imageUrl = matchingBook.coverUrl,
-                            url = bookUrl
+                            url = bookUrl,
+                            isCurated = true
                         )
                     } else {
-                        null
+                        // Not in curated list — search Open Library
+                        try {
+                            val searchResult = withContext(Dispatchers.IO) {
+                                openLibraryService.searchBooks(rec.title, limit = 3)
+                            }
+                            val found = searchResult.docs.firstOrNull { it.canReadOnline() }
+                            if (found != null) {
+                                rec.copy(
+                                    url = found.getReadUrl() ?: "",
+                                    imageUrl = found.getCoverUrl("M") ?: "",
+                                    isCurated = false
+                                )
+                            } else {
+                                // Fallback: link to Open Library page
+                                val anyResult = searchResult.docs.firstOrNull()
+                                if (anyResult != null) {
+                                    rec.copy(
+                                        url = anyResult.getOpenLibraryUrl(),
+                                        imageUrl = anyResult.getCoverUrl("M") ?: "",
+                                        isCurated = false
+                                    )
+                                } else {
+                                    null
+                                }
+                            }
+                        } catch (e: Exception) {
+                            android.util.Log.e("ChatDataManager", "Open Library search failed for: ${rec.title}", e)
+                            null
+                        }
                     }
                 }
 
@@ -432,11 +464,12 @@ RULES FOR JSON:
                             description = if (rec.description.isBlank()) matchingVideo.description else rec.description,
                             imageUrl = matchingVideo.imageUrl,
                             reason = if (rec.reason.isBlank()) matchingVideo.reason else rec.reason,
-                            url = matchingVideo.url
+                            url = matchingVideo.url,
+                            isCurated = true
                         )
                     } else if (rec.url.isNotBlank()) {
-                        // Already has URL from YouTubeService search
-                        rec
+                        // Has URL from YouTubeService search but not in approved list
+                        rec.copy(isCurated = false)
                     } else {
                         null
                     }

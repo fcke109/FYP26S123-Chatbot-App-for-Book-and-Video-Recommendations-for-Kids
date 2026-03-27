@@ -290,18 +290,35 @@ fun RecommendationCard(
                     }
                 }
                 
-                Surface(
-                    modifier = Modifier.padding(8.dp).align(Alignment.TopStart),
-                    color = if (isVideo) Color.Red else MaterialTheme.colorScheme.primary,
-                    shape = RoundedCornerShape(4.dp)
-                ) {
-                    Text(
-                        text = if (isVideo) "VIDEO" else "BOOK",
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                        fontSize = 10.sp,
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold
-                    )
+                Row(modifier = Modifier.padding(8.dp).align(Alignment.TopStart)) {
+                    Surface(
+                        color = if (isVideo) Color.Red else MaterialTheme.colorScheme.primary,
+                        shape = RoundedCornerShape(4.dp)
+                    ) {
+                        Text(
+                            text = if (isVideo) "VIDEO" else "BOOK",
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            fontSize = 10.sp,
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    if (!recommendation.isCurated) {
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Surface(
+                            color = Color(0xFFFF9800),
+                            shape = RoundedCornerShape(4.dp)
+                        ) {
+                            Text(
+                                text = "Not Reviewed",
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                fontSize = 10.sp,
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
                 }
 
                 if (recommendation.relevanceScore > 0) {
