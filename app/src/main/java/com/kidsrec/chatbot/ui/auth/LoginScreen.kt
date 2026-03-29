@@ -23,6 +23,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.kidsrec.chatbot.BuildConfig
 import com.kidsrec.chatbot.R
 
 @Composable
@@ -42,7 +43,7 @@ fun LoginScreen(
     LaunchedEffect(authState) {
         if (authState is AuthState.Authenticated) {
             // Check if it's the admin user
-            if (email.lowercase() == "admin@littledino.com") {
+            if (email.lowercase() == BuildConfig.ADMIN_EMAIL.lowercase()) {
                 onAdminLogin()
             } else {
                 onLoginSuccess()

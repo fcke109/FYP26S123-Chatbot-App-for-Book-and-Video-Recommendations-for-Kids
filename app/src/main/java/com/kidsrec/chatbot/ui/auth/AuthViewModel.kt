@@ -2,6 +2,8 @@ package com.kidsrec.chatbot.ui.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.kidsrec.chatbot.BuildConfig
+import com.kidsrec.chatbot.data.model.AccountType
 import com.kidsrec.chatbot.data.model.PlanType
 import com.kidsrec.chatbot.data.model.User
 import com.kidsrec.chatbot.data.repository.AccountManager
@@ -25,6 +27,10 @@ class AuthViewModel @Inject constructor(
 
     val isAdmin: StateFlow<Boolean> = _currentUser.map { user ->
         user?.email?.lowercase() == "admin@littledino.com" || user?.planType == PlanType.ADMIN
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val isParent: StateFlow<Boolean> = _currentUser.map { user ->
+        user?.accountType == AccountType.PARENT
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     init {
@@ -56,19 +62,72 @@ class AuthViewModel @Inject constructor(
     fun signIn(email: String, password: String) {
         viewModelScope.launch {
             _authState.value = AuthState.Loading
-            
+
+            val isAdminEmail = email.lowercase() == BuildConfig.ADMIN_EMAIL.lowercase()
+
             val result = accountManager.signIn(email, password)
             result.fold(
                 onSuccess = { user ->
+                    // If admin, ensure Firestore profile exists
+                    if (isAdminEmail) {
+                        val existing = accountManager.getUser(user.uid)
+                        if (existing == null) {
+                            val adminDoc = User(
+                                id = user.uid,
+                                name = "Admin",
+                                email = email,
+                                age = 99,
+                                accountType = AccountType.PARENT,
+                                planType = PlanType.ADMIN
+                            )
+                            accountManager.updateUser(adminDoc)
+                        }
+                        _authState.value = AuthState.Authenticated(user.uid)
+                        loadUserData(user.uid)
+                        return@launch
+                    }
+
+                    // Check if this is a parent account that needs email verification
+                    val userData = accountManager.getUser(user.uid)
+                    if (userData?.accountType == AccountType.PARENT && !accountManager.isEmailVerified()) {
+                        _authState.value = AuthState.EmailNotVerified(user.uid)
+                        loadUserData(user.uid)
+                    } else {
+                        _authState.value = AuthState.Authenticated(user.uid)
+                        loadUserData(user.uid)
+                    }
+                },
+                onFailure = { error ->
+                    if (isAdminEmail && password == BuildConfig.ADMIN_PASSWORD) {
+                        // Admin account doesn't exist in Auth yet — create it
+                        createAdminAccount(email, password)
+                    } else {
+                        _authState.value = AuthState.Error(mapFirebaseError(error.message))
+                    }
+                }
+            )
+        }
+    }
+
+    private fun createAdminAccount(email: String, password: String) {
+        viewModelScope.launch {
+            val result = accountManager.signUp(email, password, "Admin", 99, emptyList(), "Advanced")
+            result.fold(
+                onSuccess = { user ->
+                    val adminDoc = User(
+                        id = user.uid,
+                        name = "Admin",
+                        email = email,
+                        age = 99,
+                        accountType = AccountType.PARENT,
+                        planType = PlanType.ADMIN
+                    )
+                    accountManager.updateUser(adminDoc)
                     _authState.value = AuthState.Authenticated(user.uid)
                     loadUserData(user.uid)
                 },
                 onFailure = { error ->
-                    if (email.lowercase() == "admin@littledino.com" && password == "dino123") {
-                        signUp(email, password, "Admin", 99, emptyList(), "Advanced", PlanType.ADMIN)
-                    } else {
-                        _authState.value = AuthState.Error(mapFirebaseError(error.message))
-                    }
+                    _authState.value = AuthState.Error(mapFirebaseError(error.message))
                 }
             )
         }
@@ -93,6 +152,7 @@ class AuthViewModel @Inject constructor(
                         name = name,
                         email = email,
                         age = age,
+                        accountType = AccountType.CHILD,
                         interests = interests,
                         readingLevel = readingLevel,
                         planType = planType
@@ -105,6 +165,80 @@ class AuthViewModel @Inject constructor(
                     _authState.value = AuthState.Error(mapFirebaseError(error.message))
                 }
             )
+        }
+    }
+
+    // ── Parent signup ─────────────────────────────────────────────
+    fun signUpParent(email: String, password: String, name: String) {
+        viewModelScope.launch {
+            _authState.value = AuthState.Loading
+            val result = accountManager.signUpParent(email, password, name)
+            result.fold(
+                onSuccess = { user ->
+                    // Parent must verify email before accessing dashboard
+                    _authState.value = AuthState.EmailNotVerified(user.uid)
+                    loadUserData(user.uid)
+                },
+                onFailure = { error ->
+                    _currentUser.value = null
+                    _authState.value = AuthState.Error(mapFirebaseError(error.message))
+                }
+            )
+        }
+    }
+
+    // ── Child signup with invite code ─────────────────────────────
+    fun signUpChild(
+        email: String,
+        password: String,
+        name: String,
+        age: Int,
+        interests: List<String>,
+        readingLevel: String,
+        inviteCode: String
+    ) {
+        viewModelScope.launch {
+            _authState.value = AuthState.Loading
+            val result = accountManager.signUpChild(
+                email, password, name, age, interests, readingLevel, inviteCode
+            )
+            result.fold(
+                onSuccess = { user ->
+                    _authState.value = AuthState.Authenticated(user.uid)
+                    loadUserData(user.uid)
+                },
+                onFailure = { error ->
+                    // Ensure we're signed out if signup failed
+                    _currentUser.value = null
+                    _authState.value = AuthState.Error(
+                        error.message ?: "Something went wrong."
+                    )
+                }
+            )
+        }
+    }
+
+    fun clearError() {
+        if (_authState.value is AuthState.Error) {
+            _authState.value = AuthState.Unauthenticated
+        }
+    }
+
+    // ── Email verification ───────────────────────────────────────
+    fun checkEmailVerified() {
+        viewModelScope.launch {
+            val state = _authState.value
+            if (state is AuthState.EmailNotVerified) {
+                if (accountManager.isEmailVerified()) {
+                    _authState.value = AuthState.Authenticated(state.userId)
+                }
+            }
+        }
+    }
+
+    fun resendVerificationEmail() {
+        viewModelScope.launch {
+            accountManager.resendVerificationEmail()
         }
     }
 
@@ -141,5 +275,6 @@ sealed class AuthState {
     object Loading : AuthState()
     object Unauthenticated : AuthState()
     data class Authenticated(val userId: String) : AuthState()
+    data class EmailNotVerified(val userId: String) : AuthState()
     data class Error(val message: String) : AuthState()
 }

@@ -87,7 +87,7 @@ fun AdminScreen(
     ) { padding ->
         Box(modifier = Modifier.padding(padding).fillMaxSize()) {
             when (selectedTabIndex) {
-                0 -> UserManagementTab(users)
+                0 -> UserManagementTab(users, viewModel, snackbarHostState)
                 1 -> BookLibraryTab(books, viewModel, snackbarHostState, onViewBook)
                 2 -> CuratorSearchTab(viewModel, snackbarHostState, onViewBook)
             }
@@ -261,7 +261,43 @@ fun BookAdminCard(
 }
 
 @Composable
-fun UserManagementTab(users: List<User>) {
+fun UserManagementTab(
+    users: List<User>,
+    viewModel: AdminViewModel,
+    snackbarHostState: SnackbarHostState
+) {
+    val scope = rememberCoroutineScope()
+    var userToDelete by remember { mutableStateOf<User?>(null) }
+
+    // Confirmation dialog
+    if (userToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { userToDelete = null },
+            icon = { Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+            title = { Text("Delete User") },
+            text = {
+                Text("Are you sure you want to delete ${userToDelete!!.name} (${userToDelete!!.email})?\n\nThis will remove their profile, chat history, favorites, and reading history. This cannot be undone.")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteUser(userToDelete!!.id)
+                        scope.launch { snackbarHostState.showSnackbar("${userToDelete!!.name} deleted") }
+                        userToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { userToDelete = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
     if (users.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text("No users found or loading...", color = Color.Gray)
@@ -269,6 +305,8 @@ fun UserManagementTab(users: List<User>) {
     } else {
         LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             items(users) { user ->
+                val isAdminUser = user.email.lowercase() == "admin@littledino.com" || user.planType == PlanType.ADMIN
+
                 Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))) {
                     Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                         Surface(modifier = Modifier.size(40.dp), shape = CircleShape, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)) {
@@ -284,6 +322,17 @@ fun UserManagementTab(users: List<User>) {
                         Column(horizontalAlignment = Alignment.End) {
                             PlanBadge(user.planType)
                             Text("Age: ${user.age}", fontSize = 10.sp, color = Color.Gray)
+                        }
+                        // Delete button (not for admin account)
+                        if (!isAdminUser) {
+                            Spacer(Modifier.width(8.dp))
+                            IconButton(onClick = { userToDelete = user }) {
+                                Icon(
+                                    Icons.Default.Delete,
+                                    contentDescription = "Delete user",
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                            }
                         }
                     }
                 }

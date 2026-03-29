@@ -9,12 +9,20 @@ enum class PlanType {
 }
 
 @Keep
+enum class AccountType {
+    PARENT, CHILD
+}
+
+@Keep
 data class User(
     val id: String = "",
     val name: String = "",
     val email: String = "",
     val age: Int = 0,
     val planType: PlanType = PlanType.FREE,
+    val accountType: AccountType = AccountType.CHILD,
+    val parentId: String? = null,
+    val childIds: List<String> = emptyList(),
     val interests: List<String> = emptyList(),
     val readingLevel: String = "Beginner",
     val parentalEmail: String? = null,

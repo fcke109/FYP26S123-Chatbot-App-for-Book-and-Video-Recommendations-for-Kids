@@ -4,4 +4,4 @@ admin.initializeApp();
 
 // Export all cloud functions
 export {chatWithBot, getRecommendations} from "./chatbot";
-export {onUserCreated} from "./triggers";
+export {onUserCreated, migrateExistingUsers, deleteAuthUser, cleanGhostAccounts} from "./triggers";

@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.functions.FirebaseFunctions
 import com.kidsrec.chatbot.data.model.Book
 import com.kidsrec.chatbot.data.model.User
 import com.kidsrec.chatbot.data.repository.AccountManager
@@ -12,6 +13,7 @@ import com.kidsrec.chatbot.data.remote.OpenLibraryService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
 @HiltViewModel
@@ -19,7 +21,8 @@ class AdminViewModel @Inject constructor(
     private val accountManager: AccountManager,
     private val bookDataManager: BookDataManager,
     private val openLibraryService: OpenLibraryService,
-    private val firestore: FirebaseFirestore
+    private val firestore: FirebaseFirestore,
+    private val functions: FirebaseFunctions
 ) : ViewModel() {
 
     private val _users = MutableStateFlow<List<User>>(emptyList())
@@ -129,6 +132,54 @@ class AdminViewModel @Inject constructor(
 
     fun deleteBookFromLibrary(bookId: String) {
         viewModelScope.launch { bookDataManager.deleteBook(bookId) }
+    }
+
+    fun deleteUser(userId: String) {
+        viewModelScope.launch {
+            try {
+                // Delete user's Firestore document
+                firestore.collection("users").document(userId).delete().await()
+
+                // Delete user's favorites
+                val favItems = firestore.collection("favorites")
+                    .document(userId).collection("items").get().await()
+                for (doc in favItems.documents) {
+                    doc.reference.delete().await()
+                }
+
+                // Delete user's reading history
+                val sessions = firestore.collection("readingHistory")
+                    .document(userId).collection("sessions").get().await()
+                for (doc in sessions.documents) {
+                    doc.reference.delete().await()
+                }
+
+                // Delete user's chat history conversations and messages
+                val convos = firestore.collection("chatHistory")
+                    .document(userId).collection("conversations").get().await()
+                for (convo in convos.documents) {
+                    val messages = convo.reference.collection("messages").get().await()
+                    for (msg in messages.documents) {
+                        msg.reference.delete().await()
+                    }
+                    convo.reference.delete().await()
+                }
+
+                // Also delete the Firebase Auth account via Cloud Function
+                try {
+                    functions.getHttpsCallable("deleteAuthUser")
+                        .call(hashMapOf("uid" to userId))
+                        .await()
+                    Log.d("AdminVM", "Auth account $userId also deleted")
+                } catch (authErr: Exception) {
+                    Log.w("AdminVM", "Firestore deleted but Auth cleanup failed (deploy functions first): ${authErr.message}")
+                }
+
+                Log.d("AdminVM", "User $userId deleted from Firestore")
+            } catch (e: Exception) {
+                Log.e("AdminVM", "Failed to delete user $userId", e)
+            }
+        }
     }
 
     fun logout(onSuccess: () -> Unit) {

@@ -35,11 +35,14 @@ android {
         // Read API keys from local.properties
         buildConfigField("String", "OPENAI_API_KEY", "\"${localProperties.getProperty("OPENAI_API_KEY", "")}\"")
         buildConfigField("String", "YOUTUBE_API_KEY", "\"${localProperties.getProperty("YOUTUBE_API_KEY", "")}\"")
+        buildConfigField("String", "ADMIN_EMAIL", "\"${localProperties.getProperty("ADMIN_EMAIL", "admin@littledino.com")}\"")
+        buildConfigField("String", "ADMIN_PASSWORD", "\"${localProperties.getProperty("ADMIN_PASSWORD", "dino123")}\"")
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

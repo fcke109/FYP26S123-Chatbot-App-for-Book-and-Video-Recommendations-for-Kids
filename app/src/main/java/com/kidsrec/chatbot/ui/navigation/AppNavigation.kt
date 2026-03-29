@@ -35,11 +35,13 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.kidsrec.chatbot.data.model.AccountType
 import com.kidsrec.chatbot.data.model.PlanType
 import com.kidsrec.chatbot.ui.admin.AdminScreen
 import com.kidsrec.chatbot.ui.admin.AdminViewModel
 import com.kidsrec.chatbot.ui.auth.AuthState
 import com.kidsrec.chatbot.ui.auth.AuthViewModel
+import com.kidsrec.chatbot.ui.auth.EmailVerificationScreen
 import com.kidsrec.chatbot.ui.auth.LoginScreen
 import com.kidsrec.chatbot.ui.auth.RegisterScreen
 import com.kidsrec.chatbot.ui.chat.ChatViewModel
@@ -48,6 +50,8 @@ import com.kidsrec.chatbot.ui.favorites.FavoritesScreen
 import com.kidsrec.chatbot.ui.favorites.FavoritesViewModel
 import com.kidsrec.chatbot.ui.library.LibraryViewModel
 import com.kidsrec.chatbot.ui.library.UserLibraryScreen
+import com.kidsrec.chatbot.ui.parent.ParentDashboardScreen
+import com.kidsrec.chatbot.ui.parent.ParentDashboardViewModel
 import com.kidsrec.chatbot.ui.profile.ProfileScreen
 import com.kidsrec.chatbot.ui.profile.ProfileViewModel
 import com.kidsrec.chatbot.ui.reader.BookReaderScreen
@@ -63,6 +67,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
     object Favorites : Screen("favorites", "Favorites", Icons.Default.Favorite)
     object Profile : Screen("profile", "Profile", Icons.Default.Person)
     object Admin : Screen("admin", "Admin", Icons.Default.Shield)
+    object ParentDashboard : Screen("parent_dashboard", "Dashboard", Icons.Default.Person)
     object Reader : Screen("reader/{url}", "Reader")
     object SafeWebView : Screen(
         "webview?url={url}&title={title}&isVideo={isVideo}&itemId={itemId}&imageUrl={imageUrl}&description={description}",
@@ -184,14 +189,21 @@ fun AppNavigation() {
             val firebaseEmail =
                 com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.email?.lowercase()
 
-            firebaseEmail == "admin@littledino.com" ||
-                    currentUser?.email?.lowercase() == "admin@littledino.com" ||
+            firebaseEmail == com.kidsrec.chatbot.BuildConfig.ADMIN_EMAIL.lowercase() ||
+                    currentUser?.email?.lowercase() == com.kidsrec.chatbot.BuildConfig.ADMIN_EMAIL.lowercase() ||
                     currentUser?.planType == PlanType.ADMIN
         }
     }
 
+    val isParent by remember(currentUser) {
+        derivedStateOf {
+            currentUser?.accountType == AccountType.PARENT
+        }
+    }
+
     when (authState) {
-        is AuthState.Authenticated -> MainScreen(authViewModel, isAdmin)
+        is AuthState.Authenticated -> MainScreen(authViewModel, isAdmin, isParent)
+        is AuthState.EmailNotVerified -> EmailVerificationScreen(authViewModel)
         is AuthState.Initial -> Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
@@ -232,19 +244,23 @@ fun AuthNavigation(authViewModel: AuthViewModel) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean) {
+fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean = false) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
     val profileViewModel: ProfileViewModel = hiltViewModel()
 
-    val bottomNavItems = if (isAdmin) {
+    val bottomNavItems = if (isAdmin || isParent) {
         emptyList()
     } else {
         listOf(Screen.Chat, Screen.Library, Screen.Favorites, Screen.Profile)
     }
 
-    val startRoute = if (isAdmin) Screen.Admin.route else Screen.Chat.route
+    val startRoute = when {
+        isAdmin -> Screen.Admin.route
+        isParent -> Screen.ParentDashboard.route
+        else -> Screen.Chat.route
+    }
 
     Scaffold(
         bottomBar = {
@@ -389,6 +405,15 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean) {
                             )
                         )
                     }
+                )
+            }
+
+            composable(Screen.ParentDashboard.route) {
+                val parentDashboardViewModel: ParentDashboardViewModel = hiltViewModel()
+
+                ParentDashboardScreen(
+                    viewModel = parentDashboardViewModel,
+                    onLogout = { authViewModel.signOut() }
                 )
             }
 

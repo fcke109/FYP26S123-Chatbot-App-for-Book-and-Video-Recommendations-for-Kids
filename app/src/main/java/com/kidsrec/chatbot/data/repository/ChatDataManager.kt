@@ -109,6 +109,13 @@ class ChatDataManager @Inject constructor(
         message: String
     ): Result<ChatMessage> {
         return try {
+            // Sanitize and validate input
+            val validationError = com.kidsrec.chatbot.util.InputSanitizer.validateMessage(message)
+            if (validationError != null) {
+                return Result.failure(Exception(validationError))
+            }
+            val sanitizedMessage = com.kidsrec.chatbot.util.InputSanitizer.sanitizeChatMessage(message)
+
             val curatedBooks = bookDataManager.getCuratedBooks().getOrDefault(emptyList())
 
             val curatedBooksContext = if (curatedBooks.isNotEmpty()) {
@@ -141,7 +148,7 @@ class ChatDataManager @Inject constructor(
                     .collection("messages")
                     .document().id,
                 role = MessageRole.USER,
-                content = message,
+                content = sanitizedMessage,
                 timestamp = Timestamp.now()
             )
 
@@ -226,7 +233,7 @@ RULES FOR JSON:
                 OpenAIMessage(role = "system", content = systemPrompt)
             )
             messagesList.addAll(conversationHistory)
-            messagesList.add(OpenAIMessage(role = "user", content = message))
+            messagesList.add(OpenAIMessage(role = "user", content = sanitizedMessage))
 
             val openAIResponse = openAIService.createChatCompletion(
                 OpenAIRequest(messages = messagesList)
@@ -244,7 +251,7 @@ RULES FOR JSON:
             )
 
             val ensuredMix = ensureBookAndVideoMix(
-                originalMessage = message,
+                originalMessage = sanitizedMessage,
                 recommendations = withContentUrls,
                 curatedBooks = curatedBooks,
                 approvedVideos = approvedVideos

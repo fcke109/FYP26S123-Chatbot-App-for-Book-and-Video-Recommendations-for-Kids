@@ -24,6 +24,7 @@ fun ParentalControlsScreen(
     val user by authViewModel.currentUser.collectAsState()
     var isPinVerified by remember { mutableStateOf(false) }
     var enteredPin by remember { mutableStateOf("") }
+    var pinError by remember { mutableStateOf(false) }
     var maxAgeRating by remember { mutableStateOf(13) }
     var allowVideos by remember { mutableStateOf(true) }
 
@@ -83,9 +84,18 @@ fun ParentalControlsScreen(
 
                 OutlinedTextField(
                     value = enteredPin,
-                    onValueChange = { if (it.length <= 4) enteredPin = it },
+                    onValueChange = {
+                        if (it.length <= 4 && it.all { c -> c.isDigit() }) {
+                            enteredPin = it
+                            pinError = false
+                        }
+                    },
                     label = { Text("PIN") },
                     placeholder = { Text("Enter 4-digit PIN") },
+                    isError = pinError,
+                    supportingText = {
+                        if (pinError) Text("Incorrect PIN. Please try again.")
+                    },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -94,16 +104,28 @@ fun ParentalControlsScreen(
 
                 Button(
                     onClick = {
-                        // In production, verify against stored PIN
-                        // For demo, accept any 4-digit PIN
-                        if (enteredPin.length == 4) {
+                        val storedPin = user?.parentalPin
+                        if (storedPin.isNullOrBlank()) {
+                            // No PIN set yet — first time setup, save this PIN
+                            user?.let { currentUser ->
+                                val updated = currentUser.copy(parentalPin = enteredPin)
+                                authViewModel.updateUser(updated)
+                            }
                             isPinVerified = true
+                        } else if (enteredPin == storedPin) {
+                            isPinVerified = true
+                        } else {
+                            pinError = true
+                            enteredPin = ""
                         }
                     },
                     modifier = Modifier.fillMaxWidth(),
                     enabled = enteredPin.length == 4
                 ) {
-                    Text("Verify PIN")
+                    Text(
+                        if (user?.parentalPin.isNullOrBlank()) "Set PIN"
+                        else "Verify PIN"
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))

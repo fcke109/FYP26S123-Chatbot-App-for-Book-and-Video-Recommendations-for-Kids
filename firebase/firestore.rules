@@ -2,46 +2,77 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check if user is authenticated
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // Helper function to check if user owns the resource
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
+    function isAdmin() {
+      return isAuthenticated() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.planType == 'ADMIN';
+    }
+
+    function isParentOf(childId) {
+      return isAuthenticated() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.accountType == 'PARENT' &&
+        childId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.childIds;
+    }
+
     // Users collection
     match /users/{userId} {
-      // Users can read and write their own data
-      allow read, write: if isOwner(userId);
-
-      // Allow user creation during signup
+      allow read: if isOwner(userId) || isParentOf(userId) || isAdmin();
       allow create: if isAuthenticated() && request.auth.uid == userId;
+      allow update: if isOwner(userId) || isAdmin()
+        || isParentOf(userId)
+        || (isAuthenticated() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['childIds']));
+      allow delete: if isAdmin();
+    }
+
+    // Invite codes
+    match /inviteCodes/{code} {
+      allow create: if isAuthenticated();
+      allow read: if isAuthenticated();
+      allow update: if isAuthenticated();
     }
 
     // Chat history
     match /chatHistory/{userId}/conversations/{conversationId} {
-      // Users can only access their own conversations
-      allow read, write: if isOwner(userId);
+      allow read: if isOwner(userId) || isParentOf(userId) || isAdmin();
+      allow write: if isOwner(userId);
 
-      // Messages subcollection
       match /messages/{messageId} {
-        allow read, write: if isOwner(userId);
+        allow read: if isOwner(userId) || isParentOf(userId) || isAdmin();
+        allow write: if isOwner(userId);
       }
     }
 
     // Favorites
     match /favorites/{userId}/items/{itemId} {
-      // Users can only access their own favorites
-      allow read, write: if isOwner(userId);
+      allow read: if isOwner(userId) || isParentOf(userId) || isAdmin();
+      allow write: if isOwner(userId);
+      allow delete: if isAdmin();
     }
 
-    // Content library (read-only for all authenticated users)
+    // Reading history
+    match /readingHistory/{userId}/sessions/{sessionId} {
+      allow read: if isOwner(userId) || isParentOf(userId) || isAdmin();
+      allow write: if isOwner(userId);
+      allow delete: if isAdmin();
+    }
+
+    // Content library
     match /content/{document=**} {
       allow read: if isAuthenticated();
-      allow write: if false; // Only admins can write (via admin SDK)
+      allow write: if isAdmin();
+    }
+
+    // Curated books
+    match /content_books/{bookId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
     }
 
     // Deny all other access
