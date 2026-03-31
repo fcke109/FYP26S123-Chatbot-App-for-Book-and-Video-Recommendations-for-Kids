@@ -1,5 +1,6 @@
 package com.kidsrec.chatbot.data.repository
 
+import android.util.Log
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
@@ -37,7 +38,9 @@ class ReadingHistoryManager @Inject constructor(
                 openedAt = Timestamp.now()
             )
             ref.set(entry).await()
-        } catch (_: Exception) { /* Silent fail */ }
+        } catch (e: Exception) {
+            Log.e("ReadingHistory", "Failed to save reading history entry", e)
+        }
     }
 
     fun getHistoryFlow(userId: String, limit: Int = 10): Flow<List<ReadingHistory>> = callbackFlow {

@@ -166,7 +166,7 @@ class AccountManager @Inject constructor(
             }
             val code = codeResult.getOrThrow()
 
-            // 3. Create child user doc
+            // 3. Create child doc, mark invite used, link to parent — atomically
             val childDoc = User(
                 id = user.uid,
                 name = name,
@@ -177,22 +177,20 @@ class AccountManager @Inject constructor(
                 interests = interests,
                 readingLevel = readingLevel
             )
-            firestore.collection("users")
-                .document(user.uid)
-                .set(childDoc)
-                .await()
-
-            // 4. Mark invite code as used
-            firestore.collection("inviteCodes")
-                .document(inviteCode.uppercase())
-                .update("used", true)
-                .await()
-
-            // 5. Add child to parent's childIds
-            firestore.collection("users")
-                .document(code.parentId)
-                .update("childIds", FieldValue.arrayUnion(user.uid))
-                .await()
+            val batch = firestore.batch()
+            batch.set(
+                firestore.collection("users").document(user.uid),
+                childDoc
+            )
+            batch.update(
+                firestore.collection("inviteCodes").document(inviteCode.uppercase()),
+                "used", true
+            )
+            batch.update(
+                firestore.collection("users").document(code.parentId),
+                "childIds", FieldValue.arrayUnion(user.uid)
+            )
+            batch.commit().await()
 
             Result.success(user)
         } catch (e: Exception) {

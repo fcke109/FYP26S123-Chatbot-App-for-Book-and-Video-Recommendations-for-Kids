@@ -18,6 +18,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -249,6 +250,7 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
     val profileViewModel: ProfileViewModel = hiltViewModel()
+    val favoritesViewModel: FavoritesViewModel = hiltViewModel()
 
     val bottomNavItems = if (isAdmin || isParent) {
         emptyList()
@@ -303,7 +305,6 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
 
             composable(Screen.Chat.route) {
                 val chatViewModel: ChatViewModel = hiltViewModel()
-                val favoritesViewModel: FavoritesViewModel = hiltViewModel()
 
                 DinoChatPage(
                     viewModel = chatViewModel,
@@ -326,7 +327,6 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
 
             composable(Screen.Library.route) {
                 val libraryViewModel: LibraryViewModel = hiltViewModel()
-                val favoritesViewModel: FavoritesViewModel = hiltViewModel()
 
                 UserLibraryScreen(
                     viewModel = libraryViewModel,
@@ -348,8 +348,6 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
             }
 
             composable(Screen.Favorites.route) {
-                val favoritesViewModel: FavoritesViewModel = hiltViewModel()
-
                 FavoritesScreen(
                     viewModel = favoritesViewModel,
                     onOpenFavorite = { url, title, isVideo, itemId, imageUrl, description ->
@@ -370,7 +368,7 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
 
             composable(Screen.Profile.route) {
                 ProfileScreen(
-                    authViewModel = hiltViewModel(),
+                    authViewModel = authViewModel,
                     profileViewModel = profileViewModel,
                     onItemClick = { url, title, isVideo ->
                         navController.navigate(
@@ -446,12 +444,17 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
                     }
                 )
             ) { bse ->
-                SafeWebViewScreen(
-                    url = bse.arguments?.getString("url") ?: "",
-                    title = bse.arguments?.getString("title") ?: "",
-                    isVideo = bse.arguments?.getBoolean("isVideo") ?: false,
-                    onClose = { navController.popBackStack() }
-                )
+                val url = bse.arguments?.getString("url") ?: ""
+                if (url.isBlank()) {
+                    LaunchedEffect(Unit) { navController.popBackStack() }
+                } else {
+                    SafeWebViewScreen(
+                        url = url,
+                        title = bse.arguments?.getString("title") ?: "",
+                        isVideo = bse.arguments?.getBoolean("isVideo") ?: false,
+                        onClose = { navController.popBackStack() }
+                    )
+                }
             }
 
             composable(
@@ -467,11 +470,16 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
                     }
                 )
             ) { bse ->
-                YouTubePlayerScreen(
-                    videoId = bse.arguments?.getString("videoId") ?: "",
-                    title = bse.arguments?.getString("title") ?: "",
-                    onBack = { navController.popBackStack() }
-                )
+                val videoId = bse.arguments?.getString("videoId") ?: ""
+                if (videoId.isBlank()) {
+                    LaunchedEffect(Unit) { navController.popBackStack() }
+                } else {
+                    YouTubePlayerScreen(
+                        videoId = videoId,
+                        title = bse.arguments?.getString("title") ?: "",
+                        onBack = { navController.popBackStack() }
+                    )
+                }
             }
 
             composable(
@@ -480,10 +488,15 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
                     navArgument("url") { type = NavType.StringType }
                 )
             ) { bse ->
-                BookReaderScreen(
-                    url = bse.arguments?.getString("url") ?: "",
-                    onBack = { navController.popBackStack() }
-                )
+                val url = bse.arguments?.getString("url") ?: ""
+                if (url.isBlank()) {
+                    LaunchedEffect(Unit) { navController.popBackStack() }
+                } else {
+                    BookReaderScreen(
+                        url = url,
+                        onBack = { navController.popBackStack() }
+                    )
+                }
             }
         }
     }

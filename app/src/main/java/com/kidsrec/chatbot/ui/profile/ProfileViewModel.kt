@@ -33,6 +33,9 @@ class ProfileViewModel @Inject constructor(
     private val _readingHistory = MutableStateFlow<List<ReadingHistory>>(emptyList())
     val readingHistory: StateFlow<List<ReadingHistory>> = _readingHistory.asStateFlow()
 
+    private val _error = MutableStateFlow<String?>(null)
+    val error: StateFlow<String?> = _error.asStateFlow()
+
     init {
         loadUser()
         loadReadingHistory()
@@ -46,6 +49,7 @@ class ProfileViewModel @Inject constructor(
             accountManager.getUserFlow(userId)
                 .catch { e ->
                     Log.e("ProfileVM", "Failed to load user", e)
+                    _error.value = "Failed to load profile."
                     _isLoading.value = false
                 }
                 .collect { user ->
@@ -91,7 +95,9 @@ class ProfileViewModel @Inject constructor(
                     _updateSuccess.value = true
                     _isLoading.value = false
                 },
-                onFailure = {
+                onFailure = { e ->
+                    Log.e("ProfileVM", "Failed to update profile", e)
+                    _error.value = "Failed to save profile changes."
                     _isLoading.value = false
                 }
             )

@@ -80,7 +80,10 @@ class AuthViewModel @Inject constructor(
                                 accountType = AccountType.PARENT,
                                 planType = PlanType.ADMIN
                             )
-                            accountManager.updateUser(adminDoc)
+                            val updateResult = accountManager.updateUser(adminDoc)
+                            if (updateResult.isFailure) {
+                                Log.e("AuthVM", "Failed to create admin profile", updateResult.exceptionOrNull())
+                            }
                         }
                         _authState.value = AuthState.Authenticated(user.uid)
                         loadUserData(user.uid)
@@ -109,28 +112,29 @@ class AuthViewModel @Inject constructor(
         }
     }
 
-    private fun createAdminAccount(email: String, password: String) {
-        viewModelScope.launch {
-            val result = accountManager.signUp(email, password, "Admin", 99, emptyList(), "Advanced")
-            result.fold(
-                onSuccess = { user ->
-                    val adminDoc = User(
-                        id = user.uid,
-                        name = "Admin",
-                        email = email,
-                        age = 99,
-                        accountType = AccountType.PARENT,
-                        planType = PlanType.ADMIN
-                    )
-                    accountManager.updateUser(adminDoc)
-                    _authState.value = AuthState.Authenticated(user.uid)
-                    loadUserData(user.uid)
-                },
-                onFailure = { error ->
-                    _authState.value = AuthState.Error(mapFirebaseError(error.message))
+    private suspend fun createAdminAccount(email: String, password: String) {
+        val result = accountManager.signUp(email, password, "Admin", 99, emptyList(), "Advanced")
+        result.fold(
+            onSuccess = { user ->
+                val adminDoc = User(
+                    id = user.uid,
+                    name = "Admin",
+                    email = email,
+                    age = 99,
+                    accountType = AccountType.PARENT,
+                    planType = PlanType.ADMIN
+                )
+                val updateResult = accountManager.updateUser(adminDoc)
+                if (updateResult.isFailure) {
+                    Log.e("AuthVM", "Failed to create admin profile", updateResult.exceptionOrNull())
                 }
-            )
-        }
+                _authState.value = AuthState.Authenticated(user.uid)
+                loadUserData(user.uid)
+            },
+            onFailure = { error ->
+                _authState.value = AuthState.Error(mapFirebaseError(error.message))
+            }
+        )
     }
 
     fun signUp(
@@ -157,7 +161,10 @@ class AuthViewModel @Inject constructor(
                         readingLevel = readingLevel,
                         planType = planType
                     )
-                    accountManager.updateUser(userDoc)
+                    val updateResult = accountManager.updateUser(userDoc)
+                    if (updateResult.isFailure) {
+                        Log.e("AuthVM", "Failed to save user profile", updateResult.exceptionOrNull())
+                    }
                     _authState.value = AuthState.Authenticated(user.uid)
                     loadUserData(user.uid)
                 },
@@ -225,28 +232,45 @@ class AuthViewModel @Inject constructor(
     }
 
     // ── Email verification ───────────────────────────────────────
+    private val _verificationMessage = MutableStateFlow<String?>(null)
+    val verificationMessage: StateFlow<String?> = _verificationMessage.asStateFlow()
+
     fun checkEmailVerified() {
         viewModelScope.launch {
             val state = _authState.value
             if (state is AuthState.EmailNotVerified) {
-                if (accountManager.isEmailVerified()) {
-                    _authState.value = AuthState.Authenticated(state.userId)
+                try {
+                    if (accountManager.isEmailVerified()) {
+                        _verificationMessage.value = null
+                        _authState.value = AuthState.Authenticated(state.userId)
+                    } else {
+                        _verificationMessage.value = "Email not yet verified. Please check your inbox."
+                    }
+                } catch (e: Exception) {
+                    _verificationMessage.value = "Could not check verification status. Try again."
                 }
             }
         }
     }
 
+    fun clearVerificationMessage() {
+        _verificationMessage.value = null
+    }
+
     fun resendVerificationEmail() {
         viewModelScope.launch {
-            accountManager.resendVerificationEmail()
+            val result = accountManager.resendVerificationEmail()
+            if (result.isFailure) {
+                _verificationMessage.value = "Failed to resend email. Try again."
+            }
         }
     }
 
     fun signOut() {
+        _currentUser.value = null
+        _authState.value = AuthState.Unauthenticated
         viewModelScope.launch {
             accountManager.signOut()
-            _authState.value = AuthState.Unauthenticated
-            _currentUser.value = null
         }
     }
 

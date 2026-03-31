@@ -1,5 +1,6 @@
 package com.kidsrec.chatbot.data.repository
 
+import android.util.Log
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
@@ -298,7 +299,11 @@ RULES FOR JSON:
             .document(conversationId)
             .collection("messages")
             .orderBy("timestamp", Query.Direction.ASCENDING)
-            .addSnapshotListener { snapshot, _ ->
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    Log.e("ChatDataManager", "Error loading messages: ${error.message}")
+                    return@addSnapshotListener
+                }
                 snapshot?.let { trySend(it.toObjects(ChatMessage::class.java)) }
             }
 

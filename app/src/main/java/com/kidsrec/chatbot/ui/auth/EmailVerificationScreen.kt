@@ -18,6 +18,7 @@ fun EmailVerificationScreen(
     authViewModel: AuthViewModel
 ) {
     var resent by remember { mutableStateOf(false) }
+    val verificationMessage by authViewModel.verificationMessage.collectAsState()
 
     Column(
         modifier = Modifier
@@ -49,6 +50,17 @@ fun EmailVerificationScreen(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
         )
+
+        // Show feedback message
+        verificationMessage?.let { message ->
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = message,
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.error,
+                textAlign = TextAlign.Center
+            )
+        }
 
         Spacer(modifier = Modifier.height(32.dp))
 

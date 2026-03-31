@@ -52,14 +52,20 @@ class FavoritesViewModel @Inject constructor(
     ) {
         viewModelScope.launch {
             val userId = accountManager.getCurrentUserId() ?: return@launch
-            favoritesManager.addFavorite(userId, itemId, type, title, description, imageUrl, url)
+            val result = favoritesManager.addFavorite(userId, itemId, type, title, description, imageUrl, url)
+            if (result.isFailure) {
+                Log.e("FavoritesVM", "Failed to add favorite", result.exceptionOrNull())
+            }
         }
     }
 
     fun removeFavorite(itemId: String) {
         viewModelScope.launch {
             val userId = accountManager.getCurrentUserId() ?: return@launch
-            favoritesManager.removeFavorite(userId, itemId)
+            val result = favoritesManager.removeFavorite(userId, itemId)
+            if (result.isFailure) {
+                Log.e("FavoritesVM", "Failed to remove favorite", result.exceptionOrNull())
+            }
         }
     }
 }
