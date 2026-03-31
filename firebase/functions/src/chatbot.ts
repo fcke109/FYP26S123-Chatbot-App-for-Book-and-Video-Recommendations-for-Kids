@@ -2,6 +2,7 @@ import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import OpenAI from "openai";
 import {ChatCompletionMessageParam} from "openai/resources/chat/completions";
+import {filterResponse} from "./contentFilter";
 
 const openai = new OpenAI({
   apiKey: functions.config().openai?.key || process.env.OPENAI_API_KEY,
@@ -41,6 +42,34 @@ export const chatWithBot = functions.https.onCall(
         "invalid-argument",
         "Missing required parameters"
       );
+    }
+
+    // Rate limit: 20 requests per 10 minutes
+    const rateLimitRef = admin.firestore()
+      .collection("rateLimits")
+      .doc(`${context.auth.uid}_chat`);
+
+    const now = Date.now();
+    const windowMs = 10 * 60 * 1000;
+    const maxRequests = 20;
+
+    const rateLimitDoc = await rateLimitRef.get();
+    if (rateLimitDoc.exists) {
+      const rlData = rateLimitDoc.data()!;
+      const windowStart = rlData.windowStart?.toMillis?.() || rlData.windowStart || 0;
+      if (now - windowStart < windowMs) {
+        if ((rlData.count || 0) >= maxRequests) {
+          throw new functions.https.HttpsError(
+            "resource-exhausted",
+            "Too many messages. Please wait a few minutes."
+          );
+        }
+        await rateLimitRef.update({count: admin.firestore.FieldValue.increment(1)});
+      } else {
+        await rateLimitRef.set({count: 1, windowStart: admin.firestore.Timestamp.now()});
+      }
+    } else {
+      await rateLimitRef.set({count: 1, windowStart: admin.firestore.Timestamp.now()});
     }
 
     try {
@@ -89,8 +118,11 @@ export const chatWithBot = functions.https.onCall(
         max_tokens: 500,
       });
 
-      const response = completion.choices[0]?.message?.content ||
+      const rawResponse = completion.choices[0]?.message?.content ||
         "I'm sorry, I couldn't process that. Can you try again?";
+
+      // Filter response for inappropriate content
+      const response = filterResponse(rawResponse);
 
       // Check if response contains recommendations
       const recommendations = await generateRecommendations(

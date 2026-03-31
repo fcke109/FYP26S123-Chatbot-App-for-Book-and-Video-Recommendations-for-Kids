@@ -24,7 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kidsrec.chatbot.data.model.AccountType
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun RegisterScreen(
     onRegisterSuccess: () -> Unit,
@@ -49,8 +49,11 @@ fun RegisterScreen(
 
     val interests = listOf(
         "Reading", "Science", "Animals", "Adventure",
-        "Fantasy", "Art", "Music", "Sports", "History", "Nature"
+        "Fantasy", "Art", "Music", "Sports", "History", "Nature",
+        "Space", "Dinosaurs", "Cooking", "Cars", "Robots",
+        "Fairy Tales", "Superheroes", "Ocean", "Puzzles", "Travel"
     )
+    var interestsExpanded by remember { mutableStateOf(false) }
 
     val readingLevels = listOf("Beginner", "Early Reader", "Intermediate", "Advanced")
 
@@ -230,30 +233,73 @@ fun RegisterScreen(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                interests.chunked(3).forEach { row ->
-                    Row(
+                // Selected interests chips
+                if (selectedInterests.isNotEmpty()) {
+                    FlowRow(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        row.forEach { interest ->
-                            FilterChip(
-                                selected = selectedInterests.contains(interest),
+                        selectedInterests.forEach { interest ->
+                            InputChip(
+                                selected = true,
+                                onClick = { selectedInterests = selectedInterests - interest },
+                                label = { Text(interest) },
+                                trailingIcon = {
+                                    Icon(
+                                        Icons.Default.Close,
+                                        contentDescription = "Remove $interest",
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
+                // Dropdown selector
+                ExposedDropdownMenuBox(
+                    expanded = interestsExpanded,
+                    onExpandedChange = { interestsExpanded = it }
+                ) {
+                    OutlinedTextField(
+                        value = if (selectedInterests.isEmpty()) "" else "${selectedInterests.size} selected",
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Tap to pick interests") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = interestsExpanded) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = interestsExpanded,
+                        onDismissRequest = { interestsExpanded = false }
+                    ) {
+                        interests.forEach { interest ->
+                            val isSelected = selectedInterests.contains(interest)
+                            DropdownMenuItem(
+                                text = {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Checkbox(
+                                            checked = isSelected,
+                                            onCheckedChange = null
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(interest)
+                                    }
+                                },
                                 onClick = {
-                                    selectedInterests = if (selectedInterests.contains(interest)) {
+                                    selectedInterests = if (isSelected) {
                                         selectedInterests - interest
                                     } else {
                                         selectedInterests + interest
                                     }
-                                },
-                                label = { Text(interest) },
-                                modifier = Modifier.weight(1f)
+                                }
                             )
                         }
-                        repeat(3 - row.size) {
-                            Spacer(modifier = Modifier.weight(1f))
-                        }
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))

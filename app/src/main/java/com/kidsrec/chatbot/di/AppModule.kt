@@ -4,8 +4,8 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.storage.FirebaseStorage
+import com.kidsrec.chatbot.BuildConfig
 import com.kidsrec.chatbot.data.remote.*
-import com.kidsrec.chatbot.data.repository.*
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -41,10 +41,15 @@ object AppModule {
 
     @Provides
     @Singleton
+    fun provideYouTubeService(functions: FirebaseFunctions): YouTubeService = YouTubeService(functions)
+
+    // OpenAI key injected via interceptor for direct API calls (kept for backward compat)
+    @Provides
+    @Singleton
     fun provideOpenAIInterceptor(): Interceptor {
         return Interceptor { chain ->
             val request = chain.request().newBuilder()
-                .addHeader("Authorization", "Bearer ${com.kidsrec.chatbot.util.Constants.OPENAI_API_KEY}")
+                .addHeader("Authorization", "Bearer ${BuildConfig.OPENAI_API_KEY}")
                 .build()
             chain.proceed(request)
         }
@@ -54,7 +59,8 @@ object AppModule {
     @Singleton
     fun provideOkHttpClient(openAIInterceptor: Interceptor): OkHttpClient {
         val loggingInterceptor = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
+            level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BODY
+                    else HttpLoggingInterceptor.Level.NONE
         }
         return OkHttpClient.Builder()
             .addInterceptor(openAIInterceptor)

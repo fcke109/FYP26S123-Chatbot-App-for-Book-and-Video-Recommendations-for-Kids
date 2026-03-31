@@ -32,11 +32,8 @@ android {
             useSupportLibrary = true
         }
 
-        // Read API keys from local.properties
+        // Read API keys from local.properties (keys should be migrated to Cloud Functions)
         buildConfigField("String", "OPENAI_API_KEY", "\"${localProperties.getProperty("OPENAI_API_KEY", "")}\"")
-        buildConfigField("String", "YOUTUBE_API_KEY", "\"${localProperties.getProperty("YOUTUBE_API_KEY", "")}\"")
-        buildConfigField("String", "ADMIN_EMAIL", "\"${localProperties.getProperty("ADMIN_EMAIL", "admin@littledino.com")}\"")
-        buildConfigField("String", "ADMIN_PASSWORD", "\"${localProperties.getProperty("ADMIN_PASSWORD", "dino123")}\"")
     }
 
     buildTypes {
@@ -124,6 +121,9 @@ dependencies {
 
     // YouTube Player
     implementation("com.pierfrancescosoffritti.androidyoutubeplayer:core:12.1.0")
+
+    // Google Play Billing
+    implementation("com.android.billingclient:billing-ktx:7.1.1")
 
     // Testing
     testImplementation("junit:junit:4.13.2")

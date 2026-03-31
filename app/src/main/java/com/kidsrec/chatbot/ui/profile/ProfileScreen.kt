@@ -25,7 +25,7 @@ import coil.compose.AsyncImage
 import com.kidsrec.chatbot.data.model.ReadingHistory
 import com.kidsrec.chatbot.ui.auth.AuthViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun ProfileScreen(
     authViewModel: AuthViewModel,
@@ -44,8 +44,11 @@ fun ProfileScreen(
 
     val interests = listOf(
         "Reading", "Science", "Animals", "Adventure",
-        "Fantasy", "Art", "Music", "Sports", "History", "Nature"
+        "Fantasy", "Art", "Music", "Sports", "History", "Nature",
+        "Space", "Dinosaurs", "Cooking", "Cars", "Robots",
+        "Fairy Tales", "Superheroes", "Ocean", "Puzzles", "Travel"
     )
+    var interestsExpanded by remember { mutableStateOf(false) }
 
     val readingLevels = listOf("Beginner", "Early Reader", "Intermediate", "Advanced")
 
@@ -70,7 +73,7 @@ fun ProfileScreen(
             TopAppBar(
                 title = { Text("Profile") },
                 actions = {
-                    if (!isEditing) {
+                    if (!isEditing && user?.isGuest != true) {
                         IconButton(onClick = { isEditing = true }) {
                             Icon(Icons.Default.Edit, contentDescription = "Edit Profile")
                         }
@@ -138,30 +141,73 @@ fun ProfileScreen(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                interests.chunked(3).forEach { row ->
-                    Row(
+                // Selected interests chips
+                if (selectedInterests.isNotEmpty()) {
+                    FlowRow(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        row.forEach { interest ->
-                            FilterChip(
-                                selected = selectedInterests.contains(interest),
+                        selectedInterests.forEach { interest ->
+                            InputChip(
+                                selected = true,
+                                onClick = { selectedInterests = selectedInterests - interest },
+                                label = { Text(interest) },
+                                trailingIcon = {
+                                    Icon(
+                                        Icons.Default.Close,
+                                        contentDescription = "Remove $interest",
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
+                // Dropdown selector
+                ExposedDropdownMenuBox(
+                    expanded = interestsExpanded,
+                    onExpandedChange = { interestsExpanded = it }
+                ) {
+                    OutlinedTextField(
+                        value = if (selectedInterests.isEmpty()) "" else "${selectedInterests.size} selected",
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Tap to pick interests") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = interestsExpanded) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = interestsExpanded,
+                        onDismissRequest = { interestsExpanded = false }
+                    ) {
+                        interests.forEach { interest ->
+                            val isSelected = selectedInterests.contains(interest)
+                            DropdownMenuItem(
+                                text = {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Checkbox(
+                                            checked = isSelected,
+                                            onCheckedChange = null
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(interest)
+                                    }
+                                },
                                 onClick = {
-                                    selectedInterests = if (selectedInterests.contains(interest)) {
+                                    selectedInterests = if (isSelected) {
                                         selectedInterests - interest
                                     } else {
                                         selectedInterests + interest
                                     }
-                                },
-                                label = { Text(interest) },
-                                modifier = Modifier.weight(1f)
+                                }
                             )
                         }
-                        repeat(3 - row.size) {
-                            Spacer(modifier = Modifier.weight(1f))
-                        }
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -219,68 +265,102 @@ fun ProfileScreen(
             } else {
                 // Display mode
                 user?.let { currentUser ->
-                    Text(
-                        text = currentUser.name,
-                        fontSize = 28.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    if (currentUser.isGuest) {
+                        // Guest profile display
+                        Text(
+                            text = "Guest",
+                            fontSize = 28.sp,
+                            fontWeight = FontWeight.Bold
+                        )
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
 
-                    Text(
-                        text = "${currentUser.age} years old",
-                        fontSize = 16.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                        Text(
+                            text = "You're browsing as a guest",
+                            fontSize = 16.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                        Spacer(modifier = Modifier.height(24.dp))
 
-                    Card(
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Email, contentDescription = null)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(text = currentUser.email)
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(
+                                    text = "Create an account to unlock:",
+                                    fontWeight = FontWeight.Medium,
+                                    fontSize = 16.sp
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(text = "- Save your favorite books and videos")
+                                Text(text = "- Get personalized recommendations")
+                                Text(text = "- Track your reading history")
                             }
+                        }
+                    } else {
+                        // Regular user profile display
+                        Text(
+                            text = currentUser.name,
+                            fontSize = 28.sp,
+                            fontWeight = FontWeight.Bold
+                        )
 
-                            Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
 
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.MenuBook, contentDescription = null)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(text = "Reading Level: ${currentUser.readingLevel}")
-                            }
+                        Text(
+                            text = "${currentUser.age} years old",
+                            fontSize = 16.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
 
-                            Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(24.dp))
 
-                            Text(
-                                text = "Interests",
-                                fontWeight = FontWeight.Medium,
-                                fontSize = 16.sp
-                            )
+                        Card(
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Email, contentDescription = null)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(text = currentUser.email)
+                                }
 
-                            Spacer(modifier = Modifier.height(8.dp))
+                                Spacer(modifier = Modifier.height(16.dp))
 
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                currentUser.interests.forEach { interest ->
-                                    AssistChip(
-                                        onClick = { },
-                                        label = { Text(interest) }
-                                    )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.MenuBook, contentDescription = null)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(text = "Reading Level: ${currentUser.readingLevel}")
+                                }
+
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                Text(
+                                    text = "Interests",
+                                    fontWeight = FontWeight.Medium,
+                                    fontSize = 16.sp
+                                )
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    currentUser.interests.forEach { interest ->
+                                        AssistChip(
+                                            onClick = { },
+                                            label = { Text(interest) }
+                                        )
+                                    }
                                 }
                             }
                         }
-                    }
 
-                    // Recently Read & Watched Section
-                    if (readingHistory.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(24.dp))
-                        RecentlyReadSection(readingHistory, onItemClick)
+                        // Recently Read & Watched Section
+                        if (readingHistory.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(24.dp))
+                            RecentlyReadSection(readingHistory, onItemClick)
+                        }
                     }
                 }
             }

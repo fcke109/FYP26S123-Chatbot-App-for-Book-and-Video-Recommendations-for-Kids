@@ -24,6 +24,9 @@ class FavoritesViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    private val _isGuest = MutableStateFlow(false)
+    val isGuest: StateFlow<Boolean> = _isGuest.asStateFlow()
+
     init {
         loadFavorites()
     }
@@ -31,10 +34,19 @@ class FavoritesViewModel @Inject constructor(
     private fun loadFavorites() {
         viewModelScope.launch {
             val userId = accountManager.getCurrentUserId() ?: return@launch
+
+            // Check if guest
+            val user = accountManager.getUser(userId)
+            if (user?.isGuest == true) {
+                _isGuest.value = true
+                _isLoading.value = false
+                return@launch
+            }
+
             _isLoading.value = true
             favoritesManager.getFavoritesFlow(userId)
                 .onEach { _isLoading.value = false }
-                .catch { e -> 
+                .catch { e ->
                     Log.e("FavoritesVM", "Permission denied or load failed", e)
                     _isLoading.value = false
                 }
@@ -50,6 +62,7 @@ class FavoritesViewModel @Inject constructor(
         imageUrl: String,
         url: String = ""
     ) {
+        if (_isGuest.value) return
         viewModelScope.launch {
             val userId = accountManager.getCurrentUserId() ?: return@launch
             val result = favoritesManager.addFavorite(userId, itemId, type, title, description, imageUrl, url)
@@ -60,6 +73,7 @@ class FavoritesViewModel @Inject constructor(
     }
 
     fun removeFavorite(itemId: String) {
+        if (_isGuest.value) return
         viewModelScope.launch {
             val userId = accountManager.getCurrentUserId() ?: return@launch
             val result = favoritesManager.removeFavorite(userId, itemId)

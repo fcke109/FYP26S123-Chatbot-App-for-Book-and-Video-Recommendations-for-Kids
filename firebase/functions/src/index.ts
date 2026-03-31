@@ -5,3 +5,7 @@ admin.initializeApp();
 // Export all cloud functions
 export {chatWithBot, getRecommendations} from "./chatbot";
 export {onUserCreated, migrateExistingUsers, deleteAuthUser, cleanGhostAccounts} from "./triggers";
+export {searchYouTube} from "./youtube-proxy";
+export {setAdminRole} from "./admin";
+export {logAuditEvent} from "./auditLog";
+export {verifyPurchase} from "./billing";

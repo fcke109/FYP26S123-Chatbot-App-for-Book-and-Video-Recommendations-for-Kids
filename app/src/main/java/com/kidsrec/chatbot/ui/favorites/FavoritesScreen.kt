@@ -38,6 +38,7 @@ fun FavoritesScreen(
 ) {
     val favorites by viewModel.favorites.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val isGuest by viewModel.isGuest.collectAsState()
 
     Scaffold(
         topBar = {
@@ -57,7 +58,7 @@ fun FavoritesScreen(
                         modifier = Modifier.align(Alignment.Center)
                     )
                 }
-                favorites.isEmpty() -> {
+                isGuest -> {
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
@@ -66,10 +67,26 @@ fun FavoritesScreen(
                         verticalArrangement = Arrangement.Center
                     ) {
                         Text(
-                            text = "💫",
-                            fontSize = 64.sp
+                            text = "Favorites require an account",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold
                         )
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Create an account to save your favorite books and videos!",
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                favorites.isEmpty() -> {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(32.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
                         Text(
                             text = "No favorites yet!",
                             fontSize = 24.sp,

@@ -3,19 +3,33 @@ package com.kidsrec.chatbot.ui.parent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import android.util.Log
+import com.kidsrec.chatbot.data.model.ContentApproval
 import com.kidsrec.chatbot.data.model.Favorite
 import com.kidsrec.chatbot.data.model.ReadingHistory
+import com.kidsrec.chatbot.data.model.ScreenTimeSession
 import com.kidsrec.chatbot.data.model.User
 import com.kidsrec.chatbot.data.repository.AccountManager
+import com.kidsrec.chatbot.data.repository.ContentApprovalManager
+import com.kidsrec.chatbot.data.repository.ScreenTimeManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
 @HiltViewModel
 class ParentDashboardViewModel @Inject constructor(
-    private val accountManager: AccountManager
+    private val accountManager: AccountManager,
+    private val screenTimeManager: ScreenTimeManager,
+    private val contentApprovalManager: ContentApprovalManager,
+    private val firestore: com.google.firebase.firestore.FirebaseFirestore
 ) : ViewModel() {
+
+    private suspend fun isMyChild(childId: String): Boolean {
+        val parentId = accountManager.getCurrentUserId() ?: return false
+        val parent = accountManager.getUser(parentId) ?: return false
+        return childId in parent.childIds
+    }
 
     private val _children = MutableStateFlow<List<User>>(emptyList())
     val children: StateFlow<List<User>> = _children.asStateFlow()
@@ -29,6 +43,15 @@ class ParentDashboardViewModel @Inject constructor(
     private val _childHistory = MutableStateFlow<List<ReadingHistory>>(emptyList())
     val childHistory: StateFlow<List<ReadingHistory>> = _childHistory.asStateFlow()
 
+    private val _childScreenTime = MutableStateFlow<ScreenTimeSession?>(null)
+    val childScreenTime: StateFlow<ScreenTimeSession?> = _childScreenTime.asStateFlow()
+
+    private val _weeklyScreenTime = MutableStateFlow<List<ScreenTimeSession>>(emptyList())
+    val weeklyScreenTime: StateFlow<List<ScreenTimeSession>> = _weeklyScreenTime.asStateFlow()
+
+    private val _pendingApprovals = MutableStateFlow<List<ContentApproval>>(emptyList())
+    val pendingApprovals: StateFlow<List<ContentApproval>> = _pendingApprovals.asStateFlow()
+
     private val _inviteCode = MutableStateFlow<String?>(null)
     val inviteCode: StateFlow<String?> = _inviteCode.asStateFlow()
 
@@ -40,12 +63,12 @@ class ParentDashboardViewModel @Inject constructor(
 
     init {
         loadChildren()
+        loadPendingApprovals()
     }
 
     private fun loadChildren() {
         val parentId = accountManager.getCurrentUserId() ?: return
         viewModelScope.launch {
-            // Listen to parent's own doc to get childIds, then fetch each child by ID
             accountManager.getUserFlow(parentId).collect { parent ->
                 if (parent != null && parent.childIds.isNotEmpty()) {
                     val childList = parent.childIds.mapNotNull { childId ->
@@ -64,6 +87,15 @@ class ParentDashboardViewModel @Inject constructor(
         }
     }
 
+    private fun loadPendingApprovals() {
+        val parentId = accountManager.getCurrentUserId() ?: return
+        viewModelScope.launch {
+            contentApprovalManager.getPendingApprovalsFlow(parentId).collect { approvals ->
+                _pendingApprovals.value = approvals
+            }
+        }
+    }
+
     fun selectChild(child: User) {
         _selectedChild.value = child
         loadChildData(child.id)
@@ -73,6 +105,8 @@ class ParentDashboardViewModel @Inject constructor(
         _selectedChild.value = null
         _childFavorites.value = emptyList()
         _childHistory.value = emptyList()
+        _childScreenTime.value = null
+        _weeklyScreenTime.value = emptyList()
     }
 
     private fun loadChildData(childId: String) {
@@ -87,6 +121,16 @@ class ParentDashboardViewModel @Inject constructor(
                     _childHistory.value = history
                 }
             }
+            launch {
+                screenTimeManager.getTodayUsageFlow(childId).collect { session ->
+                    _childScreenTime.value = session
+                }
+            }
+            launch {
+                screenTimeManager.getWeeklyUsageFlow(childId).collect { sessions ->
+                    _weeklyScreenTime.value = sessions
+                }
+            }
         }
     }
 
@@ -94,7 +138,6 @@ class ParentDashboardViewModel @Inject constructor(
         val parentId = accountManager.getCurrentUserId() ?: return
         viewModelScope.launch {
             _isLoading.value = true
-            // Get parent name
             val parent = accountManager.getUser(parentId)
             val parentName = parent?.name ?: "Parent"
 
@@ -114,12 +157,98 @@ class ParentDashboardViewModel @Inject constructor(
 
     fun updateChildFilters(childId: String, maxAgeRating: Int, allowVideos: Boolean) {
         viewModelScope.launch {
+            if (!isMyChild(childId)) {
+                _errorMessage.value = "Unauthorized action."
+                return@launch
+            }
             accountManager.updateChildFilters(childId, maxAgeRating, allowVideos)
-            // Refresh the selected child data
             val updated = accountManager.getUser(childId)
             if (updated != null) {
                 _selectedChild.value = updated
             }
+        }
+    }
+
+    fun updateBlockedTopics(childId: String, topics: List<String>) {
+        viewModelScope.launch {
+            if (!isMyChild(childId)) {
+                _errorMessage.value = "Unauthorized action."
+                return@launch
+            }
+            try {
+                firestore.collection("users")
+                    .document(childId)
+                    .update("contentFilters.blockedTopics", topics)
+                    .await()
+                val updated = accountManager.getUser(childId)
+                if (updated != null) {
+                    _selectedChild.value = updated
+                }
+            } catch (e: Exception) {
+                Log.e("ParentDashVM", "Failed to update blocked topics", e)
+                _errorMessage.value = "Failed to update blocked topics."
+            }
+        }
+    }
+
+    fun toggleContentApproval(childId: String, required: Boolean) {
+        viewModelScope.launch {
+            if (!isMyChild(childId)) {
+                _errorMessage.value = "Unauthorized action."
+                return@launch
+            }
+            try {
+                firestore.collection("users")
+                    .document(childId)
+                    .update("contentApprovalRequired", required)
+                    .await()
+                val updated = accountManager.getUser(childId)
+                if (updated != null) {
+                    _selectedChild.value = updated
+                }
+            } catch (e: Exception) {
+                Log.e("ParentDashVM", "Failed to toggle content approval", e)
+            }
+        }
+    }
+
+    fun updateScreenTimeLimit(childId: String, minutes: Int) {
+        viewModelScope.launch {
+            if (!isMyChild(childId)) {
+                _errorMessage.value = "Unauthorized action."
+                return@launch
+            }
+            try {
+                firestore.collection("users")
+                    .document(childId)
+                    .update("screenTimeConfig.dailyLimitMinutes", minutes)
+                    .await()
+                val updated = accountManager.getUser(childId)
+                if (updated != null) {
+                    _selectedChild.value = updated
+                }
+            } catch (e: Exception) {
+                Log.e("ParentDashVM", "Failed to update screen time limit", e)
+            }
+        }
+    }
+
+    fun grantScreenTimeExtension(childId: String, additionalMinutes: Int = 15) {
+        viewModelScope.launch {
+            if (!isMyChild(childId)) return@launch
+            screenTimeManager.grantExtension(childId, additionalMinutes)
+        }
+    }
+
+    fun approveContent(approvalId: String) {
+        viewModelScope.launch {
+            contentApprovalManager.approveContent(approvalId)
+        }
+    }
+
+    fun rejectContent(approvalId: String) {
+        viewModelScope.launch {
+            contentApprovalManager.rejectContent(approvalId)
         }
     }
 

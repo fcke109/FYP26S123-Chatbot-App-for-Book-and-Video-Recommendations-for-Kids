@@ -2,7 +2,6 @@ package com.kidsrec.chatbot.ui.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.kidsrec.chatbot.BuildConfig
 import com.kidsrec.chatbot.data.model.AccountType
 import com.kidsrec.chatbot.data.model.PlanType
 import com.kidsrec.chatbot.data.model.User
@@ -26,7 +25,7 @@ class AuthViewModel @Inject constructor(
     val currentUser: StateFlow<User?> = _currentUser.asStateFlow()
 
     val isAdmin: StateFlow<Boolean> = _currentUser.map { user ->
-        user?.email?.lowercase() == "admin@littledino.com" || user?.planType == PlanType.ADMIN
+        user?.planType == PlanType.ADMIN
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     val isParent: StateFlow<Boolean> = _currentUser.map { user ->
@@ -63,33 +62,9 @@ class AuthViewModel @Inject constructor(
         viewModelScope.launch {
             _authState.value = AuthState.Loading
 
-            val isAdminEmail = email.lowercase() == BuildConfig.ADMIN_EMAIL.lowercase()
-
             val result = accountManager.signIn(email, password)
             result.fold(
                 onSuccess = { user ->
-                    // If admin, ensure Firestore profile exists
-                    if (isAdminEmail) {
-                        val existing = accountManager.getUser(user.uid)
-                        if (existing == null) {
-                            val adminDoc = User(
-                                id = user.uid,
-                                name = "Admin",
-                                email = email,
-                                age = 99,
-                                accountType = AccountType.PARENT,
-                                planType = PlanType.ADMIN
-                            )
-                            val updateResult = accountManager.updateUser(adminDoc)
-                            if (updateResult.isFailure) {
-                                Log.e("AuthVM", "Failed to create admin profile", updateResult.exceptionOrNull())
-                            }
-                        }
-                        _authState.value = AuthState.Authenticated(user.uid)
-                        loadUserData(user.uid)
-                        return@launch
-                    }
-
                     // Check if this is a parent account that needs email verification
                     val userData = accountManager.getUser(user.uid)
                     if (userData?.accountType == AccountType.PARENT && !accountManager.isEmailVerified()) {
@@ -101,40 +76,10 @@ class AuthViewModel @Inject constructor(
                     }
                 },
                 onFailure = { error ->
-                    if (isAdminEmail && password == BuildConfig.ADMIN_PASSWORD) {
-                        // Admin account doesn't exist in Auth yet — create it
-                        createAdminAccount(email, password)
-                    } else {
-                        _authState.value = AuthState.Error(mapFirebaseError(error.message))
-                    }
+                    _authState.value = AuthState.Error(mapFirebaseError(error.message))
                 }
             )
         }
-    }
-
-    private suspend fun createAdminAccount(email: String, password: String) {
-        val result = accountManager.signUp(email, password, "Admin", 99, emptyList(), "Advanced")
-        result.fold(
-            onSuccess = { user ->
-                val adminDoc = User(
-                    id = user.uid,
-                    name = "Admin",
-                    email = email,
-                    age = 99,
-                    accountType = AccountType.PARENT,
-                    planType = PlanType.ADMIN
-                )
-                val updateResult = accountManager.updateUser(adminDoc)
-                if (updateResult.isFailure) {
-                    Log.e("AuthVM", "Failed to create admin profile", updateResult.exceptionOrNull())
-                }
-                _authState.value = AuthState.Authenticated(user.uid)
-                loadUserData(user.uid)
-            },
-            onFailure = { error ->
-                _authState.value = AuthState.Error(mapFirebaseError(error.message))
-            }
-        )
     }
 
     fun signUp(
@@ -219,6 +164,46 @@ class AuthViewModel @Inject constructor(
                     _currentUser.value = null
                     _authState.value = AuthState.Error(
                         error.message ?: "Something went wrong."
+                    )
+                }
+            )
+        }
+    }
+
+    // ── Guest mode (anonymous auth) ──────────────────────────────
+    fun continueAsGuest() {
+        viewModelScope.launch {
+            _authState.value = AuthState.Loading
+            val result = accountManager.signInAnonymously()
+            result.fold(
+                onSuccess = { user ->
+                    val guestDoc = User(
+                        id = user.uid,
+                        name = "Guest",
+                        email = "",
+                        age = 8,
+                        accountType = AccountType.CHILD,
+                        isGuest = true,
+                        planType = PlanType.FREE
+                    )
+                    val updateResult = accountManager.updateUser(guestDoc)
+                    if (updateResult.isFailure) {
+                        Log.e("AuthVM", "Failed to create guest profile", updateResult.exceptionOrNull())
+                        try { user.delete() } catch (_: Exception) {}
+                        accountManager.signOut()
+                        _authState.value = AuthState.Error("Failed to create guest account. Try again.")
+                        return@fold
+                    }
+                    _authState.value = AuthState.Authenticated(user.uid)
+                    _currentUser.value = guestDoc
+                },
+                onFailure = { error ->
+                    Log.e("AuthVM", "Guest sign-in failed", error)
+                    _authState.value = AuthState.Error(
+                        if (error.message?.contains("ADMIN_ONLY_OPERATION") == true ||
+                            error.message?.contains("anonymous") == true)
+                            "Guest browsing is not enabled. Please ask the admin to enable Anonymous sign-in in Firebase."
+                        else mapFirebaseError(error.message)
                     )
                 }
             )

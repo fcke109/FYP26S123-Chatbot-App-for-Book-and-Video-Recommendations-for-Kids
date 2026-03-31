@@ -49,8 +49,10 @@ fun DinoChatPage(
     val isLoading by viewModel.isLoading.collectAsState()
     val conversations by viewModel.conversations.collectAsState()
     val favoriteItems by favoritesViewModel.favorites.collectAsState()
-    
+    val isGuestUser by favoritesViewModel.isGuest.collectAsState()
+
     var messageText by remember { mutableStateOf("") }
+    var inputWarning by remember { mutableStateOf<String?>(null) }
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
     var showHistorySheet by remember { mutableStateOf(false) }
@@ -116,6 +118,7 @@ fun DinoChatPage(
                         MessageBubble(
                             message = message,
                             favoriteItems = favoriteItems,
+                            isGuest = isGuestUser,
                             onToggleFavorite = { rec ->
                                 val isFav = favoriteItems.any { it.itemId == rec.id }
                                 if (isFav) {
@@ -148,25 +151,69 @@ fun DinoChatPage(
         }
 
         Surface(shadowElevation = 8.dp, modifier = Modifier.fillMaxWidth()) {
-            Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                OutlinedTextField(
-                    value = messageText,
-                    onValueChange = { messageText = it },
-                    modifier = Modifier.weight(1f),
-                    placeholder = { Text("Ask Little Dino for a story...") },
-                    shape = RoundedCornerShape(24.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                FloatingActionButton(
-                    onClick = {
-                        if (messageText.isNotBlank()) {
-                            viewModel.sendMessage(messageText)
-                            messageText = ""
+            Column {
+                // Warning banner for inappropriate input
+                inputWarning?.let { warning ->
+                    Surface(
+                        color = MaterialTheme.colorScheme.errorContainer,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = warning,
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                fontSize = 13.sp,
+                                modifier = Modifier.weight(1f)
+                            )
+                            IconButton(
+                                onClick = { inputWarning = null },
+                                modifier = Modifier.size(20.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = "Dismiss",
+                                    modifier = Modifier.size(16.dp),
+                                    tint = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                            }
                         }
-                    },
-                    containerColor = MaterialTheme.colorScheme.primary
-                ) {
-                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send")
+                    }
+                }
+
+                Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = messageText,
+                        onValueChange = {
+                            messageText = it
+                            // Clear warning as user types
+                            if (inputWarning != null) inputWarning = null
+                        },
+                        modifier = Modifier.weight(1f),
+                        placeholder = { Text("Ask Little Dino for a story...") },
+                        shape = RoundedCornerShape(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    FloatingActionButton(
+                        onClick = {
+                            if (messageText.isNotBlank()) {
+                                val validation = com.kidsrec.chatbot.util.InputSanitizer.validateMessage(messageText)
+                                if (validation != null) {
+                                    inputWarning = validation
+                                    // Don't clear message — let the user edit it
+                                } else {
+                                    inputWarning = null
+                                    viewModel.sendMessage(messageText)
+                                    messageText = ""
+                                }
+                            }
+                        },
+                        containerColor = MaterialTheme.colorScheme.primary
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send")
+                    }
                 }
             }
         }
@@ -195,6 +242,7 @@ fun WelcomeView() {
 fun MessageBubble(
     message: ChatMessage,
     favoriteItems: List<com.kidsrec.chatbot.data.model.Favorite>,
+    isGuest: Boolean = false,
     onToggleFavorite: (Recommendation) -> Unit,
     onOpenRecommendation: (String, String, Boolean, String, String, String) -> Unit,
     onGetBookPreviewUrl: (suspend (String) -> String)? = null
@@ -219,10 +267,11 @@ fun MessageBubble(
                 items(message.recommendations) { recommendation ->
                     val isFavorited = favoriteItems.any { it.itemId == recommendation.id }
                     RecommendationCard(
-                        recommendation = recommendation, 
+                        recommendation = recommendation,
                         isFavorited = isFavorited,
-                        onToggleFavorite = { onToggleFavorite(recommendation) }, 
-                        onOpenRecommendation = onOpenRecommendation, 
+                        showFavoriteButton = !isGuest,
+                        onToggleFavorite = { onToggleFavorite(recommendation) },
+                        onOpenRecommendation = onOpenRecommendation,
                         onGetBookPreviewUrl = onGetBookPreviewUrl
                     )
                 }
@@ -235,6 +284,7 @@ fun MessageBubble(
 fun RecommendationCard(
     recommendation: Recommendation,
     isFavorited: Boolean,
+    showFavoriteButton: Boolean = true,
     onToggleFavorite: () -> Unit,
     onOpenRecommendation: (String, String, Boolean, String, String, String) -> Unit,
     onGetBookPreviewUrl: (suspend (String) -> String)? = null
@@ -395,16 +445,18 @@ fun RecommendationCard(
                         Text(if (isVideo) "Watch" else "Read", fontSize = 12.sp)
                     }
                     
-                    IconButton(
-                        onClick = onToggleFavorite,
-                        modifier = Modifier.size(32.dp)
-                    ) {
-                        Icon(
-                            imageVector = if (isFavorited) Icons.Default.Favorite else Icons.Default.FavoriteBorder, 
-                            contentDescription = "Toggle Favorite", 
-                            modifier = Modifier.size(20.dp), 
-                            tint = if (isFavorited) Color.Red else MaterialTheme.colorScheme.primary
-                        )
+                    if (showFavoriteButton) {
+                        IconButton(
+                            onClick = onToggleFavorite,
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (isFavorited) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                contentDescription = "Toggle Favorite",
+                                modifier = Modifier.size(20.dp),
+                                tint = if (isFavorited) Color.Red else MaterialTheme.colorScheme.primary
+                            )
+                        }
                     }
                 }
             }

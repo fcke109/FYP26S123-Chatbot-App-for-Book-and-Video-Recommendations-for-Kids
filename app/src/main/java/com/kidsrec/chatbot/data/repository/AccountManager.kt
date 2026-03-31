@@ -355,6 +355,16 @@ class AccountManager @Inject constructor(
         }
     }
 
+    suspend fun signInAnonymously(): Result<FirebaseUser> {
+        return try {
+            val result = auth.signInAnonymously().await()
+            result.user?.let { Result.success(it) }
+                ?: Result.failure(Exception("Anonymous sign in failed"))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun signOut() {
         auth.signOut()
     }

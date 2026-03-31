@@ -1,10 +1,7 @@
 package com.kidsrec.chatbot.ui.webview
 
 import android.annotation.SuppressLint
-import android.content.ActivityNotFoundException
-import android.content.Intent
 import android.graphics.Bitmap
-import android.net.Uri
 import android.util.Log
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
@@ -38,8 +35,6 @@ fun SafeWebViewScreen(
     onClose: () -> Unit
 ) {
     val context = LocalContext.current
-    var launchAttempted by remember { mutableStateOf(false) }
-    var launchFailed by remember { mutableStateOf(false) }
 
     val decodedTitle = remember(title) {
         try {
@@ -49,50 +44,10 @@ fun SafeWebViewScreen(
         }
     }
 
-    // Open videos externally ONCE
-    LaunchedEffect(url, isVideo) {
-        if (!isVideo || url.isBlank() || launchAttempted) return@LaunchedEffect
+    // Videos should be routed to YouTubePlayerScreen via navigation.
+    // No external app launch — force in-app player for safety.
 
-        launchAttempted = true
-
-        try {
-            Log.d("KidsRecWebView", "Opening video externally: $url")
-
-            val uri = Uri.parse(url)
-
-            val genericIntent = Intent(Intent.ACTION_VIEW, uri).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-
-            val youtubeIntent = Intent(Intent.ACTION_VIEW, uri).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                setPackage("com.google.android.youtube")
-            }
-
-            val launched = when {
-                genericIntent.resolveActivity(context.packageManager) != null -> {
-                    context.startActivity(genericIntent)
-                    true
-                }
-                youtubeIntent.resolveActivity(context.packageManager) != null -> {
-                    context.startActivity(youtubeIntent)
-                    true
-                }
-                else -> false
-            }
-
-            if (launched) {
-                onClose()
-            } else {
-                launchFailed = true
-                Log.e("KidsRecWebView", "No app found to open video URL")
-            }
-        } catch (e: Exception) {
-            launchFailed = true
-            Log.e("KidsRecWebView", "Failed to open video externally", e)
-        }
-    }
-
+    // If somehow a video URL reaches here, show a message and close
     if (isVideo) {
         Box(
             modifier = Modifier
@@ -100,35 +55,14 @@ fun SafeWebViewScreen(
                 .background(MaterialTheme.colorScheme.background),
             contentAlignment = Alignment.Center
         ) {
-            if (launchFailed) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = "Could not open video.",
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Try opening this link in a browser:",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = url,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(onClick = onClose) {
-                        Text("Go Back")
-                    }
-                }
-            } else {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = "Opening video...",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = "This video should be opened in the safe player.",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(onClick = onClose) {
+                    Text("Go Back")
                 }
             }
         }
@@ -260,9 +194,9 @@ fun SafeWebViewScreen(
                             setSupportZoom(true)
                             builtInZoomControls = false
                             displayZoomControls = false
-                            allowFileAccess = true
-                            allowContentAccess = true
-                            mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+                            allowFileAccess = false
+                            allowContentAccess = false
+                            mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
                         }
 
                         webViewClient = object : WebViewClient() {

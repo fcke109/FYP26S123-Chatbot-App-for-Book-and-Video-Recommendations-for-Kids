@@ -23,13 +23,12 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.kidsrec.chatbot.BuildConfig
 import com.kidsrec.chatbot.R
 
 @Composable
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
-    onAdminLogin: () -> Unit, // Added for Admin access
+    onAdminLogin: () -> Unit,
     onNavigateToRegister: () -> Unit,
     viewModel: AuthViewModel
 ) {
@@ -42,12 +41,7 @@ fun LoginScreen(
 
     LaunchedEffect(authState) {
         if (authState is AuthState.Authenticated) {
-            // Check if it's the admin user
-            if (email.lowercase() == BuildConfig.ADMIN_EMAIL.lowercase()) {
-                onAdminLogin()
-            } else {
-                onLoginSuccess()
-            }
+            onLoginSuccess()
         }
     }
 
@@ -165,7 +159,28 @@ fun LoginScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(12.dp))
+
+        OutlinedButton(
+            onClick = { viewModel.continueAsGuest() },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp),
+            shape = MaterialTheme.shapes.large,
+            enabled = authState !is AuthState.Loading
+        ) {
+            Text("Browse as Guest", fontSize = 16.sp)
+        }
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        Text(
+            text = "Limited features - no favorites or chat history",
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
 
         TextButton(onClick = onNavigateToRegister) {
             Text("Don't have an account? Register", fontWeight = FontWeight.Medium)

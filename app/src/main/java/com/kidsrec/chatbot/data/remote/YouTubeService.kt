@@ -1,52 +1,29 @@
 package com.kidsrec.chatbot.data.remote
 
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import org.json.JSONObject
+import android.util.Log
+import com.google.firebase.functions.FirebaseFunctions
+import kotlinx.coroutines.tasks.await
+import javax.inject.Inject
+import javax.inject.Singleton
 
-object YouTubeService {
-
-    private const val API_KEY = "AIzaSyA7BQfi3VQRQGC3gnzWLG3mkasat1d5dA4"
-
-    fun searchVideo(query: String): Pair<String, String>? {
-
+@Singleton
+class YouTubeService @Inject constructor(
+    private val functions: FirebaseFunctions
+) {
+    suspend fun searchVideo(query: String): Pair<String, String>? {
         return try {
+            val result = functions
+                .getHttpsCallable("searchYouTube")
+                .call(mapOf("query" to query))
+                .await()
 
-            val url =
-                "https://www.googleapis.com/youtube/v3/search" +
-                        "?part=snippet" +
-                        "&maxResults=1" +
-                        "&type=video" +
-                        "&videoEmbeddable=true" +
-                        "&safeSearch=strict" +
-                        "&q=${query.replace(" ", "%20")}" +
-                        "&key=$API_KEY"
+            val data = result.getData() as? Map<*, *> ?: return null
+            val videoUrl = data["videoUrl"] as? String ?: return null
+            val thumbnailUrl = data["thumbnailUrl"] as? String ?: return null
 
-            val client = OkHttpClient()
-            val request = Request.Builder().url(url).build()
-
-            val response = client.newCall(request).execute()
-            val body = response.body?.string() ?: return null
-
-            val json = JSONObject(body)
-            val items = json.getJSONArray("items")
-
-            if (items.length() == 0) return null
-
-            val item = items.getJSONObject(0)
-
-            val videoId =
-                item.getJSONObject("id").getString("videoId")
-
-            val title =
-                item.getJSONObject("snippet").getString("title")
-
-            val videoUrl = "https://www.youtube.com/watch?v=$videoId"
-            val thumbnail = "https://img.youtube.com/vi/$videoId/hqdefault.jpg"
-
-            Pair(videoUrl, thumbnail)
-
+            Pair(videoUrl, thumbnailUrl)
         } catch (e: Exception) {
+            Log.e("YouTubeService", "Failed to search YouTube via Cloud Function", e)
             null
         }
     }

@@ -34,7 +34,8 @@ class ChatDataManager @Inject constructor(
     private val recommendationEngine: RecommendationEngine,
     private val accountManager: AccountManager,
     private val favoritesManager: FavoritesManager,
-    private val openLibraryService: OpenLibraryService
+    private val openLibraryService: OpenLibraryService,
+    private val youTubeService: YouTubeService
 ) {
 
     private data class ApprovedVideo(
@@ -101,6 +102,69 @@ class ChatDataManager @Inject constructor(
             url = "https://www.youtube.com/watch?v=SLZcWGQQsmg",
             imageUrl = "https://img.youtube.com/vi/SLZcWGQQsmg/hqdefault.jpg",
             tags = listOf("colors", "learning", "preschool")
+        ),
+        ApprovedVideo(
+            id = "vid_baby_shark",
+            title = "Baby Shark Dance",
+            description = "The famous Baby Shark song with fun dance moves.",
+            reason = "A super catchy and fun song for kids!",
+            url = "https://www.youtube.com/watch?v=XqZsoesa55w",
+            imageUrl = "https://img.youtube.com/vi/XqZsoesa55w/hqdefault.jpg",
+            tags = listOf("baby shark", "shark", "dance", "song", "ocean", "sea", "fish", "pinkfong")
+        ),
+        ApprovedVideo(
+            id = "vid_wheels_bus",
+            title = "Wheels on the Bus",
+            description = "A classic children's song about a fun bus ride.",
+            reason = "A fun sing-along about riding the bus.",
+            url = "https://www.youtube.com/watch?v=e_04ZrNroTo",
+            imageUrl = "https://img.youtube.com/vi/e_04ZrNroTo/hqdefault.jpg",
+            tags = listOf("bus", "wheels", "nursery rhyme", "song", "transport", "vehicles")
+        ),
+        ApprovedVideo(
+            id = "vid_solar_system",
+            title = "Solar System for Kids",
+            description = "Learn about all the planets in our solar system.",
+            reason = "A great way to explore space and planets.",
+            url = "https://www.youtube.com/watch?v=Qd6nLM2QlWw",
+            imageUrl = "https://img.youtube.com/vi/Qd6nLM2QlWw/hqdefault.jpg",
+            tags = listOf("space", "planets", "solar system", "science", "earth", "mars", "jupiter")
+        ),
+        ApprovedVideo(
+            id = "vid_dinosaurs",
+            title = "Dinosaurs for Kids",
+            description = "Learn about different types of dinosaurs.",
+            reason = "Explore the amazing world of dinosaurs!",
+            url = "https://www.youtube.com/watch?v=GQER4yliMQQ",
+            imageUrl = "https://img.youtube.com/vi/GQER4yliMQQ/hqdefault.jpg",
+            tags = listOf("dinosaur", "dinosaurs", "t-rex", "science", "prehistoric", "animals")
+        ),
+        ApprovedVideo(
+            id = "vid_ocean_animals",
+            title = "Ocean Animals for Kids",
+            description = "Discover amazing creatures that live under the sea.",
+            reason = "Learn about whales, dolphins, and more!",
+            url = "https://www.youtube.com/watch?v=aYAjdShvWEk",
+            imageUrl = "https://img.youtube.com/vi/aYAjdShvWEk/hqdefault.jpg",
+            tags = listOf("ocean", "sea", "animals", "whale", "dolphin", "fish", "marine", "nature")
+        ),
+        ApprovedVideo(
+            id = "vid_phonics",
+            title = "Phonics Song for Kids",
+            description = "Learn letter sounds with this fun phonics song.",
+            reason = "Great for early reading skills!",
+            url = "https://www.youtube.com/watch?v=BELlZKpi1Zs",
+            imageUrl = "https://img.youtube.com/vi/BELlZKpi1Zs/hqdefault.jpg",
+            tags = listOf("phonics", "reading", "letters", "alphabet", "learning", "school")
+        ),
+        ApprovedVideo(
+            id = "vid_five_senses",
+            title = "Five Senses for Kids",
+            description = "Learn about your five senses: sight, hearing, touch, taste, and smell.",
+            reason = "Discover how your body works!",
+            url = "https://www.youtube.com/watch?v=q1xNuU7gaAQ",
+            imageUrl = "https://img.youtube.com/vi/q1xNuU7gaAQ/hqdefault.jpg",
+            tags = listOf("senses", "body", "science", "health", "learning")
         )
     )
 
@@ -240,8 +304,11 @@ RULES FOR JSON:
                 OpenAIRequest(messages = messagesList)
             )
 
-            val botResponse = openAIResponse.choices.firstOrNull()?.message?.content
+            val rawResponse = openAIResponse.choices.firstOrNull()?.message?.content
                 ?: "Let's find some fun stories and videos!"
+
+            // Filter response for inappropriate content (defense-in-depth)
+            val botResponse = com.kidsrec.chatbot.util.ContentFilter.sanitizeResponse(rawResponse)
 
             val (cleanContent, parsedRecs) = parseRecommendations(botResponse)
 
@@ -376,7 +443,7 @@ RULES FOR JSON:
 
                     if (type == RecommendationType.VIDEO) {
                         val result = withContext(Dispatchers.IO) {
-                            YouTubeService.searchVideo(title)
+                            youTubeService.searchVideo(title)
                         }
                         if (result != null) {
                             url = result.first
@@ -490,7 +557,7 @@ RULES FOR JSON:
         }
     }
 
-    private fun ensureBookAndVideoMix(
+    private suspend fun ensureBookAndVideoMix(
         originalMessage: String,
         recommendations: List<Recommendation>,
         curatedBooks: List<Book>,
@@ -519,21 +586,43 @@ RULES FOR JSON:
             )
         }
 
-        if (!hasVideo && approvedVideos.isNotEmpty()) {
-            val fallbackVideo = pickBestFallbackVideo(originalMessage, approvedVideos)
+        if (!hasVideo) {
+            // Try YouTube search for a query related to the user's message first
+            val searchQuery = "$originalMessage kids safe"
+            val youtubeResult = try {
+                withContext(Dispatchers.IO) { youTubeService.searchVideo(searchQuery) }
+            } catch (_: Exception) { null }
 
-            mutable.add(
-                Recommendation(
-                    id = fallbackVideo.id,
-                    type = RecommendationType.VIDEO,
-                    title = fallbackVideo.title,
-                    description = fallbackVideo.description,
-                    imageUrl = fallbackVideo.imageUrl,
-                    reason = fallbackVideo.reason,
-                    relevanceScore = 0.0,
-                    url = fallbackVideo.url
+            if (youtubeResult != null) {
+                mutable.add(
+                    Recommendation(
+                        id = "yt_fallback_${youtubeResult.first.hashCode()}",
+                        type = RecommendationType.VIDEO,
+                        title = "Video for you",
+                        description = "A video related to what you asked about.",
+                        imageUrl = youtubeResult.second,
+                        reason = "Found a safe video matching your interests.",
+                        relevanceScore = 0.0,
+                        url = youtubeResult.first,
+                        isCurated = false
+                    )
                 )
-            )
+            } else if (approvedVideos.isNotEmpty()) {
+                // Fallback to best-matching approved video
+                val fallbackVideo = pickBestFallbackVideo(originalMessage, approvedVideos)
+                mutable.add(
+                    Recommendation(
+                        id = fallbackVideo.id,
+                        type = RecommendationType.VIDEO,
+                        title = fallbackVideo.title,
+                        description = fallbackVideo.description,
+                        imageUrl = fallbackVideo.imageUrl,
+                        reason = fallbackVideo.reason,
+                        relevanceScore = 0.0,
+                        url = fallbackVideo.url
+                    )
+                )
+            }
         }
 
         return mutable
@@ -544,15 +633,23 @@ RULES FOR JSON:
         videos: List<ApprovedVideo>
     ): ApprovedVideo {
         val lowerMessage = message.lowercase()
+        val messageWords = lowerMessage.split(Regex("\\s+")).filter { it.length > 2 }
 
         val scored = videos.map { video ->
-            val score = video.tags.count { tag ->
-                lowerMessage.contains(tag.lowercase())
-            }
+            var score = 0
+            // Tag matching
+            score += video.tags.count { tag -> lowerMessage.contains(tag.lowercase()) } * 3
+            // Title word matching
+            val titleWords = video.title.lowercase().split(Regex("\\s+"))
+            score += messageWords.count { word -> titleWords.any { it.contains(word) } } * 2
+            // Description matching
+            score += messageWords.count { word -> video.description.lowercase().contains(word) }
             video to score
         }
 
-        return scored.maxByOrNull { it.second }?.first ?: videos.first()
+        val best = scored.maxByOrNull { it.second }
+        // Only return the best match if it actually matched something
+        return if (best != null && best.second > 0) best.first else videos.random()
     }
 
     private fun titlesMatch(a: String, b: String): Boolean {

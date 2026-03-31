@@ -30,7 +30,8 @@ import java.util.Locale
 @Composable
 fun ParentDashboardScreen(
     viewModel: ParentDashboardViewModel,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    onUpgradePremium: () -> Unit = {}
 ) {
     val children by viewModel.children.collectAsState()
     val selectedChild by viewModel.selectedChild.collectAsState()
@@ -57,6 +58,13 @@ fun ParentDashboardScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = onUpgradePremium) {
+                        Icon(
+                            Icons.Default.Star,
+                            contentDescription = "Upgrade to Premium",
+                            tint = Color(0xFFFFA000)
+                        )
+                    }
                     IconButton(onClick = onLogout) {
                         Icon(
                             Icons.Default.Logout,
@@ -437,7 +445,19 @@ private fun ActivityTab(history: List<ReadingHistory>) {
                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
                 )
                 Spacer(modifier = Modifier.height(8.dp))
-                Text("No activity yet", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    "No activity yet",
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    "Activity will appear here once your child opens books or videos.",
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                    modifier = Modifier.padding(horizontal = 24.dp),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
             }
         }
     } else {

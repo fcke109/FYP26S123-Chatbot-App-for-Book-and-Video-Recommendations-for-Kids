@@ -37,6 +37,7 @@ fun UserLibraryScreen(
     val books by viewModel.curatedBooks.collectAsState()
     val topPicks by viewModel.topPicks.collectAsState()
     val favoriteItems by favoritesViewModel.favorites.collectAsState()
+    val isGuest by favoritesViewModel.isGuest.collectAsState()
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Text(
@@ -68,6 +69,7 @@ fun UserLibraryScreen(
                         TopPicksSection(
                             picks = topPicks,
                             favoriteItems = favoriteItems,
+                            isGuest = isGuest,
                             onToggleFavorite = { rec ->
                                 val isFav = favoriteItems.any { it.itemId == rec.id }
                                 if (isFav) {
@@ -116,6 +118,7 @@ fun UserLibraryScreen(
                     UserBookCard(
                         book = book,
                         isFavorited = isFavorited,
+                        showFavoriteButton = !isGuest,
                         onFavoriteClick = {
                             if (isFavorited) {
                                 favoritesViewModel.removeFavorite(book.id)
@@ -155,6 +158,7 @@ fun UserLibraryScreen(
 fun TopPicksSection(
     picks: List<Recommendation>,
     favoriteItems: List<Favorite>,
+    isGuest: Boolean = false,
     onToggleFavorite: (Recommendation) -> Unit,
     onPickClick: (Recommendation) -> Unit
 ) {
@@ -182,8 +186,9 @@ fun TopPicksSection(
             items(picks) { pick ->
                 val isFavorited = favoriteItems.any { it.itemId == pick.id }
                 TopPickCard(
-                    pick = pick, 
+                    pick = pick,
                     isFavorited = isFavorited,
+                    showFavoriteButton = !isGuest,
                     onFavoriteClick = { onToggleFavorite(pick) },
                     onClick = { onPickClick(pick) }
                 )
@@ -194,8 +199,9 @@ fun TopPicksSection(
 
 @Composable
 fun TopPickCard(
-    pick: Recommendation, 
+    pick: Recommendation,
     isFavorited: Boolean,
+    showFavoriteButton: Boolean = true,
     onFavoriteClick: () -> Unit,
     onClick: () -> Unit
 ) {
@@ -248,20 +254,22 @@ fun TopPickCard(
                 }
                 
                 // Favorite Toggle Button
-                IconButton(
-                    onClick = onFavoriteClick,
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(4.dp)
-                        .size(32.dp)
-                        .background(Color.White.copy(alpha = 0.7f), CircleShape)
-                ) {
-                    Icon(
-                        imageVector = if (isFavorited) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                        contentDescription = "Favorite",
-                        tint = if (isFavorited) Color.Red else Color.Gray,
-                        modifier = Modifier.size(18.dp)
-                    )
+                if (showFavoriteButton) {
+                    IconButton(
+                        onClick = onFavoriteClick,
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(4.dp)
+                            .size(32.dp)
+                            .background(Color.White.copy(alpha = 0.7f), CircleShape)
+                    ) {
+                        Icon(
+                            imageVector = if (isFavorited) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                            contentDescription = "Favorite",
+                            tint = if (isFavorited) Color.Red else Color.Gray,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
             }
 
@@ -292,6 +300,7 @@ fun TopPickCard(
 fun UserBookCard(
     book: Book,
     isFavorited: Boolean,
+    showFavoriteButton: Boolean = true,
     onFavoriteClick: () -> Unit,
     onClick: () -> Unit
 ) {
@@ -341,13 +350,15 @@ fun UserBookCard(
                     }
                 }
             }
-            IconButton(onClick = onFavoriteClick) {
-                Icon(
-                    imageVector = if (isFavorited) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                    contentDescription = "Favorite",
-                    tint = if (isFavorited) Color.Red else Color.Gray,
-                    modifier = Modifier.size(24.dp)
-                )
+            if (showFavoriteButton) {
+                IconButton(onClick = onFavoriteClick) {
+                    Icon(
+                        imageVector = if (isFavorited) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                        contentDescription = "Favorite",
+                        tint = if (isFavorited) Color.Red else Color.Gray,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
             }
         }
     }

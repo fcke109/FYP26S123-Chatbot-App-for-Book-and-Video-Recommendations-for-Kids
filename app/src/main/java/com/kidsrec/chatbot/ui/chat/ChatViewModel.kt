@@ -116,6 +116,12 @@ class ChatViewModel @Inject constructor(
 
     fun sendMessage(message: String) {
         if (message.isBlank()) return
+        // Defense-in-depth: block inappropriate messages at ViewModel level too
+        val validation = com.kidsrec.chatbot.util.InputSanitizer.validateMessage(message)
+        if (validation != null) {
+            _error.value = validation
+            return
+        }
         viewModelScope.launch {
             val userId = accountManager.getCurrentUserId() ?: return@launch
             val conversationId = currentConversationId ?: return@launch

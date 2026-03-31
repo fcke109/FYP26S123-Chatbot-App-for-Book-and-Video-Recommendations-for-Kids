@@ -28,6 +28,9 @@ data class User(
     val parentalEmail: String? = null,
     val parentalPin: String? = null,
     val contentFilters: ContentFilters = ContentFilters(),
+    val screenTimeConfig: ScreenTimeConfig = ScreenTimeConfig(),
+    val contentApprovalRequired: Boolean = false,
+    val isGuest: Boolean = false,
     val createdAt: Timestamp = Timestamp.now()
 ) {
     // No-arg constructor for Firestore
@@ -42,4 +45,13 @@ data class ContentFilters(
 ) {
     // No-arg constructor for Firestore
     constructor() : this(13, emptyList(), true)
+}
+
+@Keep
+data class ScreenTimeConfig(
+    val dailyLimitMinutes: Int = 30,
+    val isEnabled: Boolean = true,
+    val warningThresholdMinutes: Int = 25
+) {
+    constructor() : this(30, true, 25)
 }

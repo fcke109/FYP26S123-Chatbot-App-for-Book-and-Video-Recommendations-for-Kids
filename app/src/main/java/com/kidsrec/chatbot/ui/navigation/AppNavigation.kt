@@ -55,7 +55,9 @@ import com.kidsrec.chatbot.ui.parent.ParentDashboardScreen
 import com.kidsrec.chatbot.ui.parent.ParentDashboardViewModel
 import com.kidsrec.chatbot.ui.profile.ProfileScreen
 import com.kidsrec.chatbot.ui.profile.ProfileViewModel
+import com.kidsrec.chatbot.ui.billing.PremiumUpgradeScreen
 import com.kidsrec.chatbot.ui.reader.BookReaderScreen
+import com.kidsrec.chatbot.ui.screentime.ScreenTimeWrapper
 import com.kidsrec.chatbot.ui.webview.SafeWebViewScreen
 import com.kidsrec.chatbot.ui.webview.YouTubePlayerScreen
 import java.net.URLEncoder
@@ -78,6 +80,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
         "youtube_player?videoId={videoId}&title={title}",
         "YouTube Player"
     )
+    object PremiumUpgrade : Screen("premium", "Upgrade")
 }
 
 // -----------------------------
@@ -185,25 +188,23 @@ fun AppNavigation() {
     val authState by authViewModel.authState.collectAsState()
     val currentUser by authViewModel.currentUser.collectAsState()
 
-    val isAdmin by remember(currentUser, authState) {
+    val isAdmin by remember(currentUser) {
         derivedStateOf {
-            val firebaseEmail =
-                com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.email?.lowercase()
-
-            firebaseEmail == com.kidsrec.chatbot.BuildConfig.ADMIN_EMAIL.lowercase() ||
-                    currentUser?.email?.lowercase() == com.kidsrec.chatbot.BuildConfig.ADMIN_EMAIL.lowercase() ||
-                    currentUser?.planType == PlanType.ADMIN
+            currentUser?.planType == PlanType.ADMIN
         }
     }
 
     val isParent by remember(currentUser) {
         derivedStateOf {
-            currentUser?.accountType == AccountType.PARENT
+            currentUser?.accountType == AccountType.PARENT && currentUser?.planType != PlanType.ADMIN
         }
     }
 
     when (authState) {
-        is AuthState.Authenticated -> MainScreen(authViewModel, isAdmin, isParent)
+        is AuthState.Authenticated -> MainScreen(
+            authViewModel, isAdmin, isParent,
+            isGuest = currentUser?.isGuest == true
+        )
         is AuthState.EmailNotVerified -> EmailVerificationScreen(authViewModel)
         is AuthState.Initial -> Box(
             modifier = Modifier.fillMaxSize(),
@@ -245,7 +246,7 @@ fun AuthNavigation(authViewModel: AuthViewModel) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean = false) {
+fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean = false, isGuest: Boolean = false) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
@@ -254,6 +255,8 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
 
     val bottomNavItems = if (isAdmin || isParent) {
         emptyList()
+    } else if (isGuest) {
+        listOf(Screen.Chat, Screen.Library, Screen.Profile)
     } else {
         listOf(Screen.Chat, Screen.Library, Screen.Favorites, Screen.Profile)
     }
@@ -297,11 +300,13 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
         }
     ) { innerPadding ->
 
-        NavHost(
-            navController = navController,
-            startDestination = startRoute,
-            modifier = Modifier.padding(innerPadding)
-        ) {
+        val isChildAccount = !isAdmin && !isParent
+        val navContent: @Composable () -> Unit = {
+            NavHost(
+                navController = navController,
+                startDestination = startRoute,
+                modifier = Modifier.padding(innerPadding)
+            ) {
 
             composable(Screen.Chat.route) {
                 val chatViewModel: ChatViewModel = hiltViewModel()
@@ -411,7 +416,8 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
 
                 ParentDashboardScreen(
                     viewModel = parentDashboardViewModel,
-                    onLogout = { authViewModel.signOut() }
+                    onLogout = { authViewModel.signOut() },
+                    onUpgradePremium = { navController.navigate(Screen.PremiumUpgrade.route) }
                 )
             }
 
@@ -498,6 +504,20 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
                     )
                 }
             }
+
+            composable(Screen.PremiumUpgrade.route) {
+                PremiumUpgradeScreen(
+                    onBack = { navController.popBackStack() }
+                )
+            }
+        }
+        }
+
+        // Wrap child accounts with screen time tracking
+        if (isChildAccount) {
+            ScreenTimeWrapper { navContent() }
+        } else {
+            navContent()
         }
     }
 }
