@@ -47,6 +47,7 @@ fun DinoChatPage(
 ) {
     val messages by viewModel.messages.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val error by viewModel.error.collectAsState()
     val conversations by viewModel.conversations.collectAsState()
     val favoriteItems by favoritesViewModel.favorites.collectAsState()
     val isGuestUser by favoritesViewModel.isGuest.collectAsState()
@@ -146,6 +147,27 @@ fun DinoChatPage(
                         )
                     }
                     if (isLoading) { item { TypingIndicator() } }
+                    if (error != null) {
+                        item {
+                            Surface(
+                                color = MaterialTheme.colorScheme.errorContainer,
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "Oops! Little Dino couldn't respond. Please try again!",
+                                        color = MaterialTheme.colorScheme.onErrorContainer,
+                                        fontSize = 13.sp,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }

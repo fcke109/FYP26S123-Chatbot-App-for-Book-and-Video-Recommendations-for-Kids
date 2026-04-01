@@ -80,10 +80,20 @@ class ProfileViewModel @Inject constructor(
     ) {
         viewModelScope.launch {
             val currentUser = _user.value ?: return@launch
+
+            if (age !in 1..18) {
+                _error.value = "Age must be between 1 and 18."
+                return@launch
+            }
+            if (name.isBlank()) {
+                _error.value = "Name cannot be empty."
+                return@launch
+            }
+
             _isLoading.value = true
 
             val updatedUser = currentUser.copy(
-                name = name,
+                name = name.trim(),
                 age = age,
                 interests = interests,
                 readingLevel = readingLevel

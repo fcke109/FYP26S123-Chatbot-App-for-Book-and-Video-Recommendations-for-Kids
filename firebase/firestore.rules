@@ -52,15 +52,13 @@ service cloud.firestore {
     // Favorites
     match /favorites/{userId}/items/{itemId} {
       allow read: if isOwner(userId) || isParentOf(userId) || isAdmin();
-      allow write: if isOwner(userId);
-      allow delete: if isAdmin();
+      allow write, delete: if isOwner(userId) || isAdmin();
     }
 
     // Reading history
     match /readingHistory/{userId}/sessions/{sessionId} {
       allow read: if isOwner(userId) || isParentOf(userId) || isAdmin();
-      allow write: if isOwner(userId);
-      allow delete: if isAdmin();
+      allow write, delete: if isOwner(userId) || isAdmin();
     }
 
     // Content library

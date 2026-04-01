@@ -38,7 +38,10 @@ class ScreenTimeManager @Inject constructor(
     }
 
     suspend fun endSession(userId: String) {
-        val start = sessionStartTime ?: return
+        val start = sessionStartTime ?: run {
+            Log.w("ScreenTimeManager", "endSession called without active session for $userId")
+            return
+        }
         sessionStartTime = null
 
         val now = Timestamp.now()

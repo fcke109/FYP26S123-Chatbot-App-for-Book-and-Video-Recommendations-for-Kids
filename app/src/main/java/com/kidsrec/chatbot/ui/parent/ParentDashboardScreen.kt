@@ -20,7 +20,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.kidsrec.chatbot.data.model.ChatMessage
+import com.kidsrec.chatbot.data.model.Conversation
 import com.kidsrec.chatbot.data.model.Favorite
+import com.kidsrec.chatbot.data.model.MessageRole
 import com.kidsrec.chatbot.data.model.ReadingHistory
 import com.kidsrec.chatbot.data.model.User
 import java.text.SimpleDateFormat
@@ -40,6 +43,9 @@ fun ParentDashboardScreen(
     val errorMessage by viewModel.errorMessage.collectAsState()
     val childFavorites by viewModel.childFavorites.collectAsState()
     val childHistory by viewModel.childHistory.collectAsState()
+    val childConversations by viewModel.childConversations.collectAsState()
+    val childMessages by viewModel.childMessages.collectAsState()
+    val selectedConversationId by viewModel.selectedConversationId.collectAsState()
 
     Scaffold(
         topBar = {
@@ -81,6 +87,13 @@ fun ParentDashboardScreen(
                 child = selectedChild!!,
                 favorites = childFavorites,
                 history = childHistory,
+                conversations = childConversations,
+                messages = childMessages,
+                selectedConversationId = selectedConversationId,
+                onSelectConversation = { conversationId ->
+                    viewModel.selectConversation(selectedChild!!.id, conversationId)
+                },
+                onClearConversation = { viewModel.clearConversation() },
                 onUpdateFilters = { maxAge, allowVideos ->
                     viewModel.updateChildFilters(selectedChild!!.id, maxAge, allowVideos)
                 },
@@ -364,11 +377,16 @@ private fun ChildDetailView(
     child: User,
     favorites: List<Favorite>,
     history: List<ReadingHistory>,
+    conversations: List<Conversation>,
+    messages: List<ChatMessage>,
+    selectedConversationId: String?,
+    onSelectConversation: (String) -> Unit,
+    onClearConversation: () -> Unit,
     onUpdateFilters: (maxAgeRating: Int, allowVideos: Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Activity", "Favorites", "Controls")
+    val tabs = listOf("Activity", "Favorites", "Chat History", "Controls")
 
     Column(modifier = modifier.fillMaxSize()) {
         // Child info header
@@ -411,7 +429,7 @@ private fun ChildDetailView(
         }
 
         // Tabs
-        TabRow(selectedTabIndex = selectedTab) {
+        ScrollableTabRow(selectedTabIndex = selectedTab, edgePadding = 0.dp) {
             tabs.forEachIndexed { index, title ->
                 Tab(
                     selected = selectedTab == index,
@@ -425,7 +443,14 @@ private fun ChildDetailView(
         when (selectedTab) {
             0 -> ActivityTab(history)
             1 -> FavoritesTab(favorites)
-            2 -> ControlsTab(child, onUpdateFilters)
+            2 -> ChatHistoryTab(
+                conversations = conversations,
+                messages = messages,
+                selectedConversationId = selectedConversationId,
+                onSelectConversation = onSelectConversation,
+                onBack = onClearConversation
+            )
+            3 -> ControlsTab(child, onUpdateFilters)
         }
     }
 }
@@ -651,6 +676,185 @@ private fun ControlsTab(
             Icon(Icons.Default.Save, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
             Text("Save Changes")
+        }
+    }
+}
+
+@Composable
+private fun ChatHistoryTab(
+    conversations: List<Conversation>,
+    messages: List<ChatMessage>,
+    selectedConversationId: String?,
+    onSelectConversation: (String) -> Unit,
+    onBack: () -> Unit
+) {
+    val dateFormat = remember { SimpleDateFormat("MMM dd, yyyy  hh:mm a", Locale.getDefault()) }
+
+    if (selectedConversationId != null) {
+        // Show messages for selected conversation
+        Column(modifier = Modifier.fillMaxSize()) {
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back to conversations")
+                    }
+                    Text(
+                        "Conversation",
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 14.sp
+                    )
+                }
+            }
+
+            if (messages.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize().padding(32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        "No messages in this conversation",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(messages) { message ->
+                        val isUser = message.role == MessageRole.USER
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalAlignment = if (isUser) Alignment.End else Alignment.Start
+                        ) {
+                            Card(
+                                modifier = Modifier.widthIn(max = 300.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (isUser)
+                                        MaterialTheme.colorScheme.primaryContainer
+                                    else
+                                        MaterialTheme.colorScheme.surfaceVariant
+                                ),
+                                shape = RoundedCornerShape(
+                                    topStart = 16.dp,
+                                    topEnd = 16.dp,
+                                    bottomStart = if (isUser) 16.dp else 4.dp,
+                                    bottomEnd = if (isUser) 4.dp else 16.dp
+                                )
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Text(
+                                        text = if (isUser) "Child" else "Little Dino",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (isUser)
+                                            MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f)
+                                        else
+                                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = message.content,
+                                        fontSize = 14.sp,
+                                        color = if (isUser)
+                                            MaterialTheme.colorScheme.onPrimaryContainer
+                                        else
+                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = dateFormat.format(message.timestamp.toDate()),
+                                        fontSize = 10.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    } else {
+        // Show conversation list
+        if (conversations.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxSize().padding(32.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        Icons.Default.Chat,
+                        contentDescription = null,
+                        modifier = Modifier.size(48.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        "No chat history yet",
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        "Chat conversations will appear here once your child starts chatting with Little Dino.",
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        modifier = Modifier.padding(horizontal = 24.dp),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                }
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(conversations) { conversation ->
+                    Card(
+                        onClick = { onSelectConversation(conversation.id) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Chat,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(28.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = conversation.preview,
+                                    fontWeight = FontWeight.Medium,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = dateFormat.format(conversation.lastUpdated.toDate()),
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Icon(
+                                Icons.Default.ChevronRight,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }

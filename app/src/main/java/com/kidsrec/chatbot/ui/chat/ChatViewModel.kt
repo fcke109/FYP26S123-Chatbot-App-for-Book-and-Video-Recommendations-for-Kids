@@ -52,16 +52,24 @@ class ChatViewModel @Inject constructor(
     private fun initializeConversation() {
         viewModelScope.launch {
             val userId = accountManager.getCurrentUserId() ?: return@launch
-            val result = chatDataManager.createConversation(userId)
-            result.fold(
-                onSuccess = { conversationId ->
-                    currentConversationId = conversationId
-                    loadMessages(userId, conversationId)
-                },
-                onFailure = { error ->
-                    _error.value = error.message
-                }
-            )
+            // Resume the most recent conversation if one exists
+            val latestResult = chatDataManager.getLatestConversation(userId)
+            val latestConversation = latestResult.getOrNull()
+            if (latestConversation != null && latestConversation.id.isNotBlank()) {
+                currentConversationId = latestConversation.id
+                loadMessages(userId, latestConversation.id)
+            } else {
+                val result = chatDataManager.createConversation(userId)
+                result.fold(
+                    onSuccess = { conversationId ->
+                        currentConversationId = conversationId
+                        loadMessages(userId, conversationId)
+                    },
+                    onFailure = { error ->
+                        _error.value = error.message
+                    }
+                )
+            }
         }
     }
 
@@ -132,7 +140,8 @@ class ChatViewModel @Inject constructor(
                 onSuccess = { _isLoading.value = false },
                 onFailure = { error ->
                     _isLoading.value = false
-                    _error.value = error.message
+                    Log.e("ChatVM", "sendMessage failed", error)
+                    _error.value = error.message ?: "Something went wrong. Please try again!"
                 }
             )
         }

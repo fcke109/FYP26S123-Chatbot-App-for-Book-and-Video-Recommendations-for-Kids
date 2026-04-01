@@ -49,7 +49,12 @@ class LibraryViewModel @Inject constructor(
             bookDataManager.getCuratedBooksFlow()
                 .catch { e ->
                     Log.e("LibraryVM", "FATAL Error observing books: ${e.message}")
-                    loadFromOpenLibrary() // Fallback on hard failure
+                    try {
+                        loadFromOpenLibrary()
+                    } catch (e2: Exception) {
+                        Log.e("LibraryVM", "OpenLibrary fallback also failed: ${e2.message}")
+                    }
+                    _isLoading.value = false
                 }
                 .collectLatest { books ->
                     Log.d("LibraryVM", "Received ${books.size} books from Firestore")

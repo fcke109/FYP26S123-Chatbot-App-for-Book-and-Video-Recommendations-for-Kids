@@ -85,8 +85,13 @@ fun SafeWebViewScreen(
     )
 
     fun isUrlAllowed(urlToCheck: String): Boolean {
-        return allowedDomains.any { domain ->
-            urlToCheck.contains(domain, ignoreCase = true)
+        return try {
+            val host = android.net.Uri.parse(urlToCheck).host?.lowercase() ?: return false
+            allowedDomains.any { domain ->
+                host == domain || host.endsWith(".$domain")
+            }
+        } catch (e: Exception) {
+            false
         }
     }
 

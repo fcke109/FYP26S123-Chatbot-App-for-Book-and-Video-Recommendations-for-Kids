@@ -21,6 +21,13 @@ class YouTubeService @Inject constructor(
             val videoUrl = data["videoUrl"] as? String ?: return null
             val thumbnailUrl = data["thumbnailUrl"] as? String ?: return null
 
+            // Validate URLs are legitimate YouTube/Google domains
+            val videoHost = android.net.Uri.parse(videoUrl).host?.lowercase()
+            if (videoHost == null || !(videoHost.endsWith("youtube.com") || videoHost.endsWith("youtu.be"))) {
+                Log.w("YouTubeService", "Invalid video URL domain: $videoHost")
+                return null
+            }
+
             Pair(videoUrl, thumbnailUrl)
         } catch (e: Exception) {
             Log.e("YouTubeService", "Failed to search YouTube via Cloud Function", e)

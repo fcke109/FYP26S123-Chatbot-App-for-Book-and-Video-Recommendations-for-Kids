@@ -261,7 +261,8 @@ class RecommendationEngine @Inject constructor() {
         }.lowercase()
 
         return blockedTopics.none { blocked ->
-            combinedText.contains(blocked)
+            // Use word boundary matching so "war" doesn't block "award", "swarm", etc.
+            Regex("\\b${Regex.escape(blocked)}\\b").containsMatchIn(combinedText)
         }
     }
 

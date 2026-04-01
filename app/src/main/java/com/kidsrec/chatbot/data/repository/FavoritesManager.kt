@@ -1,5 +1,6 @@
 package com.kidsrec.chatbot.data.repository
 
+import android.util.Log
 import com.google.firebase.firestore.FirebaseFirestore
 import com.kidsrec.chatbot.data.model.Favorite
 import com.kidsrec.chatbot.data.model.RecommendationType
@@ -21,7 +22,8 @@ class FavoritesManager @Inject constructor(
             .collection("items")
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    close(error)
+                    Log.e("FavoritesManager", "Error loading favorites: ${error.message}")
+                    trySend(emptyList())
                     return@addSnapshotListener
                 }
                 val items = snapshot?.toObjects(Favorite::class.java) ?: emptyList()

@@ -3,12 +3,15 @@ package com.kidsrec.chatbot.ui.parent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import android.util.Log
+import com.kidsrec.chatbot.data.model.ChatMessage
 import com.kidsrec.chatbot.data.model.ContentApproval
+import com.kidsrec.chatbot.data.model.Conversation
 import com.kidsrec.chatbot.data.model.Favorite
 import com.kidsrec.chatbot.data.model.ReadingHistory
 import com.kidsrec.chatbot.data.model.ScreenTimeSession
 import com.kidsrec.chatbot.data.model.User
 import com.kidsrec.chatbot.data.repository.AccountManager
+import com.kidsrec.chatbot.data.repository.ChatDataManager
 import com.kidsrec.chatbot.data.repository.ContentApprovalManager
 import com.kidsrec.chatbot.data.repository.ScreenTimeManager
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -22,6 +25,7 @@ class ParentDashboardViewModel @Inject constructor(
     private val accountManager: AccountManager,
     private val screenTimeManager: ScreenTimeManager,
     private val contentApprovalManager: ContentApprovalManager,
+    private val chatDataManager: ChatDataManager,
     private val firestore: com.google.firebase.firestore.FirebaseFirestore
 ) : ViewModel() {
 
@@ -48,6 +52,15 @@ class ParentDashboardViewModel @Inject constructor(
 
     private val _weeklyScreenTime = MutableStateFlow<List<ScreenTimeSession>>(emptyList())
     val weeklyScreenTime: StateFlow<List<ScreenTimeSession>> = _weeklyScreenTime.asStateFlow()
+
+    private val _childConversations = MutableStateFlow<List<Conversation>>(emptyList())
+    val childConversations: StateFlow<List<Conversation>> = _childConversations.asStateFlow()
+
+    private val _childMessages = MutableStateFlow<List<ChatMessage>>(emptyList())
+    val childMessages: StateFlow<List<ChatMessage>> = _childMessages.asStateFlow()
+
+    private val _selectedConversationId = MutableStateFlow<String?>(null)
+    val selectedConversationId: StateFlow<String?> = _selectedConversationId.asStateFlow()
 
     private val _pendingApprovals = MutableStateFlow<List<ContentApproval>>(emptyList())
     val pendingApprovals: StateFlow<List<ContentApproval>> = _pendingApprovals.asStateFlow()
@@ -105,6 +118,9 @@ class ParentDashboardViewModel @Inject constructor(
         _selectedChild.value = null
         _childFavorites.value = emptyList()
         _childHistory.value = emptyList()
+        _childConversations.value = emptyList()
+        _childMessages.value = emptyList()
+        _selectedConversationId.value = null
         _childScreenTime.value = null
         _weeklyScreenTime.value = emptyList()
     }
@@ -131,7 +147,30 @@ class ParentDashboardViewModel @Inject constructor(
                     _weeklyScreenTime.value = sessions
                 }
             }
+            launch {
+                chatDataManager.getConversationsFlow(childId)
+                    .catch { e -> Log.e("ParentDashVM", "Failed to load child conversations", e) }
+                    .collect { conversations ->
+                        _childConversations.value = conversations.filter { it.preview.isNotBlank() }
+                    }
+            }
         }
+    }
+
+    fun selectConversation(childId: String, conversationId: String) {
+        _selectedConversationId.value = conversationId
+        viewModelScope.launch {
+            chatDataManager.getMessagesFlow(childId, conversationId)
+                .catch { e -> Log.e("ParentDashVM", "Failed to load messages", e) }
+                .collect { messages ->
+                    _childMessages.value = messages
+                }
+        }
+    }
+
+    fun clearConversation() {
+        _selectedConversationId.value = null
+        _childMessages.value = emptyList()
     }
 
     fun generateInviteCode() {

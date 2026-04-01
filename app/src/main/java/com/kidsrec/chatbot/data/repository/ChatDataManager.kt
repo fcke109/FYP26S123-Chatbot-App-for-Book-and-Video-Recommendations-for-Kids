@@ -355,6 +355,7 @@ RULES FOR JSON:
 
             Result.success(botMessage)
         } catch (e: Exception) {
+            Log.e("ChatDataManager", "sendMessage failed: ${e.javaClass.simpleName}: ${e.message}", e)
             Result.failure(e)
         }
     }
@@ -386,6 +387,22 @@ RULES FOR JSON:
 
             ref.set(Conversation(id = ref.id, userId = userId)).await()
             Result.success(ref.id)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getLatestConversation(userId: String): Result<Conversation?> {
+        return try {
+            val snapshot = firestore.collection("chatHistory")
+                .document(userId)
+                .collection("conversations")
+                .orderBy("lastUpdated", Query.Direction.DESCENDING)
+                .limit(1)
+                .get()
+                .await()
+            val conversation = snapshot.toObjects(Conversation::class.java).firstOrNull()
+            Result.success(conversation)
         } catch (e: Exception) {
             Result.failure(e)
         }
