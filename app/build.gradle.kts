@@ -34,6 +34,7 @@ android {
 
         // Read API keys from local.properties (keys should be migrated to Cloud Functions)
         buildConfigField("String", "OPENAI_API_KEY", "\"${localProperties.getProperty("OPENAI_API_KEY", "")}\"")
+        buildConfigField("String", "GEMINI_API_KEY", "\"${localProperties.getProperty("GEMINI_API_KEY", "")}\"")
     }
 
     buildTypes {
@@ -108,6 +109,9 @@ dependencies {
     implementation("com.squareup.retrofit2:converter-gson:2.11.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+
+    // Google Gemini AI
+    implementation("com.google.ai.client.generativeai:generativeai:0.7.0")
 
     // Image Loading
     implementation("io.coil-kt:coil-compose:2.7.0")
