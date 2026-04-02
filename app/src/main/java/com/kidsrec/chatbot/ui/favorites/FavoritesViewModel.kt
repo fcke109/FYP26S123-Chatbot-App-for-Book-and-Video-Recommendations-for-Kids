@@ -27,13 +27,24 @@ class FavoritesViewModel @Inject constructor(
     private val _isGuest = MutableStateFlow(false)
     val isGuest: StateFlow<Boolean> = _isGuest.asStateFlow()
 
+    private var currentListeningUserId: String? = null
+    private var favoritesJob: kotlinx.coroutines.Job? = null
+
     init {
         loadFavorites()
     }
 
-    private fun loadFavorites() {
+    fun loadFavorites() {
         viewModelScope.launch {
-            val userId = accountManager.getCurrentUserId() ?: return@launch
+            val userId = accountManager.getCurrentUserId()
+            if (userId == null) {
+                _favorites.value = emptyList()
+                _isLoading.value = false
+                return@launch
+            }
+
+            // Already listening for this user
+            if (userId == currentListeningUserId) return@launch
 
             // Check if guest
             val user = accountManager.getUser(userId)
@@ -43,14 +54,22 @@ class FavoritesViewModel @Inject constructor(
                 return@launch
             }
 
+            _isGuest.value = false
+
+            // Cancel previous listener and start a new one
+            favoritesJob?.cancel()
+            currentListeningUserId = userId
+
             _isLoading.value = true
-            favoritesManager.getFavoritesFlow(userId)
-                .onEach { _isLoading.value = false }
-                .catch { e ->
-                    Log.e("FavoritesVM", "Permission denied or load failed", e)
-                    _isLoading.value = false
-                }
-                .collect { items -> _favorites.value = items }
+            favoritesJob = viewModelScope.launch {
+                favoritesManager.getFavoritesFlow(userId)
+                    .onEach { _isLoading.value = false }
+                    .catch { e ->
+                        Log.e("FavoritesVM", "Permission denied or load failed", e)
+                        _isLoading.value = false
+                    }
+                    .collect { items -> _favorites.value = items }
+            }
         }
     }
 

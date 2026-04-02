@@ -253,6 +253,11 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
     val profileViewModel: ProfileViewModel = hiltViewModel()
     val favoritesViewModel: FavoritesViewModel = hiltViewModel()
 
+    // Re-trigger favourites loading after auth completes (fixes new account race condition)
+    LaunchedEffect(Unit) {
+        favoritesViewModel.loadFavorites()
+    }
+
     val bottomNavItems = if (isAdmin || isParent) {
         emptyList()
     } else if (isGuest) {
