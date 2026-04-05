@@ -22,8 +22,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.OffsetMapping
+import androidx.compose.ui.text.input.TransformedText
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
@@ -34,6 +40,7 @@ import com.kidsrec.chatbot.data.model.MessageRole
 import com.kidsrec.chatbot.data.model.Recommendation
 import com.kidsrec.chatbot.data.model.RecommendationType
 import com.kidsrec.chatbot.ui.favorites.FavoritesViewModel
+import com.kidsrec.chatbot.ui.library.SmartSearchViewModel
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -43,6 +50,7 @@ import java.util.Locale
 fun DinoChatPage(
     viewModel: ChatViewModel,
     favoritesViewModel: FavoritesViewModel,
+    searchViewModel: SmartSearchViewModel,
     onOpenRecommendation: (String, String, Boolean, String, String, String) -> Unit
 ) {
     val messages by viewModel.messages.collectAsState()
@@ -51,12 +59,51 @@ fun DinoChatPage(
     val conversations by viewModel.conversations.collectAsState()
     val favoriteItems by favoritesViewModel.favorites.collectAsState()
     val isGuestUser by favoritesViewModel.isGuest.collectAsState()
+    val searchUiState by searchViewModel.uiState.collectAsState()
 
     var messageText by remember { mutableStateOf("") }
     var inputWarning by remember { mutableStateOf<String?>(null) }
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
     var showHistorySheet by remember { mutableStateOf(false) }
+
+    // Ghost text autocomplete logic
+    val autocompleteSuggestion = remember(messageText, searchUiState.suggestions) {
+        if (messageText.isBlank() || messageText.endsWith(" ")) return@remember null
+        
+        val lastWord = messageText.substringAfterLast(' ')
+        if (lastWord.isEmpty()) return@remember null
+        
+        searchUiState.suggestions.firstNotNullOfOrNull { suggestion ->
+            if (suggestion.text.startsWith(lastWord, ignoreCase = true)) {
+                val remaining = suggestion.text.substring(lastWord.length)
+                if (remaining.isNotEmpty()) remaining else null
+            } else null
+        }
+    }
+
+    val ghostTextTransformation = remember(autocompleteSuggestion) {
+        VisualTransformation { text ->
+            if (autocompleteSuggestion != null) {
+                val annotatedString = buildAnnotatedString {
+                    append(text.text)
+                    withStyle(style = SpanStyle(color = Color.Gray.copy(alpha = 0.5f))) {
+                        append(autocompleteSuggestion)
+                    }
+                }
+                TransformedText(
+                    annotatedString,
+                    object : OffsetMapping {
+                        override fun originalToTransformed(offset: Int): Int = offset
+                        override fun transformedToOriginal(offset: Int): Int =
+                            if (offset > text.length) text.length else offset
+                    }
+                )
+            } else {
+                TransformedText(text, OffsetMapping.Identity)
+            }
+        }
+    }
 
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) {
@@ -174,6 +221,39 @@ fun DinoChatPage(
 
         Surface(shadowElevation = 8.dp, modifier = Modifier.fillMaxWidth()) {
             Column {
+                // Suggestions Row
+                if (messageText.isNotBlank() && searchUiState.suggestions.isNotEmpty()) {
+                    LazyRow(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        items(searchUiState.suggestions) { suggestion ->
+                            SuggestionChip(
+                                onClick = {
+                                    val prefix = messageText.substringBeforeLast(' ', "")
+                                    messageText = if (prefix.isEmpty()) suggestion.text else "$prefix ${suggestion.text} "
+                                    searchViewModel.onSuggestionClick(suggestion.text)
+                                },
+                                label = { 
+                                    Text(
+                                        text = suggestion.text,
+                                        fontSize = 12.sp
+                                    ) 
+                                },
+                                colors = SuggestionChipDefaults.suggestionChipColors(
+                                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                    labelColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                ),
+                                border = null,
+                                shape = RoundedCornerShape(16.dp)
+                            )
+                        }
+                    }
+                }
+
                 // Warning banner for inappropriate input
                 inputWarning?.let { warning ->
                     Surface(
@@ -186,7 +266,7 @@ fun DinoChatPage(
                         ) {
                             Text(
                                 text = warning,
-                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                color = MaterialTheme.colorScheme.errorContainer,
                                 fontSize = 13.sp,
                                 modifier = Modifier.weight(1f)
                             )
@@ -210,12 +290,16 @@ fun DinoChatPage(
                         value = messageText,
                         onValueChange = {
                             messageText = it
+                            // Pass the last word to search view model for ghost-text relevant suggestions
+                            val lastWord = it.substringAfterLast(' ')
+                            searchViewModel.onQueryChange(lastWord.ifBlank { it })
                             // Clear warning as user types
                             if (inputWarning != null) inputWarning = null
                         },
                         modifier = Modifier.weight(1f),
                         placeholder = { Text("Ask Little Dino for a story...") },
-                        shape = RoundedCornerShape(24.dp)
+                        shape = RoundedCornerShape(24.dp),
+                        visualTransformation = ghostTextTransformation
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     FloatingActionButton(
@@ -224,11 +308,11 @@ fun DinoChatPage(
                                 val validation = com.kidsrec.chatbot.util.InputSanitizer.validateMessage(messageText)
                                 if (validation != null) {
                                     inputWarning = validation
-                                    // Don't clear message — let the user edit it
                                 } else {
                                     inputWarning = null
                                     viewModel.sendMessage(messageText)
                                     messageText = ""
+                                    searchViewModel.onSearch()
                                 }
                             }
                         },

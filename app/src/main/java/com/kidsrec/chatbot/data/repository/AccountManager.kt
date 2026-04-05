@@ -419,4 +419,16 @@ class AccountManager @Inject constructor(
             Result.failure(e)
         }
     }
+
+    suspend fun updateFcmToken(userId: String, token: String): Result<Unit> {
+        return try {
+            firestore.collection("users")
+                .document(userId)
+                .update("fcmToken", token)
+                .await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }

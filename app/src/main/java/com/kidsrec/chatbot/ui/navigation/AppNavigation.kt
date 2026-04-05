@@ -50,6 +50,7 @@ import com.kidsrec.chatbot.ui.chat.DinoChatPage
 import com.kidsrec.chatbot.ui.favorites.FavoritesScreen
 import com.kidsrec.chatbot.ui.favorites.FavoritesViewModel
 import com.kidsrec.chatbot.ui.library.LibraryViewModel
+import com.kidsrec.chatbot.ui.library.SmartSearchViewModel
 import com.kidsrec.chatbot.ui.library.UserLibraryScreen
 import com.kidsrec.chatbot.ui.parent.ParentDashboardScreen
 import com.kidsrec.chatbot.ui.parent.ParentDashboardViewModel
@@ -315,10 +316,12 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
 
             composable(Screen.Chat.route) {
                 val chatViewModel: ChatViewModel = hiltViewModel()
+                val searchViewModel: SmartSearchViewModel = hiltViewModel()
 
                 DinoChatPage(
                     viewModel = chatViewModel,
                     favoritesViewModel = favoritesViewModel,
+                    searchViewModel = searchViewModel,
                     onOpenRecommendation = { url, title, isVideo, itemId, imageUrl, description ->
                         profileViewModel.trackReading(title, url, coverUrl = imageUrl, isVideo = isVideo)
                         navController.navigate(
@@ -337,10 +340,12 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
 
             composable(Screen.Library.route) {
                 val libraryViewModel: LibraryViewModel = hiltViewModel()
+                val searchViewModel: SmartSearchViewModel = hiltViewModel()
 
                 UserLibraryScreen(
                     viewModel = libraryViewModel,
                     favoritesViewModel = favoritesViewModel,
+                    searchViewModel = searchViewModel,
                     onOpenRecommendation = { url, title, isVideo, itemId, imageUrl, description ->
                         profileViewModel.trackReading(title, url, coverUrl = imageUrl, isVideo = isVideo)
                         navController.navigate(

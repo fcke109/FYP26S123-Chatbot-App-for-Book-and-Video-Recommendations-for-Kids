@@ -32,12 +32,14 @@ import com.kidsrec.chatbot.ui.favorites.FavoritesViewModel
 fun UserLibraryScreen(
     viewModel: LibraryViewModel,
     favoritesViewModel: FavoritesViewModel,
+    searchViewModel: SmartSearchViewModel,
     onOpenRecommendation: (url: String, title: String, isVideo: Boolean, itemId: String, imageUrl: String, description: String) -> Unit
 ) {
     val books by viewModel.curatedBooks.collectAsState()
     val topPicks by viewModel.topPicks.collectAsState()
     val favoriteItems by favoritesViewModel.favorites.collectAsState()
     val isGuest by favoritesViewModel.isGuest.collectAsState()
+    val searchUiState by searchViewModel.uiState.collectAsState()
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Text(
@@ -54,17 +56,37 @@ fun UserLibraryScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        // Integration of SmartSearchBar
+        SmartSearchBar(
+            uiState = searchUiState,
+            onQueryChange = { searchViewModel.onQueryChange(it) },
+            onSearch = { searchViewModel.onSearch() },
+            onSuggestionClick = { searchViewModel.onSuggestionClick(it) }
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
         if (books.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text("No books here yet. Check back soon!")
             }
         } else {
+            // Filter books based on search query if applicable
+            val filteredBooks = if (searchUiState.query.isNotBlank() && !searchUiState.expanded) {
+                books.filter { 
+                    it.title.contains(searchUiState.query, ignoreCase = true) || 
+                    it.author.contains(searchUiState.query, ignoreCase = true) 
+                }
+            } else {
+                books
+            }
+
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 // Top Picks Section
-                if (topPicks.isNotEmpty()) {
+                if (topPicks.isNotEmpty() && searchUiState.query.isBlank()) {
                     item {
                         TopPicksSection(
                             picks = topPicks,
@@ -104,7 +126,7 @@ fun UserLibraryScreen(
 
                 item {
                     Text(
-                        text = "All Books",
+                        text = if (searchUiState.query.isBlank()) "All Books" else "Search Results",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -112,7 +134,7 @@ fun UserLibraryScreen(
                     Spacer(modifier = Modifier.height(8.dp))
                 }
 
-                items(books) { book ->
+                items(filteredBooks) { book ->
                     val isFavorited = favoriteItems.any { it.itemId == book.id }
 
                     UserBookCard(
