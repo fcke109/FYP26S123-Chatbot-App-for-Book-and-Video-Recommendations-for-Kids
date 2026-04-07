@@ -1,0 +1,56 @@
+==========================================
+SHORT DESCRIPTION (80 chars max)
+==========================================
+AI-powered book & video recommendations for kids with parental controls.
+
+==========================================
+FULL DESCRIPTION (4000 chars max)
+==========================================
+Little Dino is a friendly AI chatbot that helps children discover age-appropriate books and videos tailored to their interests, reading level, and age.
+
+Kids simply chat with Little Dino -- a cheerful dinosaur buddy -- and receive personalised recommendations for books to read and videos to watch. Every recommendation is filtered for safety and age-appropriateness.
+
+KEY FEATURES
+
+Chat with Little Dino
+Ask for book or video suggestions in a fun, conversational way. Little Dino understands what your child enjoys and recommends content they will love.
+
+Smart Recommendations
+Powered by AI, recommendations adapt to your child's interests, reading level, and favourites over time. The more they use it, the better it gets.
+
+Built-in Book Reader & Video Player
+Read books and watch videos directly in the app through a safe, kid-friendly viewer. No need to leave the app.
+
+Favourites
+Children can save the books and videos they love and revisit them anytime from their personal favourites collection.
+
+Personal Library
+Browse a curated library of books and videos suited to your child's profile, with personalised top picks.
+
+PARENT FEATURES
+
+Parent Dashboard
+Monitor your child's reading activity, favourite content, and screen time from a dedicated parent view.
+
+Screen Time Controls
+Set daily screen time limits with built-in warnings so children develop healthy digital habits.
+
+Content Filters
+Control the maximum age rating and block specific topics to ensure your child only sees content you approve.
+
+Parental PIN & Email Verification
+Secure parent accounts with email verification and protect settings with a parental PIN.
+
+Invite Codes
+Easily link your child's account to your parent account using a simple invite code system.
+
+SAFETY FIRST
+
+Every aspect of Little Dino is designed with child safety in mind:
+- Age-appropriate content filtering
+- Safe in-app browsing with URL validation
+- No ads or in-app purchases that target children
+- Screen time management built in
+- Parent-controlled content approval options
+
+Little Dino makes reading fun and screen time meaningful. Download now and let your child's next adventure begin!

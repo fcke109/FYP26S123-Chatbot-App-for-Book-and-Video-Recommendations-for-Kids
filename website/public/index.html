@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Little Dino | Safe Book & Video Recommendations for Kids</title>
+  <meta name="description" content="Little Dino is a child-friendly app that helps kids discover age-appropriate books and videos through a safe and playful chatbot experience." />
+
+  <link rel="icon" type="image/png" href="/images/little_dino_icon_512.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="/css/styles.css" />
+  <style>
+    .nav-auth { display: flex; align-items: center; gap: 0.7rem; }
+    .nav-auth .nav-user { font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; }
+    .nav-auth .nav-logout-btn { background: none; border: 1px solid var(--primary); color: var(--primary-dark); padding: 0.5rem 1rem; border-radius: 999px; font-weight: 700; font-size: 0.88rem; cursor: pointer; font-family: inherit; }
+    .nav-auth .nav-logout-btn:hover { background: var(--primary); color: white; }
+  </style>
+</head>
+<body>
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <div class="bg-orb orb-3"></div>
+  <div class="bg-grid"></div>
+  <div class="sparkles" id="sparkles"></div>
+
+  <div class="floating-background" id="floatingBackground">
+    <span class="floating-shape shape-book">📚</span>
+    <span class="floating-shape shape-star">⭐</span>
+    <span class="floating-shape shape-heart">💜</span>
+    <span class="floating-shape shape-video">🎥</span>
+    <span class="floating-shape shape-dino">🦕</span>
+    <span class="floating-shape shape-spark">✨</span>
+    <span class="floating-shape shape-moon">🌙</span>
+    <span class="floating-shape shape-rainbow">🌈</span>
+  </div>
+
+  <header class="site-header">
+    <div class="container nav">
+      <a href="#home" class="brand">
+        <img src="/images/little_dino_icon_512.png" alt="Little Dino logo" class="brand-logo" />
+        <div class="brand-text">
+          <span class="brand-title">Little Dino</span>
+          <span class="brand-subtitle">Safe Kids Book & Video Discovery</span>
+        </div>
+      </a>
+
+      <button class="menu-toggle" id="menuToggle" aria-label="Toggle navigation menu" aria-expanded="false">
+        <span class="menu-bar"></span>
+        <span class="menu-bar"></span>
+        <span class="menu-bar"></span>
+      </button>
+
+      <nav class="nav-links" id="navLinks">
+        <a href="#home">Home</a>
+        <a href="#features">Features</a>
+        <a href="#app-preview">Inside the App</a>
+        <a href="#how-it-works">How It Works</a>
+        <a href="#safety">Safety</a>
+        <a href="#plans">Plans</a>
+        <a href="#testimonials">Testimonials</a>
+        <a href="/catalog.html">Book Catalog</a>
+        <a href="/privacy.html">Privacy Policy</a>
+        <div class="nav-auth">
+          <a href="/login.html" id="nav-login-link" class="nav-cta">Login</a>
+          <span id="nav-user-name" class="nav-user" style="display:none;"></span>
+          <button id="nav-logout-btn" class="nav-logout-btn" style="display:none;">Logout</button>
+        </div>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero" id="home">
+      <div class="container hero-grid">
+        <div class="hero-text">
+          <span class="tag">Safe • Smart • Child-Friendly</span>
+          <h1>Discover safe books and videos</h1>
+          <p class="hero-description">
+            Little Dino helps children explore age-appropriate books and videos
+            through a guided chatbot experience designed for curiosity, learning,
+            safety, and fun.
+          </p>
+
+          <div class="hero-actions">
+            <a href="https://play.google.com/store/apps/details?id=com.kidsrec.chatbot" class="btn btn-primary" target="_blank">Download on Google Play</a>
+            <a href="#app-preview" class="btn btn-secondary">See App Preview</a>
+          </div>
+
+          <div class="hero-highlights">
+            <div class="highlight-card glass-card">
+              <strong>Child-Friendly</strong>
+              <span>Designed for young learners</span>
+            </div>
+            <div class="highlight-card glass-card">
+              <strong>Safe Discovery</strong>
+              <span>Focused on suitable content</span>
+            </div>
+            <div class="highlight-card glass-card">
+              <strong>Smart Search</strong>
+              <span>Chatbot-powered recommendations</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="hero-visual">
+          <div class="hero-image-card glass-card floating-card dino-logo-wrap">
+            <img src="/images/little_dino_icon_512.png" alt="Little Dino mascot" class="hero-mascot moving-dino-logo" />
+          </div>
+
+          <div class="floating-pill floating-pill-1">📚 Books</div>
+          <div class="floating-pill floating-pill-2">🎥 Videos</div>
+          <div class="floating-pill floating-pill-3">🛡️ Safe</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="features">
+      <div class="container">
+        <div class="section-heading">
+          <span class="tag">Features</span>
+          <h2>What makes Little Dino special?</h2>
+          <p>The platform is designed to help children find content in a simple, safe, engaging, and guided way while giving parents more confidence.</p>
+        </div>
+
+        <div class="cards-grid">
+          <article class="feature-card glass-card">
+            <div class="feature-icon">💬</div>
+            <h3>Chatbot Recommendations</h3>
+            <p>Children can describe what they want in simple words and receive helpful book and video suggestions.</p>
+          </article>
+
+          <article class="feature-card glass-card">
+            <div class="feature-icon">📚</div>
+            <h3>Curated Book Library</h3>
+            <p>Books are presented with title, summary, image, and age suitability for easier selection.</p>
+          </article>
+
+          <article class="feature-card glass-card">
+            <div class="feature-icon">🎥</div>
+            <h3>Video Discovery</h3>
+            <p>Kids can also receive educational video recommendations based on their interests.</p>
+          </article>
+
+          <article class="feature-card glass-card">
+            <div class="feature-icon">⭐</div>
+            <h3>Personalised Picks</h3>
+            <p>Recommendations can be influenced by age, reading level, interests, favourites, and previous activity.</p>
+          </article>
+
+          <article class="feature-card glass-card">
+            <div class="feature-icon">👨‍👩‍👧</div>
+            <h3>Parent-Focused Design</h3>
+            <p>The platform is designed to support parent-friendly controls like age suitability, guided access, and safer exploration.</p>
+          </article>
+
+          <article class="feature-card glass-card">
+            <div class="feature-icon">📱</div>
+            <h3>Mobile Friendly</h3>
+            <p>Little Dino is designed as a simple mobile-first experience that is easy for children to navigate.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section alt-bg" id="app-preview">
+      <div class="container">
+        <div class="section-heading">
+          <span class="tag">Inside the App</span>
+          <h2>A closer look at the Little Dino experience</h2>
+          <p>Tap a topic, then press send once. After that, Little Dino replies automatically with a matching book and video.</p>
+        </div>
+
+        <div class="app-showcase">
+          <div class="app-phone glass-card">
+            <div class="app-phone-top">
+              <div class="app-branding">
+                <img src="/images/little_dino_icon_512.png" alt="Little Dino app icon" class="app-avatar" />
+                <div>
+                  <h3>Little Dino</h3>
+                  <p id="demoStatusText">Online • Ready to help</p>
+                </div>
+              </div>
+              <div class="app-status-dot"></div>
+            </div>
+
+            <div class="app-chat-area">
+              <div class="demo-quick-prompts">
+                <button class="demo-chip" data-demo="sharks">🦈 sharks</button>
+                <button class="demo-chip" data-demo="space">🚀 space</button>
+                <button class="demo-chip" data-demo="dinosaurs">🦕 dinosaurs</button>
+                <button class="demo-chip" data-demo="bedtime">🌙 bedtime story</button>
+              </div>
+
+              <div class="demo-helper-text" id="demoHelperText">
+                Tap a topic above, then press the arrow once.
+              </div>
+
+              <div class="demo-chat-window" id="demoChatWindow">
+                <div class="app-message app-message-bot demo-new">
+                  Hi! I'm Little Dino 🦕
+                  <br />
+                  Tap a topic above and I'll show you how I recommend books and videos.
+                </div>
+              </div>
+
+              <div class="demo-recommendation-row" id="demoRecommendationRow">
+                <div class="recommendation-card book-card demo-card">
+                  <div class="recommendation-badge">BOOK</div>
+                  <img src="/images/sharks-book.jpg" alt="Book recommendation" class="recommendation-image" id="demoBookImage" />
+                  <div class="recommendation-content">
+                    <h4 id="demoBookTitle">Shark Adventure</h4>
+                    <p id="demoBookDesc">A child-friendly book recommendation will appear here.</p>
+                    <a href="/catalog.html" class="mini-action">Read</a>
+                  </div>
+                </div>
+
+                <div class="recommendation-card video-card demo-card">
+                  <div class="recommendation-badge video-badge">VIDEO</div>
+                  <img src="/images/sharks-video.jpg" alt="Video recommendation" class="recommendation-image" id="demoVideoImage" />
+                  <div class="recommendation-content">
+                    <h4 id="demoVideoTitle">Ocean Animals</h4>
+                    <p id="demoVideoDesc">A matching educational video will appear here.</p>
+                    <a href="/catalog.html" class="mini-action">Watch</a>
+                  </div>
+                </div>
+              </div>
+
+              <div class="app-input-bar demo-input-bar">
+                <span id="demoInputText">Ask Little Dino for a story...</span>
+                <button type="button" class="app-send-btn" id="demoSendBtn">➜</button>
+              </div>
+            </div>
+
+            <div class="app-bottom-nav">
+              <div class="app-nav-item active">Chat</div>
+              <div class="app-nav-item">Library</div>
+              <div class="app-nav-item">Favorites</div>
+              <div class="app-nav-item">Profile</div>
+            </div>
+          </div>
+
+          <div class="app-side-info">
+            <div class="about-panel glass-card">
+              <h3>Interactive demo</h3>
+              <p>Visitors can click different interests and instantly see how the chatbot responds inside the app.</p>
+            </div>
+
+            <div class="about-panel glass-card">
+              <h3>Book and video pairing</h3>
+              <p>Each topic updates both a book recommendation and a matching video suggestion.</p>
+            </div>
+
+            <div class="about-panel glass-card">
+              <h3>Feels like a real chat</h3>
+              <p>Typing indicators, animated bubbles, and changing input text make the demo feel closer to a real mobile chatbot.</p>
+            </div>
+
+            <div class="about-panel glass-card">
+              <h3>Privacy & trust</h3>
+              <p>Families can also review your privacy policy page directly from the menu and footer for added trust.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="how-it-works">
+      <div class="container">
+        <div class="section-heading">
+          <span class="tag">How It Works</span>
+          <h2>A simple journey for young users</h2>
+          <p>The experience is designed to reduce confusion and make content discovery simple, friendly, and fun.</p>
+        </div>
+
+        <div class="steps-grid">
+          <div class="step-card glass-card">
+            <div class="step-number">1</div>
+            <h3>Ask the chatbot</h3>
+            <p>A child enters a simple prompt, such as a topic, genre, or type of story they want.</p>
+          </div>
+
+          <div class="step-card glass-card">
+            <div class="step-number">2</div>
+            <h3>Get recommendations</h3>
+            <p>The app suggests age-appropriate books and videos based on the request and profile details.</p>
+          </div>
+
+          <div class="step-card glass-card">
+            <div class="step-number">3</div>
+            <h3>Explore safely</h3>
+            <p>Users can read, save favourites, and continue discovering content in a guided environment.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="safety">
+      <div class="container">
+        <div class="section-heading">
+          <span class="tag">Safety</span>
+          <h2>A safer digital experience for children</h2>
+          <p>Little Dino is designed to support safe, guided, and educational discovery so children can explore with more confidence and parents can feel more reassured.</p>
+        </div>
+
+        <div class="safety-modern-grid">
+          <div class="safety-main-card glass-card">
+            <div class="safety-main-top">
+              <div class="safety-icon-wrap">🛡️</div>
+              <div>
+                <h3>Why Little Dino feels safer</h3>
+                <p>Instead of open browsing, children interact with a guided chatbot that helps them discover more suitable books and videos.</p>
+              </div>
+            </div>
+
+            <div class="safety-feature-grid">
+              <div class="safety-feature-item">
+                <span class="safety-feature-icon">📚</span>
+                <div>
+                  <h4>Curated content</h4>
+                  <p>Books and videos are selected to support child-appropriate discovery.</p>
+                </div>
+              </div>
+
+              <div class="safety-feature-item">
+                <span class="safety-feature-icon">🎯</span>
+                <div>
+                  <h4>Age-appropriate suggestions</h4>
+                  <p>Recommendations can be aligned to age group and reading level.</p>
+                </div>
+              </div>
+
+              <div class="safety-feature-item">
+                <span class="safety-feature-icon">🧭</span>
+                <div>
+                  <h4>Guided exploration</h4>
+                  <p>The chatbot reduces random searching and points children toward relevant options.</p>
+                </div>
+              </div>
+
+              <div class="safety-feature-item">
+                <span class="safety-feature-icon">👨‍👩‍👧</span>
+                <div>
+                  <h4>Parent-ready controls</h4>
+                  <p>The design supports safer boundaries, filters, and future parent settings.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="safety-side-column">
+            <div class="safety-side-card glass-card">
+              <h3>Educational-first approach</h3>
+              <p>The platform prioritises meaningful, child-friendly content that encourages reading, learning, and curiosity.</p>
+            </div>
+
+            <div class="safety-side-card glass-card">
+              <h3>Structured content management</h3>
+              <p>Admin-managed content helps maintain consistency, suitability, and quality across the app experience.</p>
+            </div>
+
+            <div class="safety-side-card glass-card">
+              <h3>Designed for trust</h3>
+              <p>Little Dino aims to balance child independence with a more guided and reassuring experience for families.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section alt-bg" id="plans">
+      <div class="container">
+        <div class="section-heading">
+          <span class="tag">Subscription Plans</span>
+          <h2>Simple plans for Little Dino</h2>
+          <p>Start with the free experience or upgrade to Premium for more advanced personalised features.</p>
+        </div>
+
+        <div class="plans-grid plans-grid-two">
+          <div class="plan-card glass-card">
+            <span class="plan-badge">Starter</span>
+            <h3>Free</h3>
+            <p class="plan-price">$0<span>/month</span></p>
+            <ul class="plan-list">
+              <li>Basic chatbot recommendations</li>
+              <li>Selected books and videos</li>
+              <li>Limited chatbot queries</li>
+              <li>Age-based filtering</li>
+              <li>Limited favorites</li>
+              <li>Safe video viewing</li>
+            </ul>
+            <a href="https://play.google.com/store/apps/details?id=com.kidsrec.chatbot" class="btn btn-secondary" target="_blank">Download Free</a>
+          </div>
+
+          <div class="plan-card featured-plan glass-card">
+            <span class="plan-badge">Premium</span>
+            <h3>Premium</h3>
+            <p class="plan-price">$9.99<span>/month</span></p>
+            <ul class="plan-list">
+              <li>Unlimited chatbot queries</li>
+              <li>Enhanced recommendation capabilities</li>
+              <li>Multiple child accounts</li>
+              <li>Personalised recommendations</li>
+              <li>Advanced parental controls</li>
+              <li>Screen time control</li>
+              <li>Safe video viewing</li>
+              <li>Access to curated book library</li>
+            </ul>
+            <a href="https://play.google.com/store/apps/details?id=com.kidsrec.chatbot" class="btn btn-primary" target="_blank">Get Premium</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section alt-bg" id="testimonials">
+      <div class="container">
+        <div class="section-heading">
+          <span class="tag">Testimonials</span>
+          <h2>What families may say about Little Dino</h2>
+          <p>A moving testimonial section helps the website feel more alive and more human.</p>
+        </div>
+
+        <div class="testimonial-slider-wrapper">
+          <div class="testimonial-slider-track">
+            <div class="testimonial-card moving-card glass-card">
+              <div class="testimonial-user">
+                <img src="https://i.pravatar.cc/100?img=32" alt="Parent profile" class="testimonial-avatar" />
+                <div>
+                  <h4>Amira, Parent</h4>
+                  <span>★★★★★</span>
+                </div>
+              </div>
+              <p>"Little Dino has made it much easier for my child to explore content safely."</p>
+            </div>
+
+            <div class="testimonial-card moving-card glass-card">
+              <div class="testimonial-user">
+                <img src="https://i.pravatar.cc/100?img=12" alt="Parent profile" class="testimonial-avatar" />
+                <div>
+                  <h4>Daniel, Parent</h4>
+                  <span>★★★★★</span>
+                </div>
+              </div>
+              <p>"My child just asks the chatbot and gets great recommendations instantly."</p>
+            </div>
+
+            <div class="testimonial-card moving-card glass-card">
+              <div class="testimonial-user">
+                <img src="https://i.pravatar.cc/100?img=47" alt="Parent profile" class="testimonial-avatar" />
+                <div>
+                  <h4>Sophia, Parent</h4>
+                  <span>★★★★★</span>
+                </div>
+              </div>
+              <p>"The screen time feature is a game changer for our family."</p>
+            </div>
+
+            <div class="testimonial-card moving-card glass-card">
+              <div class="testimonial-user">
+                <img src="https://i.pravatar.cc/400?img=37" alt="Child profile" class="testimonial-avatar" />
+                <div>
+                  <h4>Maxine, Child</h4>
+                  <span>★★★★★</span>
+                </div>
+              </div>
+              <p>"I love talking to the dino! It gives me cool books and videos."</p>
+            </div>
+
+            <div class="testimonial-card moving-card glass-card">
+              <div class="testimonial-user">
+                <img src="https://i.pravatar.cc/400?img=4" alt="Child profile" class="testimonial-avatar" />
+                <div>
+                  <h4>Daniel, Child</h4>
+                  <span>★★★★★</span>
+                </div>
+              </div>
+              <p>"It feels like a fun story helper inside the app."</p>
+            </div>
+
+            <!-- Duplicate for infinite scroll -->
+            <div class="testimonial-card moving-card glass-card">
+              <div class="testimonial-user">
+                <img src="https://i.pravatar.cc/100?img=32" alt="Parent profile" class="testimonial-avatar" />
+                <div>
+                  <h4>Amira, Parent</h4>
+                  <span>★★★★★</span>
+                </div>
+              </div>
+              <p>"Little Dino has made it much easier for my child to explore content safely."</p>
+            </div>
+
+            <div class="testimonial-card moving-card glass-card">
+              <div class="testimonial-user">
+                <img src="https://i.pravatar.cc/100?img=12" alt="Parent profile" class="testimonial-avatar" />
+                <div>
+                  <h4>Daniel, Parent</h4>
+                  <span>★★★★★</span>
+                </div>
+              </div>
+              <p>"My child just asks the chatbot and gets great recommendations instantly."</p>
+            </div>
+
+            <div class="testimonial-card moving-card glass-card">
+              <div class="testimonial-user">
+                <img src="https://i.pravatar.cc/100?img=47" alt="Parent profile" class="testimonial-avatar" />
+                <div>
+                  <h4>Sophia, Parent</h4>
+                  <span>★★★★★</span>
+                </div>
+              </div>
+              <p>"The screen time feature is a game changer for our family."</p>
+            </div>
+
+            <div class="testimonial-card moving-card glass-card">
+              <div class="testimonial-user">
+                <img src="https://i.pravatar.cc/400?img=37" alt="Child profile" class="testimonial-avatar" />
+                <div>
+                  <h4>Maxine, Child</h4>
+                  <span>★★★★★</span>
+                </div>
+              </div>
+              <p>"I love talking to the dino! It gives me cool books and videos."</p>
+            </div>
+
+            <div class="testimonial-card moving-card glass-card">
+              <div class="testimonial-user">
+                <img src="https://i.pravatar.cc/400?img=4" alt="Child profile" class="testimonial-avatar" />
+                <div>
+                  <h4>Daniel, Child</h4>
+                  <span>★★★★★</span>
+                </div>
+              </div>
+              <p>"It feels like a fun story helper inside the app."</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="analytics">
+      <div class="container">
+        <div class="section-heading">
+          <span class="tag">Analytics</span>
+          <h2>Track Little Dino growth at a glance</h2>
+          <p>This section can be used to present platform progress clearly for users, assessors, or future stakeholders.</p>
+        </div>
+
+        <div class="analytics-grid">
+          <div class="analytics-card glass-card">
+            <h3>Registration Rate</h3>
+            <div class="analytics-value"><span class="count-up" data-target="78">0</span>%</div>
+            <p>Visitors who proceed to register or create an account.</p>
+          </div>
+
+          <div class="analytics-card glass-card">
+            <h3>Active Users</h3>
+            <div class="analytics-value"><span class="count-up" data-target="1240">0</span>+</div>
+            <p>Monthly active users engaging with Little Dino features.</p>
+          </div>
+
+          <div class="analytics-card glass-card">
+            <h3>Books Available</h3>
+            <div class="analytics-value"><span class="count-up" data-target="420">0</span>+</div>
+            <p>Books currently available for safe and guided discovery.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section alt-bg" id="about">
+      <div class="container about-grid">
+        <div>
+          <span class="tag">About</span>
+          <h2>About the Little Dino project</h2>
+          <p class="section-copy">
+            Little Dino is a chatbot-based platform designed to help children discover books and educational videos
+            in a safer and more guided way.
+          </p>
+          <p class="section-copy">
+            This website connects to the same Firebase backend as the Android app, letting you browse the book catalog
+            and manage your account right from the browser.
+          </p>
+        </div>
+
+        <div class="about-panel glass-card">
+          <h3>Web Features</h3>
+          <ul>
+            <li>Browse the curated book catalog</li>
+            <li>Login / Register with Firebase Auth</li>
+            <li>Download the app from Google Play</li>
+            <li>Privacy policy & terms of service</li>
+            <li>Interactive chatbot demo</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="section cta-section">
+      <div class="container">
+        <div class="cta-box glass-card">
+          <div>
+            <span class="tag">Download</span>
+            <h2>Ready to start with Little Dino?</h2>
+            <p>Download the app from Google Play or browse the book catalog right here on the web.</p>
+          </div>
+          <div style="display:flex;gap:1rem;flex-wrap:wrap;">
+            <a href="https://play.google.com/store/apps/details?id=com.kidsrec.chatbot" class="btn btn-primary" target="_blank">Google Play</a>
+            <a href="/catalog.html" class="btn btn-secondary">Book Catalog</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="contact">
+      <div class="container">
+        <div class="section-heading">
+          <span class="tag">Contact</span>
+          <h2>Get in touch</h2>
+        </div>
+
+        <div class="contact-grid">
+          <div class="contact-card glass-card">
+            <h3>Email</h3>
+            <p>littledino075@gmail.com</p>
+          </div>
+          <div class="contact-card glass-card">
+            <h3>Project Repository</h3>
+            <p>github.com/suhailaf/Little-Dino-Marketing-Website</p>
+          </div>
+          <div class="contact-card glass-card">
+            <h3>App Status</h3>
+            <p>Available on Google Play</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-content">
+      <div class="footer-brand">
+        <img src="/images/little_dino_icon_512.png" alt="Little Dino footer logo" class="footer-logo" />
+        <div>
+          <strong>Little Dino</strong>
+          <p>Chatbot App for Book and Video Recommendations for Kids</p>
+        </div>
+      </div>
+
+      <div class="footer-links">
+        <a href="/privacy.html">Privacy Policy</a>
+        <a href="/terms.html">Terms of Service</a>
+        <a href="/catalog.html">Book Catalog</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="/js/script.js"></script>
+  <script type="module">
+    import { auth, initAuthUI, onAuthStateChanged, signOut } from '/js/firebase-config.js';
+
+    const loginLink = document.getElementById('nav-login-link');
+    const userName = document.getElementById('nav-user-name');
+    const logoutBtn = document.getElementById('nav-logout-btn');
+
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        if (loginLink) loginLink.style.display = 'none';
+        if (userName) {
+          userName.textContent = user.displayName || user.email.split('@')[0];
+          userName.style.display = 'inline';
+        }
+        if (logoutBtn) logoutBtn.style.display = 'inline-block';
+      } else {
+        if (loginLink) loginLink.style.display = 'inline-flex';
+        if (userName) userName.style.display = 'none';
+        if (logoutBtn) logoutBtn.style.display = 'none';
+      }
+    });
+
+    if (logoutBtn) {
+      logoutBtn.addEventListener('click', async () => {
+        await signOut(auth);
+        window.location.reload();
+      });
+    }
+  </script>
+</body>
+</html>

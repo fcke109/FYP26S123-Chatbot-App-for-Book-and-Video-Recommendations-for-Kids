@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Page Not Found | Little Dino</title>
+
+  <link rel="icon" type="image/png" href="/images/little_dino_icon_512.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="/css/styles.css" />
+  <style>
+    .page-404 { min-height: calc(100vh - 180px); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 3rem 1.5rem; }
+    .page-404 h1 { font-family: 'Baloo 2', sans-serif; font-size: 7rem; color: var(--primary); line-height: 1; margin-bottom: 0.5rem; }
+    .page-404 h2 { font-family: 'Baloo 2', sans-serif; font-size: 1.5rem; margin-bottom: 0.8rem; }
+    .page-404 p { color: var(--muted); margin-bottom: 1.5rem; }
+  </style>
+</head>
+<body>
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <div class="bg-orb orb-3"></div>
+  <div class="bg-grid"></div>
+
+  <header class="site-header">
+    <div class="container nav">
+      <a href="/" class="brand">
+        <img src="/images/little_dino_icon_512.png" alt="Little Dino logo" class="brand-logo" />
+        <div class="brand-text">
+          <span class="brand-title">Little Dino</span>
+          <span class="brand-subtitle">Safe Kids Book & Video Discovery</span>
+        </div>
+      </a>
+      <nav class="nav-links" id="navLinks">
+        <a href="/">Home</a>
+        <a href="/catalog.html">Catalog</a>
+        <a href="/login.html" class="nav-cta">Login</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="page-404">
+    <img src="/images/little_dino_icon_512.png" alt="Little Dino" style="width:120px;border-radius:28px;margin-bottom:1.5rem;box-shadow:var(--shadow);" />
+    <h1>404</h1>
+    <h2>Little Dino couldn't find that page!</h2>
+    <p>The page you're looking for doesn't exist or has been moved.</p>
+    <a href="/" class="btn btn-primary">Back to Home</a>
+  </div>
+
+  <script src="/js/script.js"></script>
+</body>
+</html>

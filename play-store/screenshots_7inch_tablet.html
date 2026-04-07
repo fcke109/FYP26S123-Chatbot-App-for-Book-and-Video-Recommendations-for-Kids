@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Nunito', sans-serif; background: #f0f0f0; padding: 40px; }
+  h1 { text-align: center; margin-bottom: 10px; color: #333; }
+  p.note { text-align: center; color: #777; margin-bottom: 30px; font-size: 14px; }
+  .screenshots {
+    display: flex;
+    gap: 40px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .screenshot-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+  .screenshot-wrap .label {
+    font-size: 14px;
+    font-weight: 700;
+    color: #555;
+  }
+  .frame {
+    width: 569px;
+    height: 320px;
+    background: linear-gradient(160deg, #5C6BC0, #7E57C2);
+    border-radius: 20px;
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+  .frame::before {
+    content: '';
+    position: absolute;
+    top: -60px; right: -60px;
+    width: 200px; height: 200px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 50%;
+  }
+  .frame-title {
+    font-size: 16px;
+    font-weight: 900;
+    color: white;
+    text-align: center;
+    z-index: 1;
+    text-shadow: 0 1px 8px rgba(0,0,0,0.15);
+    line-height: 1.2;
+    min-width: 100px;
+  }
+  .tablet {
+    width: 400px;
+    height: 280px;
+    background: #1a1a2e;
+    border-radius: 14px;
+    border: 2.5px solid rgba(255,255,255,0.25);
+    overflow: hidden;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+  }
+  .screen {
+    flex: 1;
+    background: #F8F9FA;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .status-bar {
+    background: #4a5ab8;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 12px;
+    font-size: 8px;
+    color: rgba(255,255,255,0.8);
+    font-weight: 700;
+  }
+  .header {
+    background: linear-gradient(135deg, #5C6BC0, #7E57C2);
+    padding: 8px 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .header-icon {
+    width: 26px; height: 26px;
+    background: #81C784;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+  }
+  .header-text { color: white; font-size: 12px; font-weight: 800; }
+  .header-sub { color: rgba(255,255,255,0.7); font-size: 8px; font-weight: 600; }
+
+  /* Chat screen */
+  .chat-body { flex: 1; padding: 8px; display: flex; flex-direction: column; gap: 5px; overflow: hidden; }
+  .chat-content { flex: 1; display: flex; gap: 10px; }
+  .chat-messages { flex: 1; display: flex; flex-direction: column; gap: 5px; }
+  .chat-recs { display: flex; flex-direction: column; gap: 5px; }
+  .msg { padding: 6px 10px; border-radius: 10px; font-size: 9.5px; max-width: 90%; line-height: 1.3; }
+  .msg-u { background: #5C6BC0; color: white; align-self: flex-end; border-bottom-right-radius: 3px; }
+  .msg-b { background: white; color: #333; align-self: flex-start; border-bottom-left-radius: 3px; box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
+  .rcard { background: white; border-radius: 8px; padding: 6px; display: flex; gap: 6px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); align-self: flex-start; max-width: 100%; position: relative; }
+  .rthumb { width: 36px; height: 46px; border-radius: 5px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 16px; }
+  .rthumb-book { background: linear-gradient(135deg, #FF7043, #FF8A65); }
+  .rthumb-vid { background: linear-gradient(135deg, #EF5350, #E57373); }
+  .rinfo { display: flex; flex-direction: column; gap: 1px; }
+  .rtitle { font-size: 9px; font-weight: 800; color: #333; }
+  .rdesc { font-size: 7px; color: #888; line-height: 1.2; }
+  .rbtn { font-size: 7px; background: #5C6BC0; color: white; border: none; border-radius: 5px; padding: 2px 7px; font-weight: 700; margin-top: 2px; width: fit-content; }
+  .heart { color: #EF5350; font-size: 10px; position: absolute; right: 5px; top: 5px; }
+  .chat-input {
+    display: flex; gap: 6px; padding: 5px 8px; background: white;
+    border-top: 1px solid #eee; align-items: center;
+  }
+  .chat-input-box {
+    flex: 1; background: #f5f5f5; border-radius: 14px; padding: 5px 10px;
+    font-size: 9px; color: #999;
+  }
+  .send-btn { width: 24px; height: 24px; background: #5C6BC0; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 10px; }
+
+  /* Library screen */
+  .lib-body { flex: 1; padding: 8px; display: flex; flex-direction: column; gap: 6px; overflow: hidden; }
+  .section-title { font-size: 10px; font-weight: 800; color: #333; }
+  .scroll-row { display: flex; gap: 6px; overflow: hidden; }
+  .lib-card {
+    width: 80px; min-width: 80px; background: white; border-radius: 8px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08); overflow: hidden;
+  }
+  .lib-img { height: 55px; display: flex; align-items: center; justify-content: center; font-size: 22px; }
+  .lib-img-book { background: linear-gradient(135deg, #FFB74D, #FFA726); }
+  .lib-img-vid { background: linear-gradient(135deg, #EF5350, #E57373); }
+  .lib-img-sci { background: linear-gradient(135deg, #42A5F5, #64B5F6); }
+  .lib-img-nat { background: linear-gradient(135deg, #66BB6A, #81C784); }
+  .lib-label { padding: 4px 5px; font-size: 8px; font-weight: 700; color: #444; line-height: 1.2; }
+
+  /* Favourites screen */
+  .fav-body { flex: 1; padding: 8px; display: flex; flex-direction: column; gap: 6px; overflow: hidden; }
+  .fav-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+  .fav-card {
+    background: white; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    overflow: hidden; position: relative;
+  }
+  .fav-img { height: 60px; display: flex; align-items: center; justify-content: center; font-size: 22px; }
+  .fav-img1 { background: linear-gradient(135deg, #FF7043, #FF8A65); }
+  .fav-img2 { background: linear-gradient(135deg, #42A5F5, #64B5F6); }
+  .fav-img3 { background: linear-gradient(135deg, #66BB6A, #81C784); }
+  .fav-img4 { background: linear-gradient(135deg, #AB47BC, #CE93D8); }
+  .fav-img5 { background: linear-gradient(135deg, #FFB74D, #FFA726); }
+  .fav-img6 { background: linear-gradient(135deg, #EF5350, #E57373); }
+  .fav-label { padding: 4px 5px; font-size: 8px; font-weight: 700; color: #444; }
+  .fav-heart { position: absolute; top: 4px; right: 4px; color: #EF5350; font-size: 12px; }
+  .fav-type { font-size: 6px; color: #999; font-weight: 600; padding: 0 5px 3px; }
+
+  /* Parent dashboard */
+  .parent-body { flex: 1; padding: 8px; display: flex; flex-direction: column; gap: 6px; overflow: hidden; }
+  .parent-content { display: flex; gap: 8px; flex: 1; }
+  .parent-left { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+  .parent-right { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+  .stat-row { display: flex; gap: 5px; }
+  .stat-card {
+    flex: 1; background: white; border-radius: 8px; padding: 6px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08); text-align: center;
+  }
+  .stat-num { font-size: 16px; font-weight: 900; color: #5C6BC0; }
+  .stat-label { font-size: 7px; color: #888; font-weight: 700; }
+  .stat-icon { font-size: 14px; margin-bottom: 1px; }
+  .child-card {
+    background: white; border-radius: 8px; padding: 8px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .child-avatar {
+    width: 30px; height: 30px; background: linear-gradient(135deg, #81C784, #66BB6A);
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 13px; color: white; font-weight: 800;
+  }
+  .child-info { flex: 1; }
+  .child-name { font-size: 10px; font-weight: 800; color: #333; }
+  .child-meta { font-size: 7px; color: #888; }
+  .time-bar-bg { height: 5px; background: #eee; border-radius: 3px; margin-top: 3px; }
+  .time-bar { height: 5px; background: linear-gradient(90deg, #66BB6A, #43A047); border-radius: 3px; width: 60%; }
+  .activity-item {
+    background: white; border-radius: 7px; padding: 6px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .act-icon { font-size: 14px; }
+  .act-text { font-size: 8px; color: #555; font-weight: 600; line-height: 1.3; }
+  .act-time { font-size: 6px; color: #bbb; }
+
+  /* Profile screen */
+  .profile-body { flex: 1; padding: 10px; display: flex; gap: 16px; overflow: hidden; }
+  .profile-left { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 120px; }
+  .profile-right { flex: 1; display: flex; flex-direction: column; gap: 5px; }
+  .profile-avatar {
+    width: 50px; height: 50px; background: linear-gradient(135deg, #5C6BC0, #7E57C2);
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 22px; color: white; font-weight: 900;
+  }
+  .profile-name { font-size: 13px; font-weight: 900; color: #333; }
+  .profile-email { font-size: 8px; color: #999; }
+  .profile-stats { display: flex; gap: 14px; margin-top: 4px; }
+  .profile-stat { text-align: center; }
+  .profile-stat-num { font-size: 14px; font-weight: 900; color: #5C6BC0; }
+  .profile-stat-label { font-size: 7px; color: #888; font-weight: 700; }
+  .interest-tags { display: flex; gap: 3px; flex-wrap: wrap; justify-content: center; }
+  .itag { background: #EDE7F6; color: #5C6BC0; font-size: 7px; font-weight: 700; padding: 2px 7px; border-radius: 8px; }
+  .profile-row {
+    background: white; border-radius: 8px; padding: 8px 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .profile-row-icon { font-size: 14px; }
+  .profile-row-text { font-size: 9px; font-weight: 700; color: #444; flex: 1; }
+  .profile-row-arrow { font-size: 9px; color: #ccc; }
+
+  /* Bottom nav */
+  .bottom-nav {
+    display: flex; background: white; border-top: 1px solid #eee; padding: 5px 0;
+  }
+  .nav-item { flex: 1; text-align: center; font-size: 7px; color: #999; font-weight: 700; display: flex; flex-direction: column; align-items: center; gap: 1px; }
+  .nav-item.active { color: #5C6BC0; }
+  .nav-icon { font-size: 14px; }
+</style>
+</head>
+<body>
+<h1>Little Dino - 7-inch Tablet Screenshots</h1>
+<p class="note">Landscape 16:9 (1280x720). Open each frame in browser and screenshot individually.</p>
+
+<div class="screenshots">
+
+  <!-- Screenshot 1: Chat -->
+  <div class="screenshot-wrap">
+    <div class="label">Screenshot 1 - Chat</div>
+    <div class="frame">
+      <div class="frame-title">Chat with your<br>dino buddy!</div>
+      <div class="tablet">
+        <div class="screen">
+          <div class="status-bar"><span>9:41</span><span>100%</span></div>
+          <div class="header">
+            <div class="header-icon">&#129430;</div>
+            <div><div class="header-text">Little Dino</div><div class="header-sub">Your visual story-time buddy</div></div>
+          </div>
+          <div class="chat-body">
+            <div class="chat-content">
+              <div class="chat-messages">
+                <div class="msg msg-u">Can you suggest some fun books?</div>
+                <div class="msg msg-b">Of course! What do you like? Adventures, animals, or science?</div>
+                <div class="msg msg-u">I love animals!</div>
+                <div class="msg msg-b">Here are some great picks for you:</div>
+              </div>
+              <div class="chat-recs">
+                <div class="rcard">
+                  <div class="rthumb rthumb-book">&#128214;</div>
+                  <div class="rinfo">
+                    <div class="rtitle">The One and Only Ivan</div>
+                    <div class="rdesc">A gorilla's tale of hope</div>
+                    <div class="rbtn">Read Now</div>
+                  </div>
+                  <div class="heart">&#9829;</div>
+                </div>
+                <div class="rcard">
+                  <div class="rthumb rthumb-vid">&#9654;</div>
+                  <div class="rinfo">
+                    <div class="rtitle">Planet Earth: Animals</div>
+                    <div class="rdesc">Explore wildlife worldwide</div>
+                    <div class="rbtn">Watch Now</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="chat-input">
+              <div class="chat-input-box">Ask Little Dino something...</div>
+              <div class="send-btn">&#10148;</div>
+            </div>
+          </div>
+          <div class="bottom-nav">
+            <div class="nav-item active"><span class="nav-icon">&#128172;</span>Chat</div>
+            <div class="nav-item"><span class="nav-icon">&#128218;</span>Library</div>
+            <div class="nav-item"><span class="nav-icon">&#9829;</span>Favorites</div>
+            <div class="nav-item"><span class="nav-icon">&#128100;</span>Profile</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Screenshot 2: Library -->
+  <div class="screenshot-wrap">
+    <div class="label">Screenshot 2 - Library</div>
+    <div class="frame">
+      <div class="frame-title">Discover books<br>& videos</div>
+      <div class="tablet">
+        <div class="screen">
+          <div class="status-bar"><span>9:41</span><span>100%</span></div>
+          <div class="header">
+            <div style="font-size:14px;">&#128218;</div>
+            <div><div class="header-text">My Library</div></div>
+          </div>
+          <div class="lib-body">
+            <div class="section-title">&#11088; Top Picks For You</div>
+            <div class="scroll-row">
+              <div class="lib-card"><div class="lib-img lib-img-book">&#128214;</div><div class="lib-label">Charlotte's Web</div></div>
+              <div class="lib-card"><div class="lib-img lib-img-vid">&#9654;</div><div class="lib-label">Magic School Bus</div></div>
+              <div class="lib-card"><div class="lib-img lib-img-sci">&#128300;</div><div class="lib-label">How Things Work</div></div>
+              <div class="lib-card"><div class="lib-img lib-img-nat">&#127795;</div><div class="lib-label">The Giving Tree</div></div>
+              <div class="lib-card"><div class="lib-img lib-img-book">&#128214;</div><div class="lib-label">Matilda</div></div>
+            </div>
+            <div class="section-title" style="margin-top:3px;">&#128214; Books</div>
+            <div class="scroll-row">
+              <div class="lib-card"><div class="lib-img lib-img-nat">&#127795;</div><div class="lib-label">The Giving Tree</div></div>
+              <div class="lib-card"><div class="lib-img lib-img-book">&#128214;</div><div class="lib-label">Matilda</div></div>
+              <div class="lib-card"><div class="lib-img lib-img-sci">&#127756;</div><div class="lib-label">Space Explorer</div></div>
+              <div class="lib-card"><div class="lib-img lib-img-book">&#128214;</div><div class="lib-label">BFG</div></div>
+              <div class="lib-card"><div class="lib-img lib-img-nat">&#128056;</div><div class="lib-label">Animal Friends</div></div>
+            </div>
+          </div>
+          <div class="bottom-nav">
+            <div class="nav-item"><span class="nav-icon">&#128172;</span>Chat</div>
+            <div class="nav-item active"><span class="nav-icon">&#128218;</span>Library</div>
+            <div class="nav-item"><span class="nav-icon">&#9829;</span>Favorites</div>
+            <div class="nav-item"><span class="nav-icon">&#128100;</span>Profile</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Screenshot 3: Favourites -->
+  <div class="screenshot-wrap">
+    <div class="label">Screenshot 3 - Favourites</div>
+    <div class="frame">
+      <div class="frame-title">Save your<br>favourites</div>
+      <div class="tablet">
+        <div class="screen">
+          <div class="status-bar"><span>9:41</span><span>100%</span></div>
+          <div class="header">
+            <div style="font-size:14px;">&#9829;</div>
+            <div><div class="header-text">My Favorites</div></div>
+          </div>
+          <div class="fav-body">
+            <div class="fav-grid">
+              <div class="fav-card">
+                <div class="fav-img fav-img1">&#128214;</div>
+                <div class="fav-label">The One and Only Ivan</div>
+                <div class="fav-type">Book</div>
+                <div class="fav-heart">&#9829;</div>
+              </div>
+              <div class="fav-card">
+                <div class="fav-img fav-img2">&#9654;</div>
+                <div class="fav-label">Ocean Explorers</div>
+                <div class="fav-type">Video</div>
+                <div class="fav-heart">&#9829;</div>
+              </div>
+              <div class="fav-card">
+                <div class="fav-img fav-img3">&#128214;</div>
+                <div class="fav-label">Charlotte's Web</div>
+                <div class="fav-type">Book</div>
+                <div class="fav-heart">&#9829;</div>
+              </div>
+              <div class="fav-card">
+                <div class="fav-img fav-img4">&#9654;</div>
+                <div class="fav-label">Planet Earth Jr</div>
+                <div class="fav-type">Video</div>
+                <div class="fav-heart">&#9829;</div>
+              </div>
+              <div class="fav-card">
+                <div class="fav-img fav-img5">&#128214;</div>
+                <div class="fav-label">The Giving Tree</div>
+                <div class="fav-type">Book</div>
+                <div class="fav-heart">&#9829;</div>
+              </div>
+              <div class="fav-card">
+                <div class="fav-img fav-img6">&#9654;</div>
+                <div class="fav-label">Storybots</div>
+                <div class="fav-type">Video</div>
+                <div class="fav-heart">&#9829;</div>
+              </div>
+            </div>
+          </div>
+          <div class="bottom-nav">
+            <div class="nav-item"><span class="nav-icon">&#128172;</span>Chat</div>
+            <div class="nav-item"><span class="nav-icon">&#128218;</span>Library</div>
+            <div class="nav-item active"><span class="nav-icon">&#9829;</span>Favorites</div>
+            <div class="nav-item"><span class="nav-icon">&#128100;</span>Profile</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Screenshot 4: Parent Dashboard -->
+  <div class="screenshot-wrap">
+    <div class="label">Screenshot 4 - Parent Dashboard</div>
+    <div class="frame" style="background: linear-gradient(160deg, #43A047, #2E7D32);">
+      <div class="frame-title">Parental<br>controls</div>
+      <div class="tablet">
+        <div class="screen">
+          <div class="status-bar" style="background:#2E7D32;"><span>9:41</span><span>100%</span></div>
+          <div class="header" style="background: linear-gradient(135deg, #43A047, #2E7D32);">
+            <div style="font-size:14px;">&#128737;</div>
+            <div><div class="header-text">Parent Dashboard</div></div>
+          </div>
+          <div class="parent-body">
+            <div class="parent-content">
+              <div class="parent-left">
+                <div class="child-card">
+                  <div class="child-avatar">E</div>
+                  <div class="child-info">
+                    <div class="child-name">Emma's Activity</div>
+                    <div class="child-meta">Age 8 &bull; Active 5 min ago</div>
+                    <div class="time-bar-bg"><div class="time-bar"></div></div>
+                    <div style="font-size:6px; color:#888; margin-top:2px;">18/30 min used</div>
+                  </div>
+                </div>
+                <div class="stat-row">
+                  <div class="stat-card">
+                    <div class="stat-icon">&#128214;</div>
+                    <div class="stat-num">12</div>
+                    <div class="stat-label">Books Read</div>
+                  </div>
+                  <div class="stat-card">
+                    <div class="stat-icon">&#127909;</div>
+                    <div class="stat-num">8</div>
+                    <div class="stat-label">Videos</div>
+                  </div>
+                  <div class="stat-card">
+                    <div class="stat-icon">&#9829;</div>
+                    <div class="stat-num">5</div>
+                    <div class="stat-label">Favs</div>
+                  </div>
+                </div>
+              </div>
+              <div class="parent-right">
+                <div class="section-title">Recent Activity</div>
+                <div class="activity-item">
+                  <div class="act-icon">&#128214;</div>
+                  <div style="flex:1;"><div class="act-text">Read "The Giving Tree"</div><div class="act-time">10 min ago</div></div>
+                </div>
+                <div class="activity-item">
+                  <div class="act-icon">&#127909;</div>
+                  <div style="flex:1;"><div class="act-text">Watched "Ocean Explorers"</div><div class="act-time">1 hour ago</div></div>
+                </div>
+                <div class="activity-item">
+                  <div class="act-icon">&#9829;</div>
+                  <div style="flex:1;"><div class="act-text">Added "Charlotte's Web"</div><div class="act-time">2 hours ago</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Screenshot 5: Profile -->
+  <div class="screenshot-wrap">
+    <div class="label">Screenshot 5 - Profile</div>
+    <div class="frame">
+      <div class="frame-title">Your reading<br>profile</div>
+      <div class="tablet">
+        <div class="screen">
+          <div class="status-bar"><span>9:41</span><span>100%</span></div>
+          <div class="header">
+            <div style="font-size:14px;">&#128100;</div>
+            <div><div class="header-text">Profile</div></div>
+          </div>
+          <div class="profile-body">
+            <div class="profile-left">
+              <div class="profile-avatar">E</div>
+              <div class="profile-name">Emma</div>
+              <div class="profile-email">emma@example.com</div>
+              <div class="profile-stats">
+                <div class="profile-stat"><div class="profile-stat-num">12</div><div class="profile-stat-label">Books</div></div>
+                <div class="profile-stat"><div class="profile-stat-num">8</div><div class="profile-stat-label">Videos</div></div>
+                <div class="profile-stat"><div class="profile-stat-num">5</div><div class="profile-stat-label">Favs</div></div>
+              </div>
+              <div class="interest-tags">
+                <span class="itag">Animals</span>
+                <span class="itag">Adventure</span>
+                <span class="itag">Science</span>
+                <span class="itag">Nature</span>
+              </div>
+            </div>
+            <div class="profile-right">
+              <div class="profile-row"><span class="profile-row-icon">&#128214;</span><span class="profile-row-text">Reading History</span><span class="profile-row-arrow">&#10095;</span></div>
+              <div class="profile-row"><span class="profile-row-icon">&#9881;</span><span class="profile-row-text">Settings</span><span class="profile-row-arrow">&#10095;</span></div>
+              <div class="profile-row"><span class="profile-row-icon">&#11088;</span><span class="profile-row-text">Upgrade to Premium</span><span class="profile-row-arrow">&#10095;</span></div>
+              <div class="profile-row"><span class="profile-row-icon">&#128274;</span><span class="profile-row-text">Privacy & Security</span><span class="profile-row-arrow">&#10095;</span></div>
+            </div>
+          </div>
+          <div class="bottom-nav">
+            <div class="nav-item"><span class="nav-icon">&#128172;</span>Chat</div>
+            <div class="nav-item"><span class="nav-icon">&#128218;</span>Library</div>
+            <div class="nav-item"><span class="nav-icon">&#9829;</span>Favorites</div>
+            <div class="nav-item active"><span class="nav-icon">&#128100;</span>Profile</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
