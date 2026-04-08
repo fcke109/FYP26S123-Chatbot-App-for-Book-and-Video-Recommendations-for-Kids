@@ -24,13 +24,16 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.kidsrec.chatbot.data.model.ReadingHistory
 import com.kidsrec.chatbot.ui.auth.AuthViewModel
+import com.kidsrec.chatbot.ui.parental.ChildSafetyLockGate
+import com.kidsrec.chatbot.ui.parental.ChildSettingsEntry
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun ProfileScreen(
     authViewModel: AuthViewModel,
     profileViewModel: ProfileViewModel,
-    onItemClick: (url: String, title: String, isVideo: Boolean) -> Unit = { _, _, _ -> }
+    onItemClick: (url: String, title: String, isVideo: Boolean) -> Unit = { _, _, _ -> },
+    onNavigateToParentalControls: () -> Unit = {}
 ) {
     val user by authViewModel.currentUser.collectAsState()
     val updateSuccess by profileViewModel.updateSuccess.collectAsState()
@@ -41,6 +44,9 @@ fun ProfileScreen(
     var age by remember { mutableStateOf("") }
     var selectedInterests by remember { mutableStateOf(setOf<String>()) }
     var readingLevel by remember { mutableStateOf("Beginner") }
+    
+    var showEditLockGate by remember { mutableStateOf(false) }
+    var isParentalUnlocked by remember { mutableStateOf(false) }
 
     val interests = listOf(
         "Reading", "Science", "Animals", "Adventure",
@@ -68,13 +74,30 @@ fun ProfileScreen(
         }
     }
 
+    if (showEditLockGate) {
+        ChildSafetyLockGate(
+            isLocked = user?.parentalPin?.isNotEmpty() == true,
+            onAccessGranted = {
+                showEditLockGate = false
+                isEditing = true
+            },
+            content = {
+                // If not locked, just open editing
+                LaunchedEffect(Unit) {
+                    showEditLockGate = false
+                    isEditing = true
+                }
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Profile") },
                 actions = {
                     if (!isEditing && user?.isGuest != true) {
-                        IconButton(onClick = { isEditing = true }) {
+                        IconButton(onClick = { showEditLockGate = true }) {
                             Icon(Icons.Default.Edit, contentDescription = "Edit Profile")
                         }
                     }
@@ -353,6 +376,28 @@ fun ProfileScreen(
                                         )
                                     }
                                 }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        // Parental Controls Section
+                        ChildSettingsEntry(
+                            lockEnabled = currentUser.parentalPin?.isNotEmpty() == true,
+                            isUnlocked = isParentalUnlocked,
+                            onRequestUnlock = {
+                                // Direct navigation which has its own PIN check
+                                onNavigateToParentalControls()
+                            }
+                        ) {
+                            OutlinedButton(
+                                onClick = onNavigateToParentalControls,
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Icon(Icons.Default.Settings, contentDescription = null)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Parental Controls")
                             }
                         }
 

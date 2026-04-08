@@ -3,11 +3,19 @@ package com.kidsrec.chatbot.ui.admin
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.functions.FirebaseFunctions
+import java.util.Date
 import com.kidsrec.chatbot.data.model.Book
+import com.kidsrec.chatbot.data.model.ChatMessage
+import com.kidsrec.chatbot.data.model.LoginAttempt
+import com.kidsrec.chatbot.data.model.ReadingHistory
+import com.kidsrec.chatbot.data.model.SuspiciousActivity
 import com.kidsrec.chatbot.data.model.User
+import com.kidsrec.chatbot.data.model.UserStatus
 import com.kidsrec.chatbot.data.repository.AccountManager
+import com.kidsrec.chatbot.data.repository.AnalyticsRepository
 import com.kidsrec.chatbot.data.repository.BookDataManager
 import com.kidsrec.chatbot.data.remote.OpenLibraryService
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -22,7 +30,9 @@ class AdminViewModel @Inject constructor(
     private val bookDataManager: BookDataManager,
     private val openLibraryService: OpenLibraryService,
     private val firestore: FirebaseFirestore,
-    private val functions: FirebaseFunctions
+    private val functions: FirebaseFunctions,
+    private val adminUpgradeRepository: AdminUpgradeRepository,
+    private val analyticsRepository: AnalyticsRepository
 ) : ViewModel() {
 
     private val _users = MutableStateFlow<List<User>>(emptyList())
@@ -37,9 +47,49 @@ class AdminViewModel @Inject constructor(
     private val _isSearching = MutableStateFlow(false)
     val isSearching: StateFlow<Boolean> = _isSearching.asStateFlow()
 
+    private val _adminStats = MutableStateFlow(AdminStats())
+    val adminStats: StateFlow<AdminStats> = _adminStats.asStateFlow()
+
+    private val _isLoadingAdminStats = MutableStateFlow(false)
+    val isLoadingAdminStats: StateFlow<Boolean> = _isLoadingAdminStats.asStateFlow()
+
+    private val _userReadingHistory = MutableStateFlow<List<ReadingHistory>>(emptyList())
+    val userReadingHistory: StateFlow<List<ReadingHistory>> = _userReadingHistory.asStateFlow()
+
+    private val _userChatHistory = MutableStateFlow<List<ChatMessage>>(emptyList())
+    val userChatHistory: StateFlow<List<ChatMessage>> = _userChatHistory.asStateFlow()
+
+    private val _isLoadingUserActivity = MutableStateFlow(false)
+    val isLoadingUserActivity: StateFlow<Boolean> = _isLoadingUserActivity.asStateFlow()
+
+    private val _loginAttempts = MutableStateFlow<List<LoginAttempt>>(emptyList())
+    val loginAttempts: StateFlow<List<LoginAttempt>> = _loginAttempts.asStateFlow()
+
+    private val _suspiciousActivities = MutableStateFlow<List<SuspiciousActivity>>(emptyList())
+    val suspiciousActivities: StateFlow<List<SuspiciousActivity>> = _suspiciousActivities.asStateFlow()
+
+    private val _isLoadingSecurityData = MutableStateFlow(false)
+    val isLoadingSecurityData: StateFlow<Boolean> = _isLoadingSecurityData.asStateFlow()
+
+    private val _deleteResult = MutableStateFlow<String?>(null)
+    val deleteResult: StateFlow<String?> = _deleteResult.asStateFlow()
+
+    private val _topSearchedTopics = MutableStateFlow<List<com.kidsrec.chatbot.data.model.TopSearchedTopic>>(emptyList())
+    val topSearchedTopics: StateFlow<List<com.kidsrec.chatbot.data.model.TopSearchedTopic>> = _topSearchedTopics.asStateFlow()
+
+    private val _topViewedBooks = MutableStateFlow<List<com.kidsrec.chatbot.data.model.TopViewedBook>>(emptyList())
+    val topViewedBooks: StateFlow<List<com.kidsrec.chatbot.data.model.TopViewedBook>> = _topViewedBooks.asStateFlow()
+
+    private val _topDropOffs = MutableStateFlow<List<com.kidsrec.chatbot.data.model.TopDropOff>>(emptyList())
+    val topDropOffs: StateFlow<List<com.kidsrec.chatbot.data.model.TopDropOff>> = _topDropOffs.asStateFlow()
+
     init {
         loadCuratedBooks()
+        refreshAdminStats()
+        loadAnalytics()
     }
+
+    fun getCurrentUserId(): String? = accountManager.getCurrentUserId()
 
     fun startManagingUsers() {
         viewModelScope.launch {
@@ -57,12 +107,107 @@ class AdminViewModel @Inject constructor(
         }
     }
 
+    fun refreshAdminStats() {
+        viewModelScope.launch {
+            _isLoadingAdminStats.value = true
+            try {
+                // Get total users count
+                val totalUsers = firestore.collection("users").get().await().size().toLong()
+
+                // Calculate DAU based on successful login attempts in last 24 hours
+                val twentyFourHoursAgo = Timestamp(Date(System.currentTimeMillis() - 24 * 60 * 60 * 1000))
+                val dailyActiveUsers = try {
+                    firestore.collection("loginAttempts")
+                        .whereEqualTo("success", true)
+                        .whereGreaterThan("timestamp", twentyFourHoursAgo)
+                        .get()
+                        .await()
+                        .documents
+                        .mapNotNull { it.getString("userId") }
+                        .distinct()
+                        .size
+                        .toLong()
+                } catch (e: Exception) {
+                    Log.w("AdminVM", "Failed to query login attempts for DAU", e)
+                    0L
+                }
+
+                // Calculate MAU based on successful login attempts in last 30 days
+                val thirtyDaysAgo = Timestamp(Date(System.currentTimeMillis() - 30 * 24 * 60 * 60 * 1000))
+                val monthlyActiveUsers = try {
+                    firestore.collection("loginAttempts")
+                        .whereEqualTo("success", true)
+                        .whereGreaterThan("timestamp", thirtyDaysAgo)
+                        .get()
+                        .await()
+                        .documents
+                        .mapNotNull { it.getString("userId") }
+                        .distinct()
+                        .size
+                        .toLong()
+                } catch (e: Exception) {
+                    Log.w("AdminVM", "Failed to query login attempts for MAU", e)
+                    0L
+                }
+
+                // Get chatbot usage count from chat messages in last 24 hours
+                val dailyChatbotUsageCount = try {
+                    firestore.collectionGroup("messages")
+                        .whereGreaterThan("timestamp", twentyFourHoursAgo)
+                        .get()
+                        .await()
+                        .documents
+                        .size
+                        .toLong()
+                } catch (e: Exception) {
+                    Log.w("AdminVM", "Failed to query chat messages for usage count", e)
+                    0L
+                }
+
+                // Update stats
+                _adminStats.value = AdminStats(
+                    totalUsers = totalUsers,
+                    dailyActiveUsers = dailyActiveUsers,
+                    monthlyActiveUsers = monthlyActiveUsers,
+                    chatbotUsageCount = dailyChatbotUsageCount
+                )
+
+            } catch (e: Exception) {
+                Log.e("AdminVM", "Failed to load admin stats", e)
+            } finally {
+                _isLoadingAdminStats.value = false
+            }
+        }
+    }
+
+    private fun loadAnalytics() {
+        viewModelScope.launch {
+            // Load top searched topics
+            analyticsRepository.getTopSearchedTopicsFlow()
+                .collect { topics -> _topSearchedTopics.value = topics }
+        }
+        viewModelScope.launch {
+            // Load top viewed books
+            analyticsRepository.getTopViewedBooksFlow()
+                .collect { books -> _topViewedBooks.value = books }
+        }
+        viewModelScope.launch {
+            // Load top drop-off points
+            analyticsRepository.getTopDropOffsFlow()
+                .collect { dropOffs -> _topDropOffs.value = dropOffs }
+        }
+    }
+
     fun searchBooks(query: String) {
         if (query.isBlank()) return
         val lowerQuery = query.lowercase().trim()
         viewModelScope.launch {
             _isSearching.value = true
             try {
+                // Track search analytics
+                val currentUserId = accountManager.getCurrentUserId() ?: "unknown"
+                analyticsRepository.trackSearch(lowerQuery, currentUserId)
+                
                 val response = openLibraryService.searchBooks("$query subject:\"Children's fiction\" language:eng")
                 val results: List<Book> = response.docs.mapNotNull { doc ->
                     val iaId = doc.ia?.firstOrNull() ?: return@mapNotNull null
@@ -105,6 +250,13 @@ class AdminViewModel @Inject constructor(
         }
     }
 
+    fun trackBookView(bookTitle: String, bookId: String = "") {
+        viewModelScope.launch {
+            val currentUserId = accountManager.getCurrentUserId() ?: "unknown"
+            analyticsRepository.trackBookView(bookId, bookTitle, currentUserId)
+        }
+    }
+
     fun addBookToLibrary(book: Book) {
         viewModelScope.launch { 
             // The DataManager will now automatically pick the next sequential ID
@@ -132,6 +284,21 @@ class AdminViewModel @Inject constructor(
 
     fun deleteBookFromLibrary(bookId: String) {
         viewModelScope.launch { bookDataManager.deleteBook(bookId) }
+    }
+
+    fun removeUnsafeContent(bookId: String, reason: String) {
+        viewModelScope.launch {
+            try {
+                adminUpgradeRepository.removeUnsafeContent(bookId, reason)
+                Log.d("AdminVM", "Content $bookId removed as unsafe: $reason")
+            } catch (e: Exception) {
+                Log.e("AdminVM", "Failed to remove unsafe content $bookId", e)
+            }
+        }
+    }
+
+    fun clearDeleteResult() {
+        _deleteResult.value = null
     }
 
     fun deleteUser(userId: String) {
@@ -176,10 +343,258 @@ class AdminViewModel @Inject constructor(
                 }
 
                 Log.d("AdminVM", "User $userId deleted from Firestore")
+                _deleteResult.value = "success"
             } catch (e: Exception) {
                 Log.e("AdminVM", "Failed to delete user $userId", e)
+                _deleteResult.value = "error: ${e.message}"
             }
         }
+    }
+
+    fun suspendUser(userId: String) {
+        viewModelScope.launch {
+            try {
+                val userDoc = firestore.collection("users").document(userId).get().await()
+                val user = userDoc.toObject(User::class.java)
+                if (user != null) {
+                    val updatedUser = user.copy(status = UserStatus.SUSPENDED)
+                    accountManager.updateUser(updatedUser)
+                    Log.d("AdminVM", "User $userId suspended")
+                }
+            } catch (e: Exception) {
+                Log.e("AdminVM", "Failed to suspend user $userId", e)
+            }
+        }
+    }
+
+    fun banUser(userId: String) {
+        viewModelScope.launch {
+            try {
+                val userDoc = firestore.collection("users").document(userId).get().await()
+                val user = userDoc.toObject(User::class.java)
+                if (user != null) {
+                    val updatedUser = user.copy(status = UserStatus.BANNED)
+                    accountManager.updateUser(updatedUser)
+                    Log.d("AdminVM", "User $userId banned")
+                }
+            } catch (e: Exception) {
+                Log.e("AdminVM", "Failed to ban user $userId", e)
+            }
+        }
+    }
+
+    fun activateUser(userId: String) {
+        viewModelScope.launch {
+            try {
+                val userDoc = firestore.collection("users").document(userId).get().await()
+                val user = userDoc.toObject(User::class.java)
+                if (user != null) {
+                    val updatedUser = user.copy(status = UserStatus.ACTIVE)
+                    accountManager.updateUser(updatedUser)
+                    Log.d("AdminVM", "User $userId activated")
+                }
+            } catch (e: Exception) {
+                Log.e("AdminVM", "Failed to activate user $userId", e)
+            }
+        }
+    }
+
+    fun loadUserActivity(userId: String) {
+        viewModelScope.launch {
+            _isLoadingUserActivity.value = true
+            try {
+                // Load reading history
+                val readingHistory = firestore.collection("readingHistory")
+                    .document(userId)
+                    .collection("sessions")
+                    .orderBy("openedAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                    .limit(20)
+                    .get()
+                    .await()
+                    .toObjects(ReadingHistory::class.java)
+
+                _userReadingHistory.value = readingHistory
+
+                // Load chat history (recent messages from all conversations)
+                val chatMessages = firestore.collection("chatHistory")
+                    .document(userId)
+                    .collection("conversations")
+                    .get()
+                    .await()
+                    .documents
+                    .flatMap { convoDoc ->
+                        convoDoc.reference.collection("messages")
+                            .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                            .limit(10)
+                            .get()
+                            .await()
+                            .toObjects(ChatMessage::class.java)
+                    }
+                    .sortedByDescending { it.timestamp }
+
+                _userChatHistory.value = chatMessages.take(20) // Take most recent 20 messages
+
+            } catch (e: Exception) {
+                Log.e("AdminVM", "Failed to load user activity for $userId", e)
+                _userReadingHistory.value = emptyList()
+                _userChatHistory.value = emptyList()
+            } finally {
+                _isLoadingUserActivity.value = false
+            }
+        }
+    }
+
+    fun loadSecurityData() {
+        viewModelScope.launch {
+            _isLoadingSecurityData.value = true
+            try {
+                // Load recent login attempts (last 7 days)
+                val sevenDaysAgo = Timestamp(Date(System.currentTimeMillis() - 7 * 24 * 60 * 60 * 1000))
+                val loginAttempts = firestore.collection("loginAttempts")
+                    .whereGreaterThan("timestamp", sevenDaysAgo)
+                    .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                    .limit(100)
+                    .get()
+                    .await()
+                    .toObjects(LoginAttempt::class.java)
+
+                _loginAttempts.value = loginAttempts
+
+                // Load suspicious activities (last 30 days)
+                val thirtyDaysAgo = Timestamp(Date(System.currentTimeMillis() - 30 * 24 * 60 * 60 * 1000))
+                val suspiciousActivities = firestore.collection("suspiciousActivities")
+                    .whereGreaterThan("timestamp", thirtyDaysAgo)
+                    .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                    .limit(50)
+                    .get()
+                    .await()
+                    .toObjects(SuspiciousActivity::class.java)
+
+                _suspiciousActivities.value = suspiciousActivities
+
+            } catch (e: Exception) {
+                Log.e("AdminVM", "Failed to load security data", e)
+                _loginAttempts.value = emptyList()
+                _suspiciousActivities.value = emptyList()
+            } finally {
+                _isLoadingSecurityData.value = false
+            }
+        }
+    }
+
+    fun markSuspiciousActivityResolved(activityId: String) {
+        viewModelScope.launch {
+            try {
+                firestore.collection("suspiciousActivities")
+                    .document(activityId)
+                    .update("resolved", true)
+                    .await()
+                
+                // Update local state
+                _suspiciousActivities.value = _suspiciousActivities.value.map { 
+                    if (it.id == activityId) it.copy(resolved = true) else it 
+                }
+                
+                Log.d("AdminVM", "Marked suspicious activity $activityId as resolved")
+            } catch (e: Exception) {
+                Log.e("AdminVM", "Failed to mark activity as resolved", e)
+            }
+        }
+    }
+
+    fun sendNotification(
+        title: String,
+        body: String,
+        type: NotificationType,
+        targetValue: String = ""
+    ) {
+        viewModelScope.launch {
+            try {
+                when (type) {
+                    NotificationType.ANNOUNCEMENT -> {
+                        // Send announcement to all users
+                        sendAnnouncementToAllUsers(title, body)
+                    }
+                    NotificationType.PERSONALIZED -> {
+                        // Send personalized alert based on interest category
+                        sendPersonalizedAlert(title, body, targetValue)
+                    }
+                }
+                Log.d("AdminVM", "Notification sent successfully: $title")
+            } catch (e: Exception) {
+                Log.e("AdminVM", "Failed to send notification", e)
+                throw e
+            }
+        }
+    }
+
+    private suspend fun sendAnnouncementToAllUsers(title: String, body: String) {
+        // Get all active users
+        val activeUsers = firestore.collection("users")
+            .whereEqualTo("status", "ACTIVE")
+            .get()
+            .await()
+            .documents
+            .mapNotNull { it.id }
+
+        // Create notification document for each user
+        val batch = firestore.batch()
+        val notificationData = mapOf(
+            "title" to title,
+            "body" to body,
+            "type" to "announcement",
+            "read" to false,
+            "createdAt" to System.currentTimeMillis()
+        )
+
+        activeUsers.forEach { userId ->
+            val notificationRef = firestore.collection("userNotifications")
+                .document(userId)
+                .collection("items")
+                .document()
+            batch.set(notificationRef, notificationData)
+        }
+
+        batch.commit().await()
+        Log.d("AdminVM", "Announcement sent to ${activeUsers.size} users")
+    }
+
+    private suspend fun sendPersonalizedAlert(title: String, body: String, interestCategory: String) {
+        // Find users interested in the specified category
+        val interestedUsers = firestore.collection("users")
+            .whereEqualTo("status", "ACTIVE")
+            .whereArrayContains("interests", interestCategory.lowercase())
+            .get()
+            .await()
+            .documents
+            .mapNotNull { it.id }
+
+        if (interestedUsers.isEmpty()) {
+            Log.w("AdminVM", "No users found with interest: $interestCategory")
+            return
+        }
+
+        // Create notification document for each interested user
+        val batch = firestore.batch()
+        val notificationData = mapOf(
+            "title" to title,
+            "body" to body,
+            "type" to "personalized",
+            "category" to interestCategory,
+            "read" to false,
+            "createdAt" to System.currentTimeMillis()
+        )
+
+        interestedUsers.forEach { userId ->
+            val notificationRef = firestore.collection("userNotifications")
+                .document(userId)
+                .collection("items")
+                .document()
+            batch.set(notificationRef, notificationData)
+        }
+
+        batch.commit().await()
+        Log.d("AdminVM", "Personalized alert sent to ${interestedUsers.size} users interested in $interestCategory")
     }
 
     fun logout(onSuccess: () -> Unit) {

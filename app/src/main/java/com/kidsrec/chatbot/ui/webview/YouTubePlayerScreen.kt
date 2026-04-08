@@ -32,9 +32,10 @@ import java.net.URLDecoder
 fun YouTubePlayerScreen(
     videoId: String,
     title: String,
-    onBack: () -> Unit
+    onBack: (durationSeconds: Long) -> Unit
 ) {
     val cleanVideoId = videoId.trim()
+    val openedAtMs = remember { System.currentTimeMillis() }
     var isLoading by remember { mutableStateOf(true) }
     var loadError by remember { mutableStateOf(false) }
 
@@ -89,7 +90,7 @@ fun YouTubePlayerScreen(
             CenterAlignedTopAppBar(
                 title = { Text(decodedTitle, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = { onBack((System.currentTimeMillis() - openedAtMs) / 1000) }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }
@@ -140,7 +141,7 @@ fun YouTubePlayerScreen(
                         }
                     }
                     Spacer(modifier = Modifier.height(16.dp))
-                    Button(onClick = onBack) {
+                    Button(onClick = { onBack((System.currentTimeMillis() - openedAtMs) / 1000) }) {
                         Text("Go Back")
                     }
                 }

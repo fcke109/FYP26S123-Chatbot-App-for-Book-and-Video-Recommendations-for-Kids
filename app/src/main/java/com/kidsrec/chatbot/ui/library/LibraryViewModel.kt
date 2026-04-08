@@ -7,6 +7,7 @@ import com.kidsrec.chatbot.data.model.Book
 import com.kidsrec.chatbot.data.model.Recommendation
 import com.kidsrec.chatbot.data.remote.OpenLibraryService
 import com.kidsrec.chatbot.data.repository.AccountManager
+import com.kidsrec.chatbot.data.repository.AnalyticsRepository
 import com.kidsrec.chatbot.data.repository.BookDataManager
 import com.kidsrec.chatbot.data.repository.FavoritesManager
 import com.kidsrec.chatbot.data.repository.RecommendationEngine
@@ -25,7 +26,8 @@ class LibraryViewModel @Inject constructor(
     private val recommendationEngine: RecommendationEngine,
     private val accountManager: AccountManager,
     private val favoritesManager: FavoritesManager,
-    private val openLibraryService: OpenLibraryService
+    private val openLibraryService: OpenLibraryService,
+    private val analyticsRepository: AnalyticsRepository
 ) : ViewModel() {
 
     private val _curatedBooks = MutableStateFlow<List<Book>>(emptyList())
@@ -117,6 +119,13 @@ class LibraryViewModel @Inject constructor(
             _topPicks.value = picks
         } catch (e: Exception) {
             Log.e("LibraryVM", "Failed to load top picks: ${e.message}")
+        }
+    }
+
+    fun trackBookView(bookTitle: String, bookId: String = "") {
+        viewModelScope.launch {
+            val currentUserId = accountManager.getCurrentUserId() ?: "unknown"
+            analyticsRepository.trackBookView(bookId, bookTitle, currentUserId)
         }
     }
 }

@@ -14,6 +14,11 @@ enum class AccountType {
 }
 
 @Keep
+enum class UserStatus {
+    ACTIVE, SUSPENDED, BANNED
+}
+
+@Keep
 data class User(
     val id: String = "",
     val name: String = "",
@@ -21,6 +26,7 @@ data class User(
     val age: Int = 0,
     val planType: PlanType = PlanType.FREE,
     val accountType: AccountType = AccountType.CHILD,
+    val status: UserStatus = UserStatus.ACTIVE,
     val parentId: String? = null,
     val childIds: List<String> = emptyList(),
     val interests: List<String> = emptyList(),

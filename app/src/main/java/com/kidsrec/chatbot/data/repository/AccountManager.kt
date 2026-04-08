@@ -9,6 +9,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.kidsrec.chatbot.data.model.AccountType
 import com.kidsrec.chatbot.data.model.Favorite
 import com.kidsrec.chatbot.data.model.InviteCode
+import com.kidsrec.chatbot.data.model.LoginAttempt
 import com.kidsrec.chatbot.data.model.ReadingHistory
 import com.kidsrec.chatbot.data.model.User
 import kotlinx.coroutines.channels.awaitClose
@@ -36,9 +37,15 @@ class AccountManager @Inject constructor(
     suspend fun signIn(email: String, password: String): Result<FirebaseUser> {
         return try {
             val result = auth.signInWithEmailAndPassword(email, password).await()
-            result.user?.let { Result.success(it) }
-                ?: Result.failure(Exception("Sign in failed"))
+            val user = result.user ?: return Result.failure(Exception("Sign in failed"))
+
+            // Track successful login attempt
+            trackLoginAttempt(email, user.uid, true, "")
+
+            Result.success(user)
         } catch (e: Exception) {
+            // Track failed login attempt
+            trackLoginAttempt(email, "", false, e.message ?: "Unknown error")
             Result.failure(e)
         }
     }
@@ -429,6 +436,23 @@ class AccountManager @Inject constructor(
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
+        }
+    }
+
+    private suspend fun trackLoginAttempt(email: String, userId: String, success: Boolean, failureReason: String) {
+        try {
+            val loginAttempt = LoginAttempt(
+                userId = userId,
+                email = email,
+                success = success,
+                failureReason = if (success) "" else failureReason
+            )
+            firestore.collection("loginAttempts")
+                .add(loginAttempt)
+                .await()
+        } catch (e: Exception) {
+            // Log error but don't fail the sign in process
+            android.util.Log.w("AccountManager", "Failed to track login attempt", e)
         }
     }
 }

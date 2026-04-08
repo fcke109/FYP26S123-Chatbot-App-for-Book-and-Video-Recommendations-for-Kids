@@ -6,6 +6,7 @@ import com.kidsrec.chatbot.data.model.ChatMessage
 import com.kidsrec.chatbot.data.model.Conversation
 import com.kidsrec.chatbot.data.remote.OpenLibraryService
 import com.kidsrec.chatbot.data.repository.AccountManager
+import com.kidsrec.chatbot.data.repository.AnalyticsRepository
 import com.kidsrec.chatbot.data.repository.BookDataManager
 import com.kidsrec.chatbot.data.repository.ChatDataManager
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -26,7 +27,8 @@ class ChatViewModel @Inject constructor(
     private val chatDataManager: ChatDataManager,
     private val accountManager: AccountManager,
     private val bookDataManager: BookDataManager,
-    private val openLibraryService: OpenLibraryService
+    private val openLibraryService: OpenLibraryService,
+    private val analyticsRepository: AnalyticsRepository
 ) : ViewModel() {
 
     private val _messages = MutableStateFlow<List<ChatMessage>>(emptyList())
@@ -178,6 +180,13 @@ class ChatViewModel @Inject constructor(
         } catch (e: Exception) {
             val encodedTitle = java.net.URLEncoder.encode(title, "UTF-8")
             "https://openlibrary.org/search?q=$encodedTitle&mode=ebooks"
+        }
+    }
+
+    fun trackBookView(bookTitle: String, bookId: String = "") {
+        viewModelScope.launch {
+            val currentUserId = accountManager.getCurrentUserId() ?: "unknown"
+            analyticsRepository.trackBookView(bookId, bookTitle, currentUserId)
         }
     }
 }

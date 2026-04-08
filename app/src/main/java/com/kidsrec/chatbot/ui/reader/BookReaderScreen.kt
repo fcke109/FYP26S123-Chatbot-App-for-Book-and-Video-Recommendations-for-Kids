@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
@@ -20,14 +21,26 @@ import androidx.compose.ui.viewinterop.AndroidView
 @Composable
 fun BookReaderScreen(
     url: String,
-    onBack: () -> Unit
+    onBack: (durationSeconds: Long) -> Unit
 ) {
+    val openedAtMs = remember { System.currentTimeMillis() }
+    var webView by remember { mutableStateOf<WebView?>(null) }
+    var canGoBack by remember { mutableStateOf(false) }
+
+    BackHandler {
+        if (canGoBack) {
+            webView?.goBack()
+        } else {
+            onBack((System.currentTimeMillis() - openedAtMs) / 1000)
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Visual Storybook") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = { onBack((System.currentTimeMillis() - openedAtMs) / 1000) }) {
                         Icon(Icons.Default.Close, contentDescription = "Close")
                     }
                 }
@@ -66,6 +79,11 @@ fun BookReaderScreen(
                                 } else {
                                     true  // block unsafe links
                                 }
+                            }
+
+                            override fun onPageFinished(view: WebView?, url: String?) {
+                                super.onPageFinished(view, url)
+                                canGoBack = view?.canGoBack() ?: false
                             }
                         }
                         loadUrl(url)

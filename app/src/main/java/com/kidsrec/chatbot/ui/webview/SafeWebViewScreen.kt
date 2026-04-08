@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.*
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -32,7 +33,7 @@ fun SafeWebViewScreen(
     url: String,
     title: String,
     isVideo: Boolean,
-    onClose: () -> Unit
+    onClose: (durationSeconds: Long) -> Unit
 ) {
     val context = LocalContext.current
 
@@ -61,7 +62,7 @@ fun SafeWebViewScreen(
                     style = MaterialTheme.typography.titleMedium
                 )
                 Spacer(modifier = Modifier.height(16.dp))
-                Button(onClick = onClose) {
+                Button(onClick = { onClose(0) }) {
                     Text("Go Back")
                 }
             }
@@ -99,6 +100,16 @@ fun SafeWebViewScreen(
         url.trim().replace("http://", "https://")
     }
 
+    val openedAtMs = remember { System.currentTimeMillis() }
+
+    BackHandler {
+        if (canGoBack) {
+            webView?.goBack()
+        } else {
+            onClose((System.currentTimeMillis() - openedAtMs) / 1000)
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -120,7 +131,7 @@ fun SafeWebViewScreen(
                             if (canGoBack) {
                                 webView?.goBack()
                             } else {
-                                onClose()
+                                onClose((System.currentTimeMillis() - openedAtMs) / 1000)
                             }
                         }
                     ) {
@@ -161,7 +172,7 @@ fun SafeWebViewScreen(
                         )
                     }
 
-                    IconButton(onClick = onClose) {
+                    IconButton(onClick = { onClose((System.currentTimeMillis() - openedAtMs) / 1000) }) {
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = "Close",

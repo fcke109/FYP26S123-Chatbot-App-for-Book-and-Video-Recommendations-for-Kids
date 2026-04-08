@@ -1,15 +1,14 @@
 package com.kidsrec.chatbot.ui.navigation
 
 import android.util.Log
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
-import androidx.compose.material.icons.filled.Chat
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -23,10 +22,16 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
+import kotlinx.coroutines.launch
+import dagger.hilt.android.EntryPointAccessors
+import dagger.hilt.components.SingletonComponent
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -57,11 +62,16 @@ import com.kidsrec.chatbot.ui.parent.ParentDashboardViewModel
 import com.kidsrec.chatbot.ui.profile.ProfileScreen
 import com.kidsrec.chatbot.ui.profile.ProfileViewModel
 import com.kidsrec.chatbot.ui.billing.PremiumUpgradeScreen
+import com.kidsrec.chatbot.ui.parental.ParentalControlsScreen
+import com.kidsrec.chatbot.ui.admin.AdminUpgradeScreen
 import com.kidsrec.chatbot.ui.reader.BookReaderScreen
 import com.kidsrec.chatbot.ui.screentime.ScreenTimeWrapper
 import com.kidsrec.chatbot.ui.webview.SafeWebViewScreen
+import com.kidsrec.chatbot.ui.notification.NotificationsViewModel
+import com.kidsrec.chatbot.data.model.UserNotification
 import com.kidsrec.chatbot.ui.webview.YouTubePlayerScreen
 import java.net.URLEncoder
+import java.util.Date
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector? = null) {
     object Login : Screen("login", "Login")
@@ -71,7 +81,9 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
     object Favorites : Screen("favorites", "Favorites", Icons.Default.Favorite)
     object Profile : Screen("profile", "Profile", Icons.Default.Person)
     object Admin : Screen("admin", "Admin", Icons.Default.Shield)
+    object AdminUpgrade : Screen("admin_upgrade", "Admin CMS Upgrade")
     object ParentDashboard : Screen("parent_dashboard", "Dashboard", Icons.Default.Person)
+    object ParentalControls : Screen("parental_controls", "Parental Controls")
     object Reader : Screen("reader/{url}", "Reader")
     object SafeWebView : Screen(
         "webview?url={url}&title={title}&isVideo={isVideo}&itemId={itemId}&imageUrl={imageUrl}&description={description}",
@@ -183,6 +195,12 @@ private fun buildContentRoute(
     return "webview?url=$encodedUrl&title=$encodedTitle&isVideo=$finalIsVideo&itemId=$encodedItemId&imageUrl=$encodedImg&description=$encodedDesc"
 }
 
+@EntryPoint
+@InstallIn(SingletonComponent::class)
+interface AnalyticsEntryPoint {
+    fun analyticsRepository(): com.kidsrec.chatbot.data.repository.AnalyticsRepository
+}
+
 @Composable
 fun AppNavigation() {
     val authViewModel: AuthViewModel = hiltViewModel()
@@ -253,6 +271,34 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
     val currentDestination = navBackStackEntry?.destination
     val profileViewModel: ProfileViewModel = hiltViewModel()
     val favoritesViewModel: FavoritesViewModel = hiltViewModel()
+    val notificationsViewModel: NotificationsViewModel = hiltViewModel()
+
+    // Check for unread announcements on login
+    val currentUser by authViewModel.currentUser.collectAsState()
+    val notifications by notificationsViewModel.uiState.collectAsState()
+    val unreadAnnouncements = notifications.filter { !it.read && it.type == "announcement" }
+
+    // Start notifications listener when user is available
+    LaunchedEffect(currentUser?.id) {
+        currentUser?.id?.let { userId ->
+            notificationsViewModel.start(userId)
+        }
+    }
+
+    // Show announcement dialog if there are unread announcements
+    if (unreadAnnouncements.isNotEmpty()) {
+        AnnouncementDialog(
+            announcements = unreadAnnouncements,
+            onDismiss = {
+                // Mark all announcements as read
+                currentUser?.id?.let { userId ->
+                    unreadAnnouncements.forEach { notification ->
+                        notificationsViewModel.markRead(userId, notification.id)
+                    }
+                }
+            }
+        )
+    }
 
     // Re-trigger favourites loading after auth completes (fixes new account race condition)
     LaunchedEffect(Unit) {
@@ -396,6 +442,9 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
                                 description = "none"
                             )
                         )
+                    },
+                    onNavigateToParentalControls = {
+                        navController.navigate(Screen.ParentalControls.route)
                     }
                 )
             }
@@ -421,6 +470,12 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
                 )
             }
 
+            composable(Screen.AdminUpgrade.route) {
+                AdminUpgradeScreen(
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
             composable(Screen.ParentDashboard.route) {
                 val parentDashboardViewModel: ParentDashboardViewModel = hiltViewModel()
 
@@ -428,6 +483,13 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
                     viewModel = parentDashboardViewModel,
                     onLogout = { authViewModel.signOut() },
                     onUpgradePremium = { navController.navigate(Screen.PremiumUpgrade.route) }
+                )
+            }
+
+            composable(Screen.ParentalControls.route) {
+                ParentalControlsScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    authViewModel = authViewModel
                 )
             }
 
@@ -464,11 +526,34 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
                 if (url.isBlank()) {
                     LaunchedEffect(Unit) { navController.popBackStack() }
                 } else {
+                    val analyticsRepository = EntryPointAccessors.fromApplication(
+                        LocalContext.current.applicationContext,
+                        AnalyticsEntryPoint::class.java
+                    ).analyticsRepository()
+                    val scope = rememberCoroutineScope()
+                    val itemId = bse.arguments?.getString("itemId") ?: ""
+                    val title = bse.arguments?.getString("title") ?: ""
+
                     SafeWebViewScreen(
                         url = url,
-                        title = bse.arguments?.getString("title") ?: "",
+                        title = title,
                         isVideo = bse.arguments?.getBoolean("isVideo") ?: false,
-                        onClose = { navController.popBackStack() }
+                        onClose = { durationSeconds ->
+                            val closeTimestamp = com.google.firebase.Timestamp.now()
+                            val openedAt = com.google.firebase.Timestamp(Date(closeTimestamp.toDate().time - durationSeconds * 1000))
+                            val userId = currentUser?.id ?: "unknown"
+                            scope.launch {
+                                analyticsRepository.trackDropOffPoint(
+                                    itemId = itemId,
+                                    itemTitle = title.ifBlank { url },
+                                    userId = userId,
+                                    openedAt = openedAt,
+                                    closedAt = closeTimestamp,
+                                    durationSeconds = durationSeconds
+                                )
+                            }
+                            navController.popBackStack()
+                        }
                     )
                 }
             }
@@ -490,10 +575,31 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
                 if (videoId.isBlank()) {
                     LaunchedEffect(Unit) { navController.popBackStack() }
                 } else {
+                    val analyticsRepository = EntryPointAccessors.fromApplication(
+                        LocalContext.current.applicationContext,
+                        AnalyticsEntryPoint::class.java
+                    ).analyticsRepository()
+                    val scope = rememberCoroutineScope()
+                    val title = bse.arguments?.getString("title") ?: ""
                     YouTubePlayerScreen(
                         videoId = videoId,
-                        title = bse.arguments?.getString("title") ?: "",
-                        onBack = { navController.popBackStack() }
+                        title = title,
+                        onBack = { durationSeconds ->
+                            val closeTimestamp = com.google.firebase.Timestamp.now()
+                            val openedAt = com.google.firebase.Timestamp(Date(closeTimestamp.toDate().time - durationSeconds * 1000))
+                            val userId = currentUser?.id ?: "unknown"
+                            scope.launch {
+                                analyticsRepository.trackDropOffPoint(
+                                    itemId = videoId,
+                                    itemTitle = title.ifBlank { videoId },
+                                    userId = userId,
+                                    openedAt = openedAt,
+                                    closedAt = closeTimestamp,
+                                    durationSeconds = durationSeconds
+                                )
+                            }
+                            navController.popBackStack()
+                        }
                     )
                 }
             }
@@ -508,9 +614,29 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
                 if (url.isBlank()) {
                     LaunchedEffect(Unit) { navController.popBackStack() }
                 } else {
+                    val analyticsRepository = EntryPointAccessors.fromApplication(
+                        LocalContext.current.applicationContext,
+                        AnalyticsEntryPoint::class.java
+                    ).analyticsRepository()
+                    val scope = rememberCoroutineScope()
                     BookReaderScreen(
                         url = url,
-                        onBack = { navController.popBackStack() }
+                        onBack = { durationSeconds ->
+                            val closeTimestamp = com.google.firebase.Timestamp.now()
+                            val openedAt = com.google.firebase.Timestamp(Date(closeTimestamp.toDate().time - durationSeconds * 1000))
+                            val userId = currentUser?.id ?: "unknown"
+                            scope.launch {
+                                analyticsRepository.trackDropOffPoint(
+                                    itemId = url,
+                                    itemTitle = url,
+                                    userId = userId,
+                                    openedAt = openedAt,
+                                    closedAt = closeTimestamp,
+                                    durationSeconds = durationSeconds
+                                )
+                            }
+                            navController.popBackStack()
+                        }
                     )
                 }
             }
@@ -530,4 +656,61 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
             navContent()
         }
     }
+}
+
+@Composable
+fun AnnouncementDialog(
+    announcements: List<UserNotification>,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = {
+            Icon(
+                Icons.Default.Notifications,
+                contentDescription = "Announcements",
+                tint = MaterialTheme.colorScheme.primary
+            )
+        },
+        title = {
+            Text(
+                "New Announcements",
+                style = MaterialTheme.typography.headlineSmall
+            )
+        },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                announcements.forEach { announcement ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = announcement.title,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = announcement.body,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Got it!")
+            }
+        }
+    )
 }
