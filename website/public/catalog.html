@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Book Catalog | Little Dino</title>
+
+  <link rel="icon" type="image/png" href="/images/little_dino_icon_512.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="/css/styles.css" />
+  <style>
+    .catalog-section { padding: 3rem 0 5rem; }
+    .catalog-header h1 { font-family: 'Baloo 2', sans-serif; font-size: clamp(1.8rem, 3vw, 2.4rem); margin-bottom: 0.3rem; }
+    .catalog-header p { color: var(--muted); margin-bottom: 1.5rem; }
+    .catalog-filters { display: flex; gap: 0.8rem; flex-wrap: wrap; margin-bottom: 2rem; }
+    .catalog-filters select, .catalog-filters input {
+      padding: 0.7rem 1rem; border: 2px solid var(--border); border-radius: 14px;
+      font-family: inherit; font-size: 0.92rem; outline: none; background: rgba(255,255,255,0.8);
+      transition: border-color 0.2s;
+    }
+    .catalog-filters select:focus, .catalog-filters input:focus { border-color: var(--primary); }
+    .catalog-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.2rem; }
+    .book-card {
+      background: rgba(255,255,255,0.72); backdrop-filter: blur(14px);
+      border: 1px solid rgba(139, 92, 246, 0.08); box-shadow: var(--shadow);
+      border-radius: var(--radius-xl); overflow: hidden; cursor: pointer;
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
+    }
+    .book-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-strong); }
+    .book-card-img { width: 100%; height: 180px; object-fit: cover; background: linear-gradient(135deg, #efe3ff, #fff1d1); }
+    .book-card-body { padding: 1rem; }
+    .book-card-body h3 { font-family: 'Baloo 2', sans-serif; font-size: 1.05rem; margin-bottom: 0.2rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .book-card-body .author { color: var(--muted); font-size: 0.85rem; margin-bottom: 0.5rem; }
+    .book-card-badges { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+    .badge { padding: 0.25rem 0.6rem; border-radius: 999px; font-size: 0.72rem; font-weight: 800; color: white; }
+    .badge-age { background: #5c6bc0; }
+    .badge-category { background: var(--primary); }
+    .badge-difficulty { background: #ff7043; }
+    .login-prompt-card { max-width: 500px; margin: 5rem auto; text-align: center; padding: 2.5rem; border-radius: var(--radius-xl); border: 1px solid rgba(139, 92, 246, 0.08); box-shadow: var(--shadow); }
+    .login-prompt-card h2 { font-family: 'Baloo 2', sans-serif; margin-bottom: 0.5rem; }
+    .login-prompt-card p { color: var(--muted); margin-bottom: 1.5rem; }
+    .load-more-wrap { text-align: center; margin-top: 2rem; }
+    .btn-load-more { padding: 0.7rem 2rem; border: 2px solid var(--primary); border-radius: 999px; background: transparent; color: var(--primary-dark); font-family: inherit; font-size: 0.95rem; font-weight: 700; cursor: pointer; transition: 0.22s ease; }
+    .btn-load-more:hover { background: var(--primary); color: white; }
+    .spinner-wrap { display: flex; justify-content: center; padding: 2rem; }
+    .spinner { width: 36px; height: 36px; border: 4px solid rgba(139,92,246,0.15); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .no-results { text-align: center; padding: 3rem; color: var(--muted); }
+
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 2000; align-items: center; justify-content: center; padding: 1.5rem; }
+    .modal-overlay.active { display: flex; }
+    .modal { background: rgba(255,255,255,0.95); backdrop-filter: blur(14px); border-radius: var(--radius-xl); max-width: 540px; width: 100%; max-height: 80vh; overflow-y: auto; padding: 2rem; position: relative; box-shadow: var(--shadow-strong); }
+    .modal-close { position: absolute; top: 0.8rem; right: 1rem; background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--muted); }
+    .modal h2 { font-family: 'Baloo 2', sans-serif; }
+    .modal .author { color: var(--muted); margin-bottom: 1rem; }
+    .modal .description { line-height: 1.8; color: var(--muted); margin-bottom: 1.2rem; }
+    .btn-read { display: inline-block; padding: 0.7rem 1.5rem; background: linear-gradient(135deg, var(--primary), #a46fff); color: white; border-radius: 999px; font-weight: 700; box-shadow: 0 10px 25px rgba(139,92,246,0.25); }
+    .btn-read:hover { transform: translateY(-2px); }
+
+    @media (max-width: 980px) { .catalog-grid { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 768px) { .catalog-grid { grid-template-columns: repeat(2, 1fr); } .catalog-filters { flex-direction: column; } .catalog-filters select, .catalog-filters input { width: 100%; } }
+    @media (max-width: 480px) { .catalog-grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <div class="bg-orb orb-3"></div>
+  <div class="bg-grid"></div>
+
+  <header class="site-header">
+    <div class="container nav">
+      <a href="/" class="brand">
+        <img src="/images/little_dino_icon_512.png" alt="Little Dino logo" class="brand-logo" />
+        <div class="brand-text">
+          <span class="brand-title">Little Dino</span>
+          <span class="brand-subtitle">Safe Kids Book & Video Discovery</span>
+        </div>
+      </a>
+
+      <button class="menu-toggle" id="menuToggle" aria-label="Toggle navigation menu" aria-expanded="false">
+        <span class="menu-bar"></span>
+        <span class="menu-bar"></span>
+        <span class="menu-bar"></span>
+      </button>
+
+      <nav class="nav-links" id="navLinks">
+        <a href="/">Home</a>
+        <a href="/catalog.html" style="color:var(--primary-dark);">Book Catalog</a>
+        <a href="/login.html" id="nav-login-link" class="nav-cta">Login</a>
+        <span id="nav-user-name" style="display:none;font-weight:700;color:var(--primary-dark);"></span>
+        <button id="nav-logout-btn" style="display:none;background:none;border:1px solid var(--primary);color:var(--primary-dark);padding:0.5rem 1rem;border-radius:999px;font-weight:700;font-size:0.88rem;cursor:pointer;font-family:inherit;">Logout</button>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div id="login-prompt" class="login-prompt-card glass-card" style="display:none;">
+      <h2>Login to Browse</h2>
+      <p>Sign in to explore our curated collection of books and videos for kids.</p>
+      <a href="/login.html" class="btn btn-primary">Login / Register</a>
+    </div>
+
+    <section id="catalog-content" class="catalog-section" style="display:none;">
+      <div class="container">
+        <div class="catalog-header">
+          <h1>Book Catalog</h1>
+          <p>Browse our curated library of books for kids.</p>
+        </div>
+
+        <div class="catalog-filters">
+          <select id="filter-category">
+            <option value="">All Categories</option>
+            <option value="Reading">Reading</option>
+            <option value="Science">Science</option>
+            <option value="Animals">Animals</option>
+            <option value="Adventure">Adventure</option>
+            <option value="Fantasy">Fantasy</option>
+            <option value="Art">Art</option>
+            <option value="Music">Music</option>
+            <option value="Sports">Sports</option>
+            <option value="History">History</option>
+            <option value="Nature">Nature</option>
+          </select>
+          <select id="filter-age">
+            <option value="">All Ages</option>
+            <option value="5">Ages 3-5</option>
+            <option value="8">Ages 6-8</option>
+            <option value="12">Ages 9-12</option>
+          </select>
+          <select id="filter-difficulty">
+            <option value="">All Levels</option>
+            <option value="easy">Easy</option>
+            <option value="medium">Medium</option>
+            <option value="hard">Hard</option>
+          </select>
+          <input type="text" id="filter-search" placeholder="Search by title...">
+        </div>
+
+        <div id="catalog-grid" class="catalog-grid"></div>
+        <div id="loading" class="spinner-wrap" style="display:none;"><div class="spinner"></div></div>
+        <div id="no-results" class="no-results" style="display:none;"><p><strong>No books found.</strong> Try adjusting your filters.</p></div>
+        <div class="load-more-wrap"><button id="load-more" class="btn-load-more" style="display:none;">Load More</button></div>
+      </div>
+    </section>
+  </main>
+
+  <div id="modal-overlay" class="modal-overlay">
+    <div class="modal">
+      <button class="modal-close" id="modal-close">&times;</button>
+      <img id="modal-img" src="" alt="" style="width:100%;max-height:220px;object-fit:cover;border-radius:18px;margin-bottom:1rem;">
+      <h2 id="modal-title"></h2>
+      <p class="author" id="modal-author"></p>
+      <div id="modal-badges" class="book-card-badges" style="margin-bottom:1rem;"></div>
+      <p class="description" id="modal-desc"></p>
+      <a id="modal-read-btn" href="#" target="_blank" class="btn-read">Read Book</a>
+    </div>
+  </div>
+
+  <footer class="site-footer">
+    <div class="container footer-content">
+      <div class="footer-brand">
+        <img src="/images/little_dino_icon_512.png" alt="Little Dino footer logo" class="footer-logo" />
+        <div>
+          <strong>Little Dino</strong>
+          <p>Chatbot App for Book and Video Recommendations for Kids</p>
+        </div>
+      </div>
+      <div class="footer-links">
+        <a href="/">Home</a>
+        <a href="/privacy.html">Privacy Policy</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="/js/script.js"></script>
+  <script type="module">
+    import { auth, db, onAuthStateChanged, signOut, collection, query, where, orderBy, limit, startAfter, getDocs } from '/js/firebase-config.js';
+
+    const grid = document.getElementById('catalog-grid');
+    const loginPrompt = document.getElementById('login-prompt');
+    const catalogContent = document.getElementById('catalog-content');
+    const loadingEl = document.getElementById('loading');
+    const noResults = document.getElementById('no-results');
+    const loadMoreBtn = document.getElementById('load-more');
+    const modal = document.getElementById('modal-overlay');
+    const loginLink = document.getElementById('nav-login-link');
+    const userNameEl = document.getElementById('nav-user-name');
+    const logoutBtn = document.getElementById('nav-logout-btn');
+
+    let lastDoc = null;
+    const PAGE_SIZE = 20;
+
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        loginPrompt.style.display = 'none';
+        catalogContent.style.display = 'block';
+        if (loginLink) loginLink.style.display = 'none';
+        if (userNameEl) { userNameEl.textContent = user.displayName || user.email.split('@')[0]; userNameEl.style.display = 'inline'; }
+        if (logoutBtn) logoutBtn.style.display = 'inline-block';
+        loadBooks(true);
+      } else {
+        loginPrompt.style.display = 'block';
+        catalogContent.style.display = 'none';
+        if (loginLink) loginLink.style.display = 'inline-flex';
+        if (userNameEl) userNameEl.style.display = 'none';
+        if (logoutBtn) logoutBtn.style.display = 'none';
+      }
+    });
+
+    if (logoutBtn) logoutBtn.addEventListener('click', async () => { await signOut(auth); window.location.reload(); });
+
+    async function loadBooks(reset = false) {
+      if (reset) { grid.innerHTML = ''; lastDoc = null; noResults.style.display = 'none'; }
+      loadingEl.style.display = 'flex'; loadMoreBtn.style.display = 'none';
+
+      try {
+        const qc = [];
+        const cat = document.getElementById('filter-category').value;
+        const diff = document.getElementById('filter-difficulty').value;
+        if (cat) qc.push(where('category', '==', cat));
+        if (diff) qc.push(where('difficultyLevel', '==', diff));
+        qc.push(orderBy('title')); qc.push(limit(PAGE_SIZE));
+        if (lastDoc) qc.push(startAfter(lastDoc));
+
+        const q = query(collection(db, 'content_books'), ...qc);
+        const snap = await getDocs(q);
+        loadingEl.style.display = 'none';
+
+        if (snap.empty && reset) { noResults.style.display = 'block'; return; }
+
+        const search = document.getElementById('filter-search').value.toLowerCase();
+        const ageFilter = document.getElementById('filter-age').value ? parseInt(document.getElementById('filter-age').value) : null;
+
+        snap.forEach((d) => {
+          const b = d.data();
+          if (search && !(b.title || '').toLowerCase().includes(search)) return;
+          if (ageFilter && b.ageMin && b.ageMin > ageFilter) return;
+
+          const card = document.createElement('div'); card.className = 'book-card';
+          const img = b.coverUrl || b.imageUrl || '';
+          card.innerHTML = `
+            ${img ? `<img class="book-card-img" src="${esc(img)}" alt="${esc(b.title||'')}" onerror="this.style.display='none'">` : `<div class="book-card-img"></div>`}
+            <div class="book-card-body">
+              <h3>${esc(b.title || 'Untitled')}</h3>
+              <p class="author">${esc(b.author || 'Unknown')}</p>
+              <div class="book-card-badges">
+                ${b.ageMin != null ? `<span class="badge badge-age">Ages ${b.ageMin}-${b.ageMax||12}</span>` : ''}
+                ${b.category ? `<span class="badge badge-category">${esc(b.category)}</span>` : ''}
+                ${b.difficultyLevel ? `<span class="badge badge-difficulty">${esc(b.difficultyLevel)}</span>` : ''}
+              </div>
+            </div>`;
+          card.addEventListener('click', () => openModal(b));
+          grid.appendChild(card);
+        });
+
+        if (snap.docs.length > 0) lastDoc = snap.docs[snap.docs.length - 1];
+        if (snap.docs.length === PAGE_SIZE) loadMoreBtn.style.display = 'inline-block';
+      } catch (err) { loadingEl.style.display = 'none'; console.error(err); noResults.style.display = 'block'; }
+    }
+
+    function openModal(b) {
+      document.getElementById('modal-title').textContent = b.title || 'Untitled';
+      document.getElementById('modal-author').textContent = b.author || 'Unknown';
+      document.getElementById('modal-desc').textContent = b.description || 'No description available.';
+      const img = document.getElementById('modal-img');
+      const src = b.coverUrl || b.imageUrl || '';
+      img.src = src; img.style.display = src ? 'block' : 'none';
+      const badges = document.getElementById('modal-badges'); badges.innerHTML = '';
+      if (b.ageMin != null) badges.innerHTML += `<span class="badge badge-age">Ages ${b.ageMin}-${b.ageMax||12}</span>`;
+      if (b.category) badges.innerHTML += `<span class="badge badge-category">${esc(b.category)}</span>`;
+      const url = b.readerUrl || b.bookUrl || b.url || '';
+      const btn = document.getElementById('modal-read-btn');
+      btn.href = url; btn.style.display = url ? 'inline-block' : 'none';
+      modal.classList.add('active');
+    }
+
+    document.getElementById('modal-close').addEventListener('click', () => modal.classList.remove('active'));
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('active'); });
+
+    ['filter-category', 'filter-age', 'filter-difficulty'].forEach(id => document.getElementById(id).addEventListener('change', () => loadBooks(true)));
+    let t; document.getElementById('filter-search').addEventListener('input', () => { clearTimeout(t); t = setTimeout(() => loadBooks(true), 400); });
+    loadMoreBtn.addEventListener('click', () => loadBooks(false));
+
+    function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+  </script>
+</body>
+</html>

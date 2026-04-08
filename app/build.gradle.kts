@@ -20,12 +20,21 @@ android {
     namespace = "com.kidsrec.chatbot"
     compileSdk = 35
 
+    signingConfigs {
+        create("release") {
+            storeFile = file("C:\\Users\\felix\\Downloads\\LittleDinoPlaystorePassword\\keystore")
+            storePassword = "dino123"
+            keyAlias = "key0"
+            keyPassword = "dino123"
+        }
+    }
+
     defaultConfig {
         applicationId = "com.kidsrec.chatbot"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -41,6 +50,7 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; }
+  body { width: 512px; height: 512px; overflow: hidden; }
+  .icon {
+    width: 512px;
+    height: 512px;
+    background: linear-gradient(135deg, #5C6BC0 0%, #7E57C2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    border-radius: 110px;
+    overflow: hidden;
+  }
+  .icon::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.15) 0%, transparent 60%);
+  }
+  svg { position: relative; z-index: 1; }
+</style>
+</head>
+<body>
+<div class="icon">
+  <svg width="360" height="400" viewBox="0 0 360 400">
+    <!-- Dino body -->
+    <ellipse cx="180" cy="240" rx="120" ry="140" fill="#81C784"/>
+    <!-- Belly -->
+    <ellipse cx="180" cy="270" rx="85" ry="105" fill="#C8E6C9"/>
+    <!-- Head -->
+    <ellipse cx="180" cy="130" rx="90" ry="80" fill="#81C784"/>
+    <!-- Left eye white -->
+    <circle cx="148" cy="118" r="22" fill="white"/>
+    <!-- Left eye pupil -->
+    <circle cx="152" cy="118" r="10" fill="#333"/>
+    <!-- Left eye shine -->
+    <circle cx="156" cy="113" r="4" fill="white"/>
+    <!-- Right eye white -->
+    <circle cx="212" cy="118" r="22" fill="white"/>
+    <!-- Right eye pupil -->
+    <circle cx="216" cy="118" r="10" fill="#333"/>
+    <!-- Right eye shine -->
+    <circle cx="220" cy="113" r="4" fill="white"/>
+    <!-- Smile -->
+    <path d="M150,155 Q180,185 210,155" fill="none" stroke="#388E3C" stroke-width="5" stroke-linecap="round"/>
+    <!-- Spikes -->
+    <polygon points="180,40 195,72 165,72" fill="#43A047"/>
+    <polygon points="155,48 165,78 140,72" fill="#43A047"/>
+    <polygon points="205,48 215,78 195,72" fill="#43A047"/>
+    <!-- Left arm holding book -->
+    <ellipse cx="75" cy="250" rx="25" ry="18" fill="#81C784" transform="rotate(-20, 75, 250)"/>
+    <!-- Right arm -->
+    <ellipse cx="285" cy="250" rx="25" ry="18" fill="#81C784" transform="rotate(20, 285, 250)"/>
+    <!-- Book in hands -->
+    <rect x="100" y="295" width="80" height="60" rx="4" fill="#FF7043" transform="rotate(-8, 140, 325)"/>
+    <rect x="180" y="295" width="80" height="60" rx="4" fill="#FF8A65" transform="rotate(8, 220, 325)"/>
+    <line x1="180" y1="290" x2="180" y2="360" stroke="#E64A19" stroke-width="3"/>
+    <!-- Book lines -->
+    <line x1="115" y1="310" x2="165" y2="305" stroke="white" stroke-width="2" stroke-linecap="round"/>
+    <line x1="118" y1="322" x2="160" y2="317" stroke="white" stroke-width="2" stroke-linecap="round"/>
+    <line x1="195" y1="305" x2="245" y2="310" stroke="white" stroke-width="2" stroke-linecap="round"/>
+    <line x1="192" y1="317" x2="240" y2="322" stroke="white" stroke-width="2" stroke-linecap="round"/>
+    <!-- Feet -->
+    <ellipse cx="140" cy="378" rx="30" ry="15" fill="#66BB6A"/>
+    <ellipse cx="220" cy="378" rx="30" ry="15" fill="#66BB6A"/>
+  </svg>
+</div>
+</body>
+</html>
