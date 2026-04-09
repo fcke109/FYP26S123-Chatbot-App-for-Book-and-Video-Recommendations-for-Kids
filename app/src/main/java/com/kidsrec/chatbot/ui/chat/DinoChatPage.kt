@@ -460,14 +460,29 @@ fun RecommendationCard(
                         )
                     }
 
-                    if (!recommendation.isCurated) {
-                        Spacer(modifier = Modifier.width(4.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    if (recommendation.isCurated) {
+                        // Curated/approved content — green badge
                         Surface(
-                            color = Color(0xFFFF9800),
+                            color = Color(0xFF4CAF50),
                             shape = RoundedCornerShape(4.dp)
                         ) {
                             Text(
-                                text = "Not Reviewed",
+                                text = "Reviewed",
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                fontSize = 10.sp,
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    } else {
+                        // Auto-searched from YouTube with safe search — blue badge
+                        Surface(
+                            color = Color(0xFF2196F3),
+                            shape = RoundedCornerShape(4.dp)
+                        ) {
+                            Text(
+                                text = "Auto-filtered",
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                                 fontSize = 10.sp,
                                 color = Color.White,

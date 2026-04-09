@@ -268,13 +268,15 @@ $curatedBooksContext
 $approvedVideosContext
 
 CRITICAL RULES:
-1. You may recommend books. Prefer curated books when relevant, but if the child asks about a specific topic (e.g. "baby shark", "peppa pig", "dinosaurs"), you SHOULD also recommend a book closely matching their topic, even if it is not in the curated list.
-2. You may recommend videos. Prefer approved videos when relevant, but if the child asks about a specific topic, recommend a video matching what they asked for, even if it is not in the approved list.
-3. For any recommendation, provide a reason why it is fun for the child.
-4. Always include a mix of BOTH:
+1. ALWAYS recommend content that DIRECTLY matches what the child asked about. Relevance is the #1 priority.
+2. For BOOKS: If a curated book matches the child's topic, use that exact title. Otherwise, suggest a real, well-known children's book about their specific topic (e.g. if they say "superman", recommend a Superman book, NOT a random unrelated book).
+3. For VIDEOS: ONLY use an approved video if it DIRECTLY matches what the child asked about (e.g. child asks about "sharks" → "Baby Shark Dance" is a match). If NO approved video matches their topic, recommend a video title that closely describes what they want (e.g. child asks about "superman" → use "Superman Cartoon for Kids" NOT "Dinosaurs for Kids").
+4. NEVER substitute an unrelated approved video just because it exists. If the child asks about "superman" and there is no superman video in the approved list, recommend a searchable superman video title instead.
+5. For any recommendation, provide a reason why it is fun for the child.
+6. Always include a mix of BOTH:
    - at least 1 BOOK
    - at least 1 VIDEO
-5. Keep the response friendly and short for children.
+7. Keep the response friendly and short for children.
 
 Response format:
 1. Friendly message (1-2 sentences).
@@ -289,8 +291,8 @@ Response format:
 
 RULES FOR JSON:
 - type must be BOOK or VIDEO
-- for BOOK, if a curated book matches the child's interest, use that exact title. Otherwise, use a real, well-known children's book title related to what they asked for (e.g. for "baby shark", suggest "Baby Shark" by Pinkfong or a similar real book).
-- for VIDEO, if the title matches an approved video, use that exact title. Otherwise, use a clear searchable title closely matching what the child asked for (e.g. "Baby Shark Dance" not a generic title).
+- for BOOK, if a curated book directly matches the child's interest, use that exact title. Otherwise, use a real, well-known children's book title about what they asked for.
+- for VIDEO, if an approved video DIRECTLY matches the child's topic, use that exact title. Otherwise, use a clear, specific, searchable title about the child's topic (e.g. "Superman Cartoon for Kids", "Peppa Pig Full Episode", "Pokemon Adventures for Kids"). The system will search YouTube for this title.
 - do NOT include url
 - do NOT include imageUrl
 - keep descriptions short
@@ -466,12 +468,25 @@ RULES FOR JSON:
                     var imageUrl = ""
 
                     if (type == RecommendationType.VIDEO) {
+                        // Try searching YouTube with the AI-recommended title
                         val result = withContext(Dispatchers.IO) {
                             youTubeService.searchVideo(title)
                         }
                         if (result != null) {
-                            url = result.first
-                            imageUrl = result.second
+                            url = result.videoUrl
+                            imageUrl = result.thumbnailUrl
+                            // Use the real YouTube title so it matches the actual video
+                            if (result.title.isNotBlank()) title = result.title
+                        } else {
+                            // Retry with "for kids" appended for better results
+                            val retryResult = withContext(Dispatchers.IO) {
+                                youTubeService.searchVideo("$title for kids")
+                            }
+                            if (retryResult != null) {
+                                url = retryResult.videoUrl
+                                imageUrl = retryResult.thumbnailUrl
+                                if (retryResult.title.isNotBlank()) title = retryResult.title
+                            }
                         }
                     }
 
@@ -487,7 +502,8 @@ RULES FOR JSON:
                                 imageUrl = imageUrl,
                                 reason = obj.optString("reason"),
                                 relevanceScore = 0.0,
-                                url = url
+                                url = url,
+                                isCurated = false // YouTube search results are not pre-reviewed
                             )
                         )
                     }
@@ -581,6 +597,28 @@ RULES FOR JSON:
         }
     }
 
+    /**
+     * Extracts the main topic keywords from a user message for better YouTube search.
+     * Strips common filler words to get the actual topic.
+     */
+    private fun extractSearchTopic(message: String): String {
+        val fillerWords = setOf(
+            "i", "me", "my", "like", "love", "want", "show", "find", "get",
+            "watch", "see", "please", "can", "you", "the", "a", "an", "some",
+            "about", "tell", "more", "really", "very", "so", "would", "could",
+            "recommend", "suggest", "something", "anything", "videos", "video",
+            "books", "book", "stories", "story", "to", "of", "for", "and",
+            "is", "are", "was", "were", "do", "does", "did", "have", "has",
+            "know", "think", "looking", "interested", "in", "on", "with"
+        )
+        val words = message.lowercase()
+            .replace(Regex("[^a-z0-9 ]"), " ")
+            .split(Regex("\\s+"))
+            .filter { it.length > 1 && it !in fillerWords }
+
+        return words.joinToString(" ").ifBlank { message }
+    }
+
     private suspend fun ensureBookAndVideoMix(
         originalMessage: String,
         recommendations: List<Recommendation>,
@@ -611,69 +649,104 @@ RULES FOR JSON:
         }
 
         if (!hasVideo) {
-            // Try YouTube search for a query related to the user's message first
-            val searchQuery = "$originalMessage kids safe"
+            // Extract the actual topic from the user's message for better search
+            val topic = extractSearchTopic(originalMessage)
+            val searchQuery = "$topic for kids"
+            Log.d("ChatDataManager", "Video fallback: searching YouTube for '$searchQuery' (from message: '$originalMessage')")
+
             val youtubeResult = try {
                 withContext(Dispatchers.IO) { youTubeService.searchVideo(searchQuery) }
             } catch (_: Exception) { null }
 
             if (youtubeResult != null) {
+                val displayTitle = youtubeResult.title.ifBlank { "$topic video" }
                 mutable.add(
                     Recommendation(
-                        id = "yt_fallback_${youtubeResult.first.hashCode()}",
+                        id = "yt_fallback_${youtubeResult.videoUrl.hashCode()}",
                         type = RecommendationType.VIDEO,
-                        title = "Video for you",
-                        description = "A video related to what you asked about.",
-                        imageUrl = youtubeResult.second,
-                        reason = "Found a safe video matching your interests.",
+                        title = displayTitle,
+                        description = "A fun video about $topic for kids.",
+                        imageUrl = youtubeResult.thumbnailUrl,
+                        reason = "Found a safe video about $topic.",
                         relevanceScore = 0.0,
-                        url = youtubeResult.first,
+                        url = youtubeResult.videoUrl,
                         isCurated = false
                     )
                 )
-            } else if (approvedVideos.isNotEmpty()) {
-                // Fallback to best-matching approved video
-                val fallbackVideo = pickBestFallbackVideo(originalMessage, approvedVideos)
-                mutable.add(
-                    Recommendation(
-                        id = fallbackVideo.id,
-                        type = RecommendationType.VIDEO,
-                        title = fallbackVideo.title,
-                        description = fallbackVideo.description,
-                        imageUrl = fallbackVideo.imageUrl,
-                        reason = fallbackVideo.reason,
-                        relevanceScore = 0.0,
-                        url = fallbackVideo.url
+            } else {
+                // YouTube search failed — try a second time with simpler query
+                val simpleResult = try {
+                    withContext(Dispatchers.IO) { youTubeService.searchVideo("$topic kids") }
+                } catch (_: Exception) { null }
+
+                if (simpleResult != null) {
+                    val displayTitle = simpleResult.title.ifBlank { "$topic video" }
+                    mutable.add(
+                        Recommendation(
+                            id = "yt_fallback_${simpleResult.videoUrl.hashCode()}",
+                            type = RecommendationType.VIDEO,
+                            title = displayTitle,
+                            description = "A fun video about $topic for kids.",
+                            imageUrl = simpleResult.thumbnailUrl,
+                            reason = "Found a safe video about $topic.",
+                            relevanceScore = 0.0,
+                            url = simpleResult.videoUrl,
+                            isCurated = false
+                        )
                     )
-                )
+                } else if (approvedVideos.isNotEmpty()) {
+                    // Last resort: pick from approved list but ONLY if there's a real match
+                    val fallbackVideo = pickBestFallbackVideo(originalMessage, approvedVideos)
+                    if (fallbackVideo != null) {
+                        mutable.add(
+                            Recommendation(
+                                id = fallbackVideo.id,
+                                type = RecommendationType.VIDEO,
+                                title = fallbackVideo.title,
+                                description = fallbackVideo.description,
+                                imageUrl = fallbackVideo.imageUrl,
+                                reason = fallbackVideo.reason,
+                                relevanceScore = 0.0,
+                                url = fallbackVideo.url
+                            )
+                        )
+                    }
+                    // If no approved video matches either, we simply don't add a video
+                    // rather than showing an irrelevant one
+                }
             }
         }
 
         return mutable
     }
 
+    /**
+     * Picks the best matching fallback video from the approved list.
+     * Returns null if no video has a meaningful match (score > 0),
+     * preventing random irrelevant videos from being shown.
+     */
     private fun pickBestFallbackVideo(
         message: String,
         videos: List<ApprovedVideo>
-    ): ApprovedVideo {
+    ): ApprovedVideo? {
         val lowerMessage = message.lowercase()
         val messageWords = lowerMessage.split(Regex("\\s+")).filter { it.length > 2 }
 
         val scored = videos.map { video ->
             var score = 0
-            // Tag matching
+            // Tag matching (weight: 3x)
             score += video.tags.count { tag -> lowerMessage.contains(tag.lowercase()) } * 3
-            // Title word matching
+            // Title word matching (weight: 2x)
             val titleWords = video.title.lowercase().split(Regex("\\s+"))
             score += messageWords.count { word -> titleWords.any { it.contains(word) } } * 2
-            // Description matching
+            // Description matching (weight: 1x)
             score += messageWords.count { word -> video.description.lowercase().contains(word) }
             video to score
         }
 
         val best = scored.maxByOrNull { it.second }
-        // Only return the best match if it actually matched something
-        return if (best != null && best.second > 0) best.first else videos.random()
+        // Only return a video if it actually matched something — never return random
+        return if (best != null && best.second > 0) best.first else null
     }
 
     private fun titlesMatch(a: String, b: String): Boolean {

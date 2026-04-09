@@ -56,63 +56,88 @@
         <div class="privacy-card glass-card">
           <h3>1. Introduction</h3>
           <p>Little Dino ("we", "our", "us") is committed to protecting the privacy of children and families who use our app and website. This policy applies to the Little Dino Android app and the website at fyp-chatbot-81a50.web.app.</p>
+          <p>Little Dino is designed as a mixed-audience app for <strong>children aged 3-12 and their parents/guardians</strong>. Children use the app under parental supervision with linked parent accounts. This app complies with the Children's Online Privacy Protection Act (COPPA) and Google Play's Families Policy.</p>
 
-          <h3>2. Information We Collect</h3>
-          <p>When you create an account, we collect:</p>
+          <h3>2. COPPA Compliance</h3>
+          <p>We comply with the Children's Online Privacy Protection Act (COPPA). Specifically:</p>
           <ul>
-            <li><strong>Account information:</strong> Name, email address, age, and account type (child or parent).</li>
-            <li><strong>Profile preferences:</strong> Interests, reading level, and content filters.</li>
-            <li><strong>Usage data:</strong> Chat messages with the chatbot, reading history, favourite books and videos, and screen time data.</li>
+            <li><strong>Parental consent:</strong> A parent or guardian must create an account and link child accounts. Child accounts cannot be created independently.</li>
+            <li><strong>Limited data collection:</strong> We collect only the minimum data necessary to provide age-appropriate recommendations.</li>
+            <li><strong>No behavioural advertising:</strong> We do not serve ads of any kind to children.</li>
+            <li><strong>No third-party tracking:</strong> We do not share children's personal information with third parties for marketing or advertising purposes.</li>
+            <li><strong>Parental control:</strong> Parents can review, modify, or delete their child's data at any time through the Parent Dashboard.</li>
+            <li><strong>Right to refuse:</strong> Parents may refuse further collection of their child's data by deleting the child's account. The app will still function in guest mode without data collection.</li>
           </ul>
-          <p>We do not collect location data, device identifiers, or any data beyond what is necessary to provide our service.</p>
 
-          <h3>3. How We Use Your Information</h3>
+          <h3>3. Information We Collect</h3>
+          <p><strong>For parent accounts:</strong></p>
+          <ul>
+            <li>Name, email address, and account credentials (secured via Firebase Authentication).</li>
+            <li>Parental PIN for child safety controls.</li>
+          </ul>
+          <p><strong>For child accounts (with parental consent):</strong></p>
+          <ul>
+            <li>First name, age, interests, and reading level.</li>
+            <li>Chat messages with the AI chatbot (used only to generate recommendations).</li>
+            <li>Reading history, favourite books and videos, and screen time data.</li>
+            <li>Aggregated usage analytics (search queries, content views) for service improvement.</li>
+          </ul>
+          <p>We do <strong>not</strong> collect location data, device identifiers, photos, contacts, or any data beyond what is necessary to provide our service.</p>
+
+          <h3>4. How We Use Information</h3>
           <ul>
             <li><strong>Personalisation:</strong> To provide age-appropriate book and video recommendations.</li>
-            <li><strong>Chatbot responses:</strong> Chat messages are sent to our AI service to generate relevant, safe responses.</li>
-            <li><strong>Parental monitoring:</strong> To allow parents to view their child's activity.</li>
-            <li><strong>Service improvement:</strong> To improve the quality and safety of recommendations.</li>
+            <li><strong>Chatbot responses:</strong> Chat messages are sent to Google Gemini AI to generate relevant, safe responses. Messages are processed in real-time and are not used to train AI models.</li>
+            <li><strong>Parental monitoring:</strong> To allow parents to view their child's reading activity and chat history via the Parent Dashboard.</li>
+            <li><strong>Service improvement:</strong> Aggregated, anonymised analytics to improve recommendation quality and safety.</li>
           </ul>
 
-          <h3>4. Children's Privacy</h3>
-          <p>Little Dino is designed for children aged 3-12. We take children's privacy seriously:</p>
+          <h3>5. Children's Privacy Protections</h3>
+          <p>Little Dino implements the following protections for children:</p>
           <ul>
-            <li>Child accounts are linked to a parent or guardian account.</li>
+            <li>Child accounts must be linked to a verified parent or guardian account.</li>
+            <li>All content is filtered for age-appropriateness based on parental settings.</li>
+            <li>Web browsing within the app is restricted to an approved allowlist of educational domains (Archive.org, Open Library, StoryWeaver, YouTube Kids-safe content).</li>
+            <li>In-app purchases are only accessible to parent accounts through the Parent Dashboard, never to child users.</li>
+            <li>Screen time limits can be set and enforced by parents.</li>
             <li>We do not sell, share, or rent children's personal data to third parties.</li>
-            <li>All content is filtered for age-appropriateness and safety.</li>
             <li>Parents can view and manage all data associated with their child's account.</li>
             <li>Parents can request deletion of their child's data at any time.</li>
           </ul>
 
-          <h3>5. Third-Party Services</h3>
+          <h3>6. Third-Party Services</h3>
+          <p>Little Dino uses the following third-party services, all of which process data in compliance with their respective children's privacy policies:</p>
           <ul>
-            <li><strong>Google Firebase:</strong> For authentication, data storage, and hosting.</li>
-            <li><strong>Google Gemini AI:</strong> To power the chatbot. Chat messages are processed but not used to train AI models.</li>
-            <li><strong>YouTube API:</strong> To provide safe video recommendations with strict content filtering.</li>
-            <li><strong>Open Library / Internet Archive:</strong> To provide free book content.</li>
+            <li><strong>Google Firebase:</strong> For authentication, data storage, cloud functions, and hosting. Firebase processes data under Google's data processing terms.</li>
+            <li><strong>Google Gemini AI:</strong> To power the chatbot. Chat messages are processed to generate responses but are not stored by Google or used to train AI models.</li>
+            <li><strong>YouTube API:</strong> To provide safe video recommendations with restricted mode and strict content filtering enabled.</li>
+            <li><strong>Open Library / Internet Archive:</strong> To provide free, public-domain book content. No personal data is shared with these services.</li>
           </ul>
 
-          <h3>6. Data Storage and Security</h3>
-          <p>All data is stored securely using Google Firebase infrastructure with encryption at rest and in transit. Access is controlled by role-based security rules. Parent accounts are protected with email verification and an optional parental PIN.</p>
+          <h3>7. Data Storage and Security</h3>
+          <p>All data is stored securely using Google Firebase infrastructure with encryption at rest and in transit. Access is controlled by role-based security rules. Parent accounts are protected with email verification and a parental PIN. Child data is accessible only to the linked parent account and app administrators for safety monitoring.</p>
 
-          <h3>7. Data Retention and Deletion</h3>
-          <p>Account data is retained while the account is active. Parents can request deletion of their child's account and all associated data. Upon deletion, all personal data, chat history, favourites, and reading history are permanently removed.</p>
+          <h3>8. Data Retention and Deletion</h3>
+          <p>Account data is retained while the account is active. Parents can request deletion of their child's account and all associated data at any time through the Parent Dashboard or by contacting us. Upon deletion, all personal data, chat history, favourites, reading history, and analytics data are permanently removed within 30 days.</p>
 
-          <h3>8. Parental Rights</h3>
-          <p>Parents have the right to:</p>
+          <h3>9. Parental Rights</h3>
+          <p>Under COPPA, parents and guardians have the right to:</p>
           <ul>
-            <li>Review their child's personal information and activity.</li>
+            <li>Review all personal information collected from their child.</li>
+            <li>Review their child's chat history and reading activity.</li>
             <li>Update or correct their child's information.</li>
-            <li>Request deletion of their child's account and data.</li>
-            <li>Set content filters and screen time limits.</li>
+            <li>Request deletion of their child's account and all associated data.</li>
+            <li>Refuse further collection of their child's information.</li>
+            <li>Set content filters, age ratings, and screen time limits.</li>
             <li>Approve or reject content recommendations.</li>
           </ul>
+          <p>To exercise these rights, parents can use the Parent Dashboard in the app or contact us at <strong>littledino075@gmail.com</strong>.</p>
 
-          <h3>9. Changes to This Policy</h3>
-          <p>We may update this Privacy Policy from time to time. Changes will be posted on this page with an updated date.</p>
+          <h3>10. Changes to This Policy</h3>
+          <p>We may update this Privacy Policy from time to time. If we make material changes to how we collect or use children's personal information, we will notify parents via email or in-app notification before the changes take effect. Changes will be posted on this page with an updated date.</p>
 
-          <h3>10. Contact</h3>
-          <p>For privacy-related questions, contact us at: <strong>littledino075@gmail.com</strong></p>
+          <h3>11. Contact</h3>
+          <p>For privacy-related questions, COPPA inquiries, or to exercise parental rights, contact us at: <strong>littledino075@gmail.com</strong></p>
 
           <div class="privacy-actions">
             <a href="/" class="btn btn-primary">Back to Home</a>
