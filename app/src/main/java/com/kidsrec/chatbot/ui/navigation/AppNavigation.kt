@@ -281,7 +281,7 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
     // Start notifications listener when user is available
     LaunchedEffect(currentUser?.id) {
         currentUser?.id?.let { userId ->
-            notificationsViewModel.start(userId)
+            notificationsViewModel.startListening(userId)
         }
     }
 
