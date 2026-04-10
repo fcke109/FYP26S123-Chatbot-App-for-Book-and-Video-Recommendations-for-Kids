@@ -5,13 +5,26 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -26,6 +39,8 @@ import com.kidsrec.chatbot.data.model.Book
 import com.kidsrec.chatbot.data.model.Favorite
 import com.kidsrec.chatbot.data.model.Recommendation
 import com.kidsrec.chatbot.data.model.RecommendationType
+import com.kidsrec.chatbot.ui.common.AgeUiMode
+import com.kidsrec.chatbot.ui.common.getAgeUiMode
 import com.kidsrec.chatbot.ui.favorites.FavoritesViewModel
 
 @Composable
@@ -33,30 +48,73 @@ fun UserLibraryScreen(
     viewModel: LibraryViewModel,
     favoritesViewModel: FavoritesViewModel,
     searchViewModel: SmartSearchViewModel,
-    onOpenRecommendation: (url: String, title: String, isVideo: Boolean, itemId: String, imageUrl: String, description: String) -> Unit
+    onOpenRecommendation: (
+        url: String,
+        title: String,
+        isVideo: Boolean,
+        itemId: String,
+        imageUrl: String,
+        description: String
+    ) -> Unit
 ) {
     val books by viewModel.curatedBooks.collectAsState()
     val topPicks by viewModel.topPicks.collectAsState()
     val favoriteItems by favoritesViewModel.favorites.collectAsState()
     val isGuest by favoritesViewModel.isGuest.collectAsState()
     val searchUiState by searchViewModel.uiState.collectAsState()
+    val userAge by viewModel.userAge.collectAsState()
 
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+    val ageUiMode = getAgeUiMode(userAge)
+
+    var selectedCategory by remember { mutableStateOf("All") }
+
+    val categories = remember(books) {
+        listOf("All") + books.map { it.category.ifBlank { "General" } }.distinct().sorted()
+    }
+
+    val filteredBooksBySearch = if (searchUiState.query.isNotBlank() && !searchUiState.expanded) {
+        books.filter {
+            it.title.contains(searchUiState.query, ignoreCase = true) ||
+                    it.author.contains(searchUiState.query, ignoreCase = true)
+        }
+    } else {
+        books
+    }
+
+    val finalFilteredBooks = if (ageUiMode == AgeUiMode.OLDER_CHILD && selectedCategory != "All") {
+        filteredBooksBySearch.filter { (it.category.ifBlank { "General" }) == selectedCategory }
+    } else {
+        filteredBooksBySearch
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
         Text(
-            text = "My Story Library",
+            text = when (ageUiMode) {
+                AgeUiMode.EARLY_CHILD -> "My Books"
+                AgeUiMode.YOUNG_CHILD -> "My Story Library"
+                AgeUiMode.OLDER_CHILD -> "Explore Your Library"
+            },
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary
         )
+
         Text(
-            text = "Favorite your best stories to read again!",
+            text = when (ageUiMode) {
+                AgeUiMode.EARLY_CHILD -> "Tap a book to start reading."
+                AgeUiMode.YOUNG_CHILD -> "Find fun books and save your favorites."
+                AgeUiMode.OLDER_CHILD -> "Browse categories, explore recommendations, and save favorites."
+            },
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Integration of SmartSearchBar
         SmartSearchBar(
             uiState = searchUiState,
             onQueryChange = { searchViewModel.onQueryChange(it) },
@@ -66,32 +124,39 @@ fun UserLibraryScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        if (ageUiMode == AgeUiMode.OLDER_CHILD && categories.size > 1) {
+            CategorySection(
+                categories = categories,
+                selectedCategory = selectedCategory,
+                onCategorySelected = { selectedCategory = it }
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
         if (books.isEmpty()) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
                 Text("No books here yet. Check back soon!")
             }
         } else {
-            // Filter books based on search query if applicable
-            val filteredBooks = if (searchUiState.query.isNotBlank() && !searchUiState.expanded) {
-                books.filter { 
-                    it.title.contains(searchUiState.query, ignoreCase = true) || 
-                    it.author.contains(searchUiState.query, ignoreCase = true) 
-                }
-            } else {
-                books
-            }
-
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Top Picks Section
                 if (topPicks.isNotEmpty() && searchUiState.query.isBlank()) {
                     item {
                         TopPicksSection(
+                            title = when (ageUiMode) {
+                                AgeUiMode.EARLY_CHILD -> "Fun Picks"
+                                AgeUiMode.YOUNG_CHILD -> "Top Picks for You"
+                                AgeUiMode.OLDER_CHILD -> "Recommended for You"
+                            },
                             picks = topPicks,
                             favoriteItems = favoriteItems,
                             isGuest = isGuest,
+                            ageUiMode = ageUiMode,
                             onToggleFavorite = { rec ->
                                 val isFav = favoriteItems.any { it.itemId == rec.id }
                                 if (isFav) {
@@ -108,13 +173,14 @@ fun UserLibraryScreen(
                                 }
                             },
                             onPickClick = { rec ->
+                                viewModel.addClickedItem(rec.title)
                                 if (rec.url.isNotBlank()) {
                                     onOpenRecommendation(
-                                        rec.url, 
-                                        rec.title, 
-                                        rec.type == RecommendationType.VIDEO, 
-                                        rec.id, 
-                                        rec.imageUrl, 
+                                        rec.url,
+                                        rec.title,
+                                        rec.type == RecommendationType.VIDEO,
+                                        rec.id,
+                                        rec.imageUrl,
                                         rec.description
                                     )
                                 }
@@ -126,7 +192,15 @@ fun UserLibraryScreen(
 
                 item {
                     Text(
-                        text = if (searchUiState.query.isBlank()) "All Books" else "Search Results",
+                        text = if (searchUiState.query.isBlank()) {
+                            when (ageUiMode) {
+                                AgeUiMode.EARLY_CHILD -> "Books"
+                                AgeUiMode.YOUNG_CHILD -> "All Books"
+                                AgeUiMode.OLDER_CHILD -> "Browse Books"
+                            }
+                        } else {
+                            "Search Results"
+                        },
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -134,42 +208,95 @@ fun UserLibraryScreen(
                     Spacer(modifier = Modifier.height(8.dp))
                 }
 
-                items(filteredBooks) { book ->
-                    val isFavorited = favoriteItems.any { it.itemId == book.id }
-
-                    UserBookCard(
-                        book = book,
-                        isFavorited = isFavorited,
-                        showFavoriteButton = !isGuest,
-                        onFavoriteClick = {
-                            if (isFavorited) {
-                                favoritesViewModel.removeFavorite(book.id)
-                            } else {
-                                val url = book.readerUrl.ifBlank { book.bookUrl }
-                                favoritesViewModel.addFavorite(
-                                    itemId = book.id,
-                                    type = RecommendationType.BOOK,
-                                    title = book.title,
-                                    description = book.description,
-                                    imageUrl = book.coverUrl,
-                                    url = url
-                                )
-                            }
-                        },
-                        onClick = {
-                            val url = book.readerUrl.ifBlank { book.bookUrl }
-                            if (url.isNotBlank()) {
-                                onOpenRecommendation(
-                                    url, 
-                                    book.title, 
-                                    false, 
-                                    book.id, 
-                                    book.coverUrl, 
-                                    book.description
+                if (ageUiMode == AgeUiMode.EARLY_CHILD) {
+                    item {
+                        LazyVerticalGrid(
+                            columns = GridCells.Fixed(2),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 200.dp, max = 1200.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(finalFilteredBooks) { book ->
+                                val isFavorited = favoriteItems.any { it.itemId == book.id }
+                                BigBookTile(
+                                    book = book,
+                                    isFavorited = isFavorited,
+                                    showFavoriteButton = !isGuest,
+                                    onFavoriteClick = {
+                                        if (isFavorited) {
+                                            favoritesViewModel.removeFavorite(book.id)
+                                        } else {
+                                            val url = book.readerUrl.ifBlank { book.bookUrl }
+                                            favoritesViewModel.addFavorite(
+                                                itemId = book.id,
+                                                type = RecommendationType.BOOK,
+                                                title = book.title,
+                                                description = book.description,
+                                                imageUrl = book.coverUrl,
+                                                url = url
+                                            )
+                                        }
+                                    },
+                                    onClick = {
+                                        viewModel.addClickedItem(book.title)
+                                        val url = book.readerUrl.ifBlank { book.bookUrl }
+                                        if (url.isNotBlank()) {
+                                            onOpenRecommendation(
+                                                url,
+                                                book.title,
+                                                false,
+                                                book.id,
+                                                book.coverUrl,
+                                                book.description
+                                            )
+                                        }
+                                    }
                                 )
                             }
                         }
-                    )
+                    }
+                } else {
+                    items(finalFilteredBooks) { book ->
+                        val isFavorited = favoriteItems.any { it.itemId == book.id }
+
+                        UserBookCardAdaptive(
+                            book = book,
+                            isFavorited = isFavorited,
+                            showFavoriteButton = !isGuest,
+                            ageUiMode = ageUiMode,
+                            onFavoriteClick = {
+                                if (isFavorited) {
+                                    favoritesViewModel.removeFavorite(book.id)
+                                } else {
+                                    val url = book.readerUrl.ifBlank { book.bookUrl }
+                                    favoritesViewModel.addFavorite(
+                                        itemId = book.id,
+                                        type = RecommendationType.BOOK,
+                                        title = book.title,
+                                        description = book.description,
+                                        imageUrl = book.coverUrl,
+                                        url = url
+                                    )
+                                }
+                            },
+                            onClick = {
+                                viewModel.addClickedItem(book.title)
+                                val url = book.readerUrl.ifBlank { book.bookUrl }
+                                if (url.isNotBlank()) {
+                                    onOpenRecommendation(
+                                        url,
+                                        book.title,
+                                        false,
+                                        book.id,
+                                        book.coverUrl,
+                                        book.description
+                                    )
+                                }
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -177,10 +304,48 @@ fun UserLibraryScreen(
 }
 
 @Composable
+fun CategorySection(
+    categories: List<String>,
+    selectedCategory: String,
+    onCategorySelected: (String) -> Unit
+) {
+    Column {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                Icons.Default.Category,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = "Categories",
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(categories) { category ->
+                FilterChip(
+                    selected = selectedCategory == category,
+                    onClick = { onCategorySelected(category) },
+                    label = { Text(category) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
 fun TopPicksSection(
+    title: String,
     picks: List<Recommendation>,
     favoriteItems: List<Favorite>,
     isGuest: Boolean = false,
+    ageUiMode: AgeUiMode,
     onToggleFavorite: (Recommendation) -> Unit,
     onPickClick: (Recommendation) -> Unit
 ) {
@@ -190,27 +355,27 @@ fun TopPicksSection(
                 Icons.Default.AutoAwesome,
                 contentDescription = null,
                 tint = Color(0xFFFFA000),
-                modifier = Modifier.size(22.dp)
+                modifier = Modifier.size(if (ageUiMode == AgeUiMode.EARLY_CHILD) 26.dp else 22.dp)
             )
             Spacer(modifier = Modifier.width(6.dp))
             Text(
-                text = "Top Picks for You",
-                fontSize = 18.sp,
+                text = title,
+                fontSize = if (ageUiMode == AgeUiMode.EARLY_CHILD) 20.sp else 18.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
             )
         }
+
         Spacer(modifier = Modifier.height(8.dp))
 
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             items(picks) { pick ->
                 val isFavorited = favoriteItems.any { it.itemId == pick.id }
-                TopPickCard(
+                TopPickCardAdaptive(
                     pick = pick,
                     isFavorited = isFavorited,
                     showFavoriteButton = !isGuest,
+                    ageUiMode = ageUiMode,
                     onFavoriteClick = { onToggleFavorite(pick) },
                     onClick = { onPickClick(pick) }
                 )
@@ -220,48 +385,70 @@ fun TopPicksSection(
 }
 
 @Composable
-fun TopPickCard(
+fun TopPickCardAdaptive(
     pick: Recommendation,
     isFavorited: Boolean,
     showFavoriteButton: Boolean = true,
+    ageUiMode: AgeUiMode,
     onFavoriteClick: () -> Unit,
     onClick: () -> Unit
 ) {
+    val cardWidth = when (ageUiMode) {
+        AgeUiMode.EARLY_CHILD -> 190.dp
+        AgeUiMode.YOUNG_CHILD -> 170.dp
+        AgeUiMode.OLDER_CHILD -> 160.dp
+    }
+
+    val imageHeight = when (ageUiMode) {
+        AgeUiMode.EARLY_CHILD -> 140.dp
+        AgeUiMode.YOUNG_CHILD -> 125.dp
+        AgeUiMode.OLDER_CHILD -> 120.dp
+    }
+
     Card(
         modifier = Modifier
-            .width(160.dp)
+            .width(cardWidth)
             .clickable { onClick() },
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(14.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column {
-            Box(modifier = Modifier.height(120.dp).fillMaxWidth()) {
+            Box(
+                modifier = Modifier
+                    .height(imageHeight)
+                    .fillMaxWidth()
+            ) {
                 if (pick.imageUrl.isNotEmpty()) {
                     AsyncImage(
                         model = pick.imageUrl,
                         contentDescription = pick.title,
-                        modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp)),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp)),
                         contentScale = ContentScale.Crop
                     )
                 } else {
                     val isVideo = pick.type == RecommendationType.VIDEO
                     Box(
-                        modifier = Modifier.fillMaxSize().background(if (isVideo) Color(0xFFFFE5E5) else Color(0xFFE5F0FF)),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(if (isVideo) Color(0xFFFFE5E5) else Color(0xFFE5F0FF)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = if (isVideo) Icons.Default.PlayCircle else Icons.Default.MenuBook,
                             contentDescription = null,
-                            modifier = Modifier.size(40.dp),
+                            modifier = Modifier.size(if (ageUiMode == AgeUiMode.EARLY_CHILD) 48.dp else 40.dp),
                             tint = if (isVideo) Color.Red else MaterialTheme.colorScheme.primary
                         )
                     }
                 }
 
-                // Match Score Badge
-                if (pick.relevanceScore > 0) {
+                if (pick.relevanceScore > 0 && ageUiMode != AgeUiMode.EARLY_CHILD) {
                     Surface(
-                        modifier = Modifier.padding(6.dp).align(Alignment.TopEnd),
+                        modifier = Modifier
+                            .padding(6.dp)
+                            .align(Alignment.TopEnd),
                         color = Color(0xFF4CAF50),
                         shape = RoundedCornerShape(4.dp)
                     ) {
@@ -274,36 +461,40 @@ fun TopPickCard(
                         )
                     }
                 }
-                
-                // Favorite Toggle Button
+
                 if (showFavoriteButton) {
                     IconButton(
                         onClick = onFavoriteClick,
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
                             .padding(4.dp)
-                            .size(32.dp)
+                            .size(if (ageUiMode == AgeUiMode.EARLY_CHILD) 38.dp else 32.dp)
                             .background(Color.White.copy(alpha = 0.7f), CircleShape)
                     ) {
                         Icon(
                             imageVector = if (isFavorited) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                             contentDescription = "Favorite",
                             tint = if (isFavorited) Color.Red else Color.Gray,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(if (ageUiMode == AgeUiMode.EARLY_CHILD) 22.dp else 18.dp)
                         )
                     }
                 }
             }
 
-            Column(modifier = Modifier.padding(8.dp)) {
+            Column(modifier = Modifier.padding(10.dp)) {
                 Text(
                     text = pick.title,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 12.sp,
-                    maxLines = 1,
+                    fontSize = when (ageUiMode) {
+                        AgeUiMode.EARLY_CHILD -> 15.sp
+                        AgeUiMode.YOUNG_CHILD -> 13.sp
+                        AgeUiMode.OLDER_CHILD -> 12.sp
+                    },
+                    maxLines = if (ageUiMode == AgeUiMode.EARLY_CHILD) 2 else 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                if (pick.reason.isNotBlank()) {
+
+                if (ageUiMode != AgeUiMode.EARLY_CHILD && pick.reason.isNotBlank()) {
                     Text(
                         text = pick.reason,
                         fontSize = 10.sp,
@@ -319,7 +510,7 @@ fun TopPickCard(
 }
 
 @Composable
-fun UserBookCard(
+fun BigBookTile(
     book: Book,
     isFavorited: Boolean,
     showFavoriteButton: Boolean = true,
@@ -329,49 +520,176 @@ fun UserBookCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .height(220.dp)
+            .clickable { onClick() },
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            AsyncImage(
+                model = book.coverUrl,
+                contentDescription = book.title,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.20f))
+            )
+
+            Text(
+                text = book.title,
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp,
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(12.dp),
+                maxLines = 2
+            )
+
+            if (showFavoriteButton) {
+                IconButton(
+                    onClick = onFavoriteClick,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(6.dp)
+                        .background(Color.White.copy(alpha = 0.75f), CircleShape)
+                ) {
+                    Icon(
+                        imageVector = if (isFavorited) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                        contentDescription = "Favorite",
+                        tint = if (isFavorited) Color.Red else Color.Gray
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun UserBookCardAdaptive(
+    book: Book,
+    isFavorited: Boolean,
+    showFavoriteButton: Boolean = true,
+    ageUiMode: AgeUiMode,
+    onFavoriteClick: () -> Unit,
+    onClick: () -> Unit
+) {
+    val imageSize = when (ageUiMode) {
+        AgeUiMode.EARLY_CHILD -> 90.dp
+        AgeUiMode.YOUNG_CHILD -> 76.dp
+        AgeUiMode.OLDER_CHILD -> 70.dp
+    }
+
+    val titleSize = when (ageUiMode) {
+        AgeUiMode.EARLY_CHILD -> 18.sp
+        AgeUiMode.YOUNG_CHILD -> 16.sp
+        AgeUiMode.OLDER_CHILD -> 16.sp
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
             .clickable { onClick() },
         shape = RoundedCornerShape(12.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Row(modifier = Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box {
-                AsyncImage(
-                    model = book.coverUrl,
-                    contentDescription = book.title,
-                    modifier = Modifier.size(70.dp).clip(RoundedCornerShape(8.dp)).background(Color.Gray.copy(alpha = 0.1f)),
-                    contentScale = ContentScale.Crop
-                )
-            }
+        Row(
+            modifier = Modifier.padding(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            AsyncImage(
+                model = book.coverUrl,
+                contentDescription = book.title,
+                modifier = Modifier
+                    .size(imageSize)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color.Gray.copy(alpha = 0.1f)),
+                contentScale = ContentScale.Crop
+            )
+
             Spacer(modifier = Modifier.width(12.dp))
+
             Column(modifier = Modifier.weight(1f)) {
-                Text(book.title, fontWeight = FontWeight.Bold, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text("By ${book.author}", style = MaterialTheme.typography.bodySmall, maxLines = 1)
-                Row(modifier = Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        shape = RoundedCornerShape(4.dp)
-                    ) {
-                        Text(
-                            text = book.ageRating,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                Text(
+                    text = book.title,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = titleSize,
+                    maxLines = if (ageUiMode == AgeUiMode.EARLY_CHILD) 2 else 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                when (ageUiMode) {
+                    AgeUiMode.EARLY_CHILD -> {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        AssistChip(
+                            onClick = onClick,
+                            label = { Text("Open") }
                         )
                     }
-                    Surface(
-                        color = MaterialTheme.colorScheme.secondaryContainer,
-                        shape = RoundedCornerShape(4.dp)
-                    ) {
+
+                    AgeUiMode.YOUNG_CHILD -> {
                         Text(
-                            text = book.difficulty.uppercase(),
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold
+                            text = book.description.ifBlank { "A fun story to explore." },
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
+                    AgeUiMode.OLDER_CHILD -> {
+                        Text(
+                            text = "By ${book.author}",
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 1
+                        )
+                        Text(
+                            text = book.description.ifBlank { "A fun story to explore." },
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
+
+                if (ageUiMode != AgeUiMode.EARLY_CHILD) {
+                    Row(
+                        modifier = Modifier.padding(top = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            shape = RoundedCornerShape(4.dp)
+                        ) {
+                            Text(
+                                text = book.ageRating,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+
+                        if (ageUiMode == AgeUiMode.OLDER_CHILD) {
+                            Surface(
+                                color = MaterialTheme.colorScheme.secondaryContainer,
+                                shape = RoundedCornerShape(4.dp)
+                            ) {
+                                Text(
+                                    text = book.difficulty.uppercase(),
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
             }
+
             if (showFavoriteButton) {
                 IconButton(onClick = onFavoriteClick) {
                     Icon(

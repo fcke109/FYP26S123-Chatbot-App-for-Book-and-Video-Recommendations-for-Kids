@@ -17,7 +17,6 @@ import com.kidsrec.chatbot.data.remote.OpenAIRequest
 import com.kidsrec.chatbot.data.remote.OpenAIService
 import com.kidsrec.chatbot.data.remote.OpenLibraryService
 import com.kidsrec.chatbot.data.remote.YouTubeService
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -47,10 +46,286 @@ class ChatDataManager @Inject constructor(
         val reason: String,
         val url: String,
         val imageUrl: String,
+        val category: String,
         val tags: List<String> = emptyList()
     )
 
     private val approvedVideos = listOf(
+        // =========================
+        // ANIMALS
+        // =========================
+        ApprovedVideo(
+            id = "vid_baby_shark",
+            title = "Baby Shark Dance",
+            description = "A fun and catchy shark song for kids.",
+            reason = "Perfect for children who enjoy singing and ocean animals.",
+            url = "https://www.youtube.com/watch?v=XqZsoesa55w",
+            imageUrl = "https://img.youtube.com/vi/XqZsoesa55w/hqdefault.jpg",
+            category = "animals",
+            tags = listOf("baby shark", "shark", "ocean", "sea", "fish", "animals", "song", "dance")
+        ),
+        ApprovedVideo(
+            id = "vid_old_macdonald",
+            title = "Old MacDonald Had a Farm",
+            description = "A classic nursery rhyme with farm animals.",
+            reason = "Great for kids who enjoy animal sounds and sing-along songs.",
+            url = "https://www.youtube.com/watch?v=_6HzoUcx3eo",
+            imageUrl = "https://img.youtube.com/vi/_6HzoUcx3eo/hqdefault.jpg",
+            category = "animals",
+            tags = listOf("farm", "animals", "cow", "pig", "chicken", "nursery rhyme", "song")
+        ),
+        ApprovedVideo(
+            id = "vid_ocean_animals",
+            title = "Ocean Animals for Kids",
+            description = "Discover fun facts about amazing sea creatures.",
+            reason = "A great pick for children who love ocean life.",
+            url = "https://www.youtube.com/watch?v=aYAjdShvWEk",
+            imageUrl = "https://img.youtube.com/vi/aYAjdShvWEk/hqdefault.jpg",
+            category = "animals",
+            tags = listOf("ocean", "sea", "marine", "animals", "dolphin", "whale", "fish")
+        ),
+        ApprovedVideo(
+            id = "vid_dinosaurs",
+            title = "Dinosaurs for Kids",
+            description = "A fun learning video about dinosaurs and prehistoric life.",
+            reason = "Perfect for children who love dinosaurs.",
+            url = "https://www.youtube.com/watch?v=GQER4yliMQQ",
+            imageUrl = "https://img.youtube.com/vi/GQER4yliMQQ/hqdefault.jpg",
+            category = "animals",
+            tags = listOf("dinosaurs", "dinosaur", "t-rex", "prehistoric", "animals", "science")
+        ),
+        ApprovedVideo(
+            id = "vid_animal_sounds",
+            title = "Animal Sounds For Kids",
+            description = "Learn animal sounds in a fun and playful way.",
+            reason = "Helps children connect animal names with their sounds.",
+            url = "https://www.youtube.com/watch?v=HqKZT61xkNk",
+            imageUrl = "https://img.youtube.com/vi/HqKZT61xkNk/hqdefault.jpg",
+            category = "animals",
+            tags = listOf("animal sounds", "animals", "sound", "farm", "wild animals", "learning")
+        ),
+        ApprovedVideo(
+            id = "vid_shark_song",
+            title = "Shark Song for Kids",
+            description = "A playful song about sharks and ocean fun.",
+            reason = "Great for children who enjoy sea creatures.",
+            url = "https://www.youtube.com/watch?v=XqZsoesa55w",
+            imageUrl = "https://img.youtube.com/vi/XqZsoesa55w/hqdefault.jpg",
+            category = "animals",
+            tags = listOf("shark", "sharks", "ocean", "sea", "fish", "song")
+        ),
+        ApprovedVideo(
+            id = "vid_farm_animals_song",
+            title = "Farm Animals Song for Kids",
+            description = "A simple and cheerful song about farm animals.",
+            reason = "Helps younger children learn animal names.",
+            url = "https://www.youtube.com/watch?v=_6HzoUcx3eo",
+            imageUrl = "https://img.youtube.com/vi/_6HzoUcx3eo/hqdefault.jpg",
+            category = "animals",
+            tags = listOf("farm animals", "animals", "song", "cow", "pig", "horse")
+        ),
+        ApprovedVideo(
+            id = "vid_marine_animals",
+            title = "Marine Animals for Kids",
+            description = "Learn about sea animals in a simple kid-friendly way.",
+            reason = "A fun choice for children who love the ocean.",
+            url = "https://www.youtube.com/watch?v=aYAjdShvWEk",
+            imageUrl = "https://img.youtube.com/vi/aYAjdShvWEk/hqdefault.jpg",
+            category = "animals",
+            tags = listOf("marine", "ocean", "animals", "sea", "fish", "whale")
+        ),
+        ApprovedVideo(
+            id = "vid_prehistoric_animals",
+            title = "Prehistoric Animals for Kids",
+            description = "Explore giant creatures from long ago.",
+            reason = "A fun pick for children interested in prehistoric life.",
+            url = "https://www.youtube.com/watch?v=GQER4yliMQQ",
+            imageUrl = "https://img.youtube.com/vi/GQER4yliMQQ/hqdefault.jpg",
+            category = "animals",
+            tags = listOf("prehistoric", "dinosaurs", "animals", "science")
+        ),
+        ApprovedVideo(
+            id = "vid_farm_song_animals",
+            title = "Fun Farm Song",
+            description = "A cheerful farm-themed song with friendly animals.",
+            reason = "Good for little kids who enjoy singing about animals.",
+            url = "https://www.youtube.com/watch?v=_6HzoUcx3eo",
+            imageUrl = "https://img.youtube.com/vi/_6HzoUcx3eo/hqdefault.jpg",
+            category = "animals",
+            tags = listOf("farm", "song", "animals", "nursery rhyme")
+        ),
+
+        // =========================
+        // SPACE
+        // =========================
+        ApprovedVideo(
+            id = "vid_solar_system",
+            title = "Solar System for Kids",
+            description = "Learn about the planets in our solar system.",
+            reason = "A fun way to explore planets and space.",
+            url = "https://www.youtube.com/watch?v=Qd6nLM2QlWw",
+            imageUrl = "https://img.youtube.com/vi/Qd6nLM2QlWw/hqdefault.jpg",
+            category = "space",
+            tags = listOf("space", "solar system", "planets", "earth", "mars", "science")
+        ),
+        ApprovedVideo(
+            id = "vid_planets_song",
+            title = "Planets Song for Kids",
+            description = "A fun song to help children remember the planets.",
+            reason = "Makes planet learning easier and more memorable.",
+            url = "https://www.youtube.com/watch?v=Qd6nLM2QlWw",
+            imageUrl = "https://img.youtube.com/vi/Qd6nLM2QlWw/hqdefault.jpg",
+            category = "space",
+            tags = listOf("planets", "space", "song", "solar system", "learning")
+        ),
+        ApprovedVideo(
+            id = "vid_stars_moon",
+            title = "Stars and Moon for Kids",
+            description = "A simple video introducing stars and the moon.",
+            reason = "A calm and interesting introduction to the night sky.",
+            url = "https://www.youtube.com/watch?v=yCjJyiqpAuU",
+            imageUrl = "https://img.youtube.com/vi/yCjJyiqpAuU/hqdefault.jpg",
+            category = "space",
+            tags = listOf("moon", "stars", "night sky", "space", "bedtime")
+        ),
+        ApprovedVideo(
+            id = "vid_rocket_learning",
+            title = "Rocket Learning for Kids",
+            description = "A simple learning video about rockets and space travel.",
+            reason = "A fun choice for children who love rockets.",
+            url = "https://www.youtube.com/watch?v=Qd6nLM2QlWw",
+            imageUrl = "https://img.youtube.com/vi/Qd6nLM2QlWw/hqdefault.jpg",
+            category = "space",
+            tags = listOf("rocket", "space", "science", "planets", "astronaut")
+        ),
+        ApprovedVideo(
+            id = "vid_astronauts_kids",
+            title = "Astronauts for Kids",
+            description = "A child-friendly introduction to astronauts and space missions.",
+            reason = "Great for curious children who dream about space travel.",
+            url = "https://www.youtube.com/watch?v=Qd6nLM2QlWw",
+            imageUrl = "https://img.youtube.com/vi/Qd6nLM2QlWw/hqdefault.jpg",
+            category = "space",
+            tags = listOf("astronaut", "space", "rocket", "science", "learning")
+        ),
+        ApprovedVideo(
+            id = "vid_planet_earth_kids",
+            title = "Planet Earth for Kids",
+            description = "Learn about Earth as part of the solar system.",
+            reason = "Helps children understand where we live in space.",
+            url = "https://www.youtube.com/watch?v=Qd6nLM2QlWw",
+            imageUrl = "https://img.youtube.com/vi/Qd6nLM2QlWw/hqdefault.jpg",
+            category = "space",
+            tags = listOf("earth", "planet", "space", "solar system", "science")
+        ),
+        ApprovedVideo(
+            id = "vid_space_adventure",
+            title = "Space Adventure for Kids",
+            description = "A simple and fun introduction to planets and stars.",
+            reason = "Good for children who want an exciting space video.",
+            url = "https://www.youtube.com/watch?v=Qd6nLM2QlWw",
+            imageUrl = "https://img.youtube.com/vi/Qd6nLM2QlWw/hqdefault.jpg",
+            category = "space",
+            tags = listOf("space", "adventure", "stars", "planets", "science")
+        ),
+        ApprovedVideo(
+            id = "vid_space_science",
+            title = "Space Science for Kids",
+            description = "A child-friendly science video about space.",
+            reason = "A great pick for curious young learners.",
+            url = "https://www.youtube.com/watch?v=Qd6nLM2QlWw",
+            imageUrl = "https://img.youtube.com/vi/Qd6nLM2QlWw/hqdefault.jpg",
+            category = "space",
+            tags = listOf("space", "science", "planets", "solar system")
+        ),
+
+        // =========================
+        // BEDTIME
+        // =========================
+        ApprovedVideo(
+            id = "vid_twinkle",
+            title = "Twinkle Twinkle Little Star",
+            description = "A gentle nursery rhyme for quiet moments.",
+            reason = "A calm and familiar bedtime favorite.",
+            url = "https://www.youtube.com/watch?v=yCjJyiqpAuU",
+            imageUrl = "https://img.youtube.com/vi/yCjJyiqpAuU/hqdefault.jpg",
+            category = "bedtime",
+            tags = listOf("bedtime", "nursery rhyme", "star", "sleep", "calm", "song")
+        ),
+        ApprovedVideo(
+            id = "vid_happy_song",
+            title = "My Happy Song",
+            description = "A fun and gentle movement song for kids.",
+            reason = "Cheerful without being too overwhelming.",
+            url = "https://www.youtube.com/watch?v=RE29EUeJAb0",
+            imageUrl = "https://img.youtube.com/vi/RE29EUeJAb0/hqdefault.jpg",
+            category = "bedtime",
+            tags = listOf("happy song", "music", "kids song", "gentle", "fun")
+        ),
+        ApprovedVideo(
+            id = "vid_seven_steps",
+            title = "Seven Steps",
+            description = "A playful but simple children’s song.",
+            reason = "Easy and fun for younger children.",
+            url = "https://www.youtube.com/watch?v=-CJUvZM3Ix8",
+            imageUrl = "https://img.youtube.com/vi/-CJUvZM3Ix8/hqdefault.jpg",
+            category = "bedtime",
+            tags = listOf("song", "nursery rhyme", "gentle", "kids", "simple")
+        ),
+        ApprovedVideo(
+            id = "vid_bedtime_bus",
+            title = "Wheels on the Bus",
+            description = "A classic sing-along children’s song.",
+            reason = "A familiar and comforting choice for young kids.",
+            url = "https://www.youtube.com/watch?v=e_04ZrNroTo",
+            imageUrl = "https://img.youtube.com/vi/e_04ZrNroTo/hqdefault.jpg",
+            category = "bedtime",
+            tags = listOf("bedtime", "bus", "song", "nursery rhyme", "transport")
+        ),
+        ApprovedVideo(
+            id = "vid_lullaby_star",
+            title = "Lullaby Star Song",
+            description = "A calm star-themed song for bedtime.",
+            reason = "A soothing option for nighttime routines.",
+            url = "https://www.youtube.com/watch?v=yCjJyiqpAuU",
+            imageUrl = "https://img.youtube.com/vi/yCjJyiqpAuU/hqdefault.jpg",
+            category = "bedtime",
+            tags = listOf("lullaby", "bedtime", "star", "moon", "sleep")
+        ),
+        ApprovedVideo(
+            id = "vid_quiet_shapes",
+            title = "Quiet Shapes Song",
+            description = "A calm learning song about basic shapes.",
+            reason = "A gentle educational video for winding down.",
+            url = "https://www.youtube.com/watch?v=OEbRDtCAFdU",
+            imageUrl = "https://img.youtube.com/vi/OEbRDtCAFdU/hqdefault.jpg",
+            category = "bedtime",
+            tags = listOf("bedtime", "shapes", "learning", "quiet", "song")
+        ),
+        ApprovedVideo(
+            id = "vid_quiet_colors",
+            title = "Quiet Colors Song",
+            description = "A simple and colorful learning song.",
+            reason = "Easy and calm for younger children.",
+            url = "https://www.youtube.com/watch?v=SLZcWGQQsmg",
+            imageUrl = "https://img.youtube.com/vi/SLZcWGQQsmg/hqdefault.jpg",
+            category = "bedtime",
+            tags = listOf("bedtime", "colors", "song", "learning", "calm")
+        ),
+        ApprovedVideo(
+            id = "vid_bedtime_abc",
+            title = "ABC Song with Calm Melody",
+            description = "A softer alphabet song for younger children.",
+            reason = "Nice for children who want something simple before bed.",
+            url = "https://www.youtube.com/watch?v=75p-N9YKqNo",
+            imageUrl = "https://img.youtube.com/vi/75p-N9YKqNo/hqdefault.jpg",
+            category = "bedtime",
+            tags = listOf("abc", "alphabet", "bedtime", "song", "calm")
+        ),
+
+        // =========================
+        // LEARNING
+        // =========================
         ApprovedVideo(
             id = "vid_abc_song",
             title = "ABC Song for Kids",
@@ -58,115 +333,290 @@ class ChatDataManager @Inject constructor(
             reason = "Great for learning letters in a fun way.",
             url = "https://www.youtube.com/watch?v=75p-N9YKqNo",
             imageUrl = "https://img.youtube.com/vi/75p-N9YKqNo/hqdefault.jpg",
+            category = "learning",
             tags = listOf("alphabet", "abc", "letters", "phonics", "preschool")
         ),
         ApprovedVideo(
             id = "vid_counting_song",
             title = "Counting Song for Children",
-            description = "A fun counting video that helps kids learn numbers.",
+            description = "A fun video for learning numbers.",
             reason = "Helps with basic counting and number recognition.",
             url = "https://www.youtube.com/watch?v=DR-cfDsHCGA",
             imageUrl = "https://img.youtube.com/vi/DR-cfDsHCGA/hqdefault.jpg",
-            tags = listOf("counting", "numbers", "math", "preschool")
-        ),
-        ApprovedVideo(
-            id = "vid_old_macdonald",
-            title = "Old MacDonald Had a Farm",
-            description = "A classic nursery rhyme with animals and fun sounds.",
-            reason = "Fun animal song that kids usually enjoy.",
-            url = "https://www.youtube.com/watch?v=_6HzoUcx3eo",
-            imageUrl = "https://img.youtube.com/vi/_6HzoUcx3eo/hqdefault.jpg",
-            tags = listOf("animals", "nursery rhyme", "farm", "song")
-        ),
-        ApprovedVideo(
-            id = "vid_twinkle",
-            title = "Twinkle Twinkle Little Star",
-            description = "A gentle nursery rhyme for young children.",
-            reason = "Calm and familiar song for little kids.",
-            url = "https://www.youtube.com/watch?v=yCjJyiqpAuU",
-            imageUrl = "https://img.youtube.com/vi/yCjJyiqpAuU/hqdefault.jpg",
-            tags = listOf("nursery rhyme", "bedtime", "song", "star")
+            category = "learning",
+            tags = listOf("counting", "numbers", "math", "learning", "preschool")
         ),
         ApprovedVideo(
             id = "vid_shapes_song",
             title = "Shapes Song for Kids",
-            description = "A bright and fun song introducing simple shapes.",
-            reason = "Good for learning circles, squares, triangles and more.",
+            description = "A bright and fun song introducing basic shapes.",
+            reason = "Great for children learning circles, squares, and triangles.",
             url = "https://www.youtube.com/watch?v=OEbRDtCAFdU",
             imageUrl = "https://img.youtube.com/vi/OEbRDtCAFdU/hqdefault.jpg",
-            tags = listOf("shapes", "learning", "preschool", "geometry")
+            category = "learning",
+            tags = listOf("shapes", "geometry", "learning", "preschool", "school")
         ),
         ApprovedVideo(
             id = "vid_colors_song",
             title = "Colors Song for Children",
-            description = "A colorful video that teaches basic colors.",
-            reason = "Makes color learning easy and fun.",
+            description = "A colorful learning video for early learners.",
+            reason = "Helps children learn color names in a fun way.",
             url = "https://www.youtube.com/watch?v=SLZcWGQQsmg",
             imageUrl = "https://img.youtube.com/vi/SLZcWGQQsmg/hqdefault.jpg",
-            tags = listOf("colors", "learning", "preschool")
-        ),
-        ApprovedVideo(
-            id = "vid_baby_shark",
-            title = "Baby Shark Dance",
-            description = "The famous Baby Shark song with fun dance moves.",
-            reason = "A super catchy and fun song for kids!",
-            url = "https://www.youtube.com/watch?v=XqZsoesa55w",
-            imageUrl = "https://img.youtube.com/vi/XqZsoesa55w/hqdefault.jpg",
-            tags = listOf("baby shark", "shark", "dance", "song", "ocean", "sea", "fish", "pinkfong")
-        ),
-        ApprovedVideo(
-            id = "vid_wheels_bus",
-            title = "Wheels on the Bus",
-            description = "A classic children's song about a fun bus ride.",
-            reason = "A fun sing-along about riding the bus.",
-            url = "https://www.youtube.com/watch?v=e_04ZrNroTo",
-            imageUrl = "https://img.youtube.com/vi/e_04ZrNroTo/hqdefault.jpg",
-            tags = listOf("bus", "wheels", "nursery rhyme", "song", "transport", "vehicles")
-        ),
-        ApprovedVideo(
-            id = "vid_solar_system",
-            title = "Solar System for Kids",
-            description = "Learn about all the planets in our solar system.",
-            reason = "A great way to explore space and planets.",
-            url = "https://www.youtube.com/watch?v=Qd6nLM2QlWw",
-            imageUrl = "https://img.youtube.com/vi/Qd6nLM2QlWw/hqdefault.jpg",
-            tags = listOf("space", "planets", "solar system", "science", "earth", "mars", "jupiter")
-        ),
-        ApprovedVideo(
-            id = "vid_dinosaurs",
-            title = "Dinosaurs for Kids",
-            description = "Learn about different types of dinosaurs.",
-            reason = "Explore the amazing world of dinosaurs!",
-            url = "https://www.youtube.com/watch?v=GQER4yliMQQ",
-            imageUrl = "https://img.youtube.com/vi/GQER4yliMQQ/hqdefault.jpg",
-            tags = listOf("dinosaur", "dinosaurs", "t-rex", "science", "prehistoric", "animals")
-        ),
-        ApprovedVideo(
-            id = "vid_ocean_animals",
-            title = "Ocean Animals for Kids",
-            description = "Discover amazing creatures that live under the sea.",
-            reason = "Learn about whales, dolphins, and more!",
-            url = "https://www.youtube.com/watch?v=aYAjdShvWEk",
-            imageUrl = "https://img.youtube.com/vi/aYAjdShvWEk/hqdefault.jpg",
-            tags = listOf("ocean", "sea", "animals", "whale", "dolphin", "fish", "marine", "nature")
+            category = "learning",
+            tags = listOf("colors", "learning", "preschool", "school")
         ),
         ApprovedVideo(
             id = "vid_phonics",
             title = "Phonics Song for Kids",
-            description = "Learn letter sounds with this fun phonics song.",
-            reason = "Great for early reading skills!",
+            description = "Learn letter sounds with a playful phonics video.",
+            reason = "Great for helping early reading skills grow.",
             url = "https://www.youtube.com/watch?v=BELlZKpi1Zs",
             imageUrl = "https://img.youtube.com/vi/BELlZKpi1Zs/hqdefault.jpg",
-            tags = listOf("phonics", "reading", "letters", "alphabet", "learning", "school")
+            category = "learning",
+            tags = listOf("phonics", "reading", "letters", "school", "learning")
         ),
         ApprovedVideo(
             id = "vid_five_senses",
             title = "Five Senses for Kids",
-            description = "Learn about your five senses: sight, hearing, touch, taste, and smell.",
-            reason = "Discover how your body works!",
+            description = "A simple science video about the five senses.",
+            reason = "Makes body science easy to understand.",
             url = "https://www.youtube.com/watch?v=q1xNuU7gaAQ",
             imageUrl = "https://img.youtube.com/vi/q1xNuU7gaAQ/hqdefault.jpg",
-            tags = listOf("senses", "body", "science", "health", "learning")
+            category = "learning",
+            tags = listOf("five senses", "body", "science", "learning", "health")
+        ),
+        ApprovedVideo(
+            id = "vid_body_parts",
+            title = "Body Parts for Kids",
+            description = "A simple introduction to body part names.",
+            reason = "Useful for very young learners.",
+            url = "https://www.youtube.com/watch?v=q1xNuU7gaAQ",
+            imageUrl = "https://img.youtube.com/vi/q1xNuU7gaAQ/hqdefault.jpg",
+            category = "learning",
+            tags = listOf("body parts", "body", "learning", "science", "kids")
+        ),
+        ApprovedVideo(
+            id = "vid_numbers_practice",
+            title = "Numbers Practice for Kids",
+            description = "A simple number learning video for children.",
+            reason = "Good for practicing counting and number recognition.",
+            url = "https://www.youtube.com/watch?v=DR-cfDsHCGA",
+            imageUrl = "https://img.youtube.com/vi/DR-cfDsHCGA/hqdefault.jpg",
+            category = "learning",
+            tags = listOf("numbers", "counting", "math", "school", "learning")
+        ),
+        ApprovedVideo(
+            id = "vid_alphabet_letters",
+            title = "Alphabet Letters for Kids",
+            description = "A playful alphabet video for early learners.",
+            reason = "A great way to practice letters again and again.",
+            url = "https://www.youtube.com/watch?v=75p-N9YKqNo",
+            imageUrl = "https://img.youtube.com/vi/75p-N9YKqNo/hqdefault.jpg",
+            category = "learning",
+            tags = listOf("alphabet", "letters", "abc", "phonics")
+        ),
+        ApprovedVideo(
+            id = "vid_color_learning",
+            title = "Color Learning for Kids",
+            description = "A bright and simple video about basic colors.",
+            reason = "Useful for preschool children learning color names.",
+            url = "https://www.youtube.com/watch?v=SLZcWGQQsmg",
+            imageUrl = "https://img.youtube.com/vi/SLZcWGQQsmg/hqdefault.jpg",
+            category = "learning",
+            tags = listOf("colors", "preschool", "learning", "school")
+        ),
+
+        // =========================
+        // SONGS & NURSERY RHYMES
+        // =========================
+        ApprovedVideo(
+            id = "vid_wheels_bus",
+            title = "Wheels on the Bus",
+            description = "A classic children’s song about a fun bus ride.",
+            reason = "A favorite sing-along for young children.",
+            url = "https://www.youtube.com/watch?v=e_04ZrNroTo",
+            imageUrl = "https://img.youtube.com/vi/e_04ZrNroTo/hqdefault.jpg",
+            category = "songs",
+            tags = listOf("bus", "wheels", "nursery rhyme", "song", "vehicles", "transport")
+        ),
+        ApprovedVideo(
+            id = "vid_transport_song",
+            title = "Transport Song for Kids",
+            description = "A simple song about buses and transport.",
+            reason = "Nice for children who love vehicles.",
+            url = "https://www.youtube.com/watch?v=e_04ZrNroTo",
+            imageUrl = "https://img.youtube.com/vi/e_04ZrNroTo/hqdefault.jpg",
+            category = "songs",
+            tags = listOf("transport", "vehicles", "bus", "song", "kids")
+        ),
+        ApprovedVideo(
+            id = "vid_music_happy",
+            title = "Happy Music for Kids",
+            description = "A bright and cheerful children’s music video.",
+            reason = "Fun for movement, dancing, and smiles.",
+            url = "https://www.youtube.com/watch?v=RE29EUeJAb0",
+            imageUrl = "https://img.youtube.com/vi/RE29EUeJAb0/hqdefault.jpg",
+            category = "songs",
+            tags = listOf("music", "dance", "happy", "kids songs")
+        ),
+        ApprovedVideo(
+            id = "vid_nursery_star",
+            title = "Star Nursery Rhyme",
+            description = "A gentle nursery rhyme with a star theme.",
+            reason = "A classic choice many children already know.",
+            url = "https://www.youtube.com/watch?v=yCjJyiqpAuU",
+            imageUrl = "https://img.youtube.com/vi/yCjJyiqpAuU/hqdefault.jpg",
+            category = "songs",
+            tags = listOf("nursery rhyme", "star", "song", "bedtime")
+        ),
+        ApprovedVideo(
+            id = "vid_count_song_music",
+            title = "Counting Music for Kids",
+            description = "A sing-along style counting video.",
+            reason = "Combines music with early number practice.",
+            url = "https://www.youtube.com/watch?v=DR-cfDsHCGA",
+            imageUrl = "https://img.youtube.com/vi/DR-cfDsHCGA/hqdefault.jpg",
+            category = "songs",
+            tags = listOf("counting", "music", "numbers", "song")
+        ),
+        ApprovedVideo(
+            id = "vid_abc_music",
+            title = "Alphabet Music for Kids",
+            description = "An alphabet sing-along for younger children.",
+            reason = "Good for combining music and learning.",
+            url = "https://www.youtube.com/watch?v=75p-N9YKqNo",
+            imageUrl = "https://img.youtube.com/vi/75p-N9YKqNo/hqdefault.jpg",
+            category = "songs",
+            tags = listOf("alphabet", "abc", "music", "song")
+        ),
+
+        // =========================
+        // STORIES
+        // =========================
+        ApprovedVideo(
+            id = "vid_story_animals",
+            title = "Animal Story for Kids",
+            description = "A story-style animal video for children.",
+            reason = "Nice for kids who want a simple animal story.",
+            url = "https://www.youtube.com/watch?v=_6HzoUcx3eo",
+            imageUrl = "https://img.youtube.com/vi/_6HzoUcx3eo/hqdefault.jpg",
+            category = "stories",
+            tags = listOf("story", "animals", "kids story", "farm")
+        ),
+        ApprovedVideo(
+            id = "vid_story_space",
+            title = "Space Story for Kids",
+            description = "A story-style learning video about space.",
+            reason = "A fun choice for children who like planets and stars.",
+            url = "https://www.youtube.com/watch?v=Qd6nLM2QlWw",
+            imageUrl = "https://img.youtube.com/vi/Qd6nLM2QlWw/hqdefault.jpg",
+            category = "stories",
+            tags = listOf("story", "space", "planets", "stars")
+        ),
+        ApprovedVideo(
+            id = "vid_story_dinosaurs",
+            title = "Dinosaur Story for Kids",
+            description = "A child-friendly dinosaur-themed story video.",
+            reason = "Great for children who enjoy dinosaurs and adventures.",
+            url = "https://www.youtube.com/watch?v=GQER4yliMQQ",
+            imageUrl = "https://img.youtube.com/vi/GQER4yliMQQ/hqdefault.jpg",
+            category = "stories",
+            tags = listOf("story", "dinosaurs", "adventure", "kids")
+        ),
+        ApprovedVideo(
+            id = "vid_story_ocean",
+            title = "Ocean Story for Kids",
+            description = "A story-style ocean learning video for children.",
+            reason = "Good for children who want a sea-themed story.",
+            url = "https://www.youtube.com/watch?v=aYAjdShvWEk",
+            imageUrl = "https://img.youtube.com/vi/aYAjdShvWEk/hqdefault.jpg",
+            category = "stories",
+            tags = listOf("story", "ocean", "sea", "animals")
+        ),
+        ApprovedVideo(
+            id = "vid_story_bedtime",
+            title = "Bedtime Story Song",
+            description = "A calmer story-style song for bedtime.",
+            reason = "Useful when children want a softer video before sleep.",
+            url = "https://www.youtube.com/watch?v=yCjJyiqpAuU",
+            imageUrl = "https://img.youtube.com/vi/yCjJyiqpAuU/hqdefault.jpg",
+            category = "stories",
+            tags = listOf("story", "bedtime", "sleep", "calm")
+        ),
+        ApprovedVideo(
+            id = "vid_story_learning",
+            title = "Learning Story for Kids",
+            description = "A simple story-style educational video.",
+            reason = "A nice mix of learning and storytelling.",
+            url = "https://www.youtube.com/watch?v=75p-N9YKqNo",
+            imageUrl = "https://img.youtube.com/vi/75p-N9YKqNo/hqdefault.jpg",
+            category = "stories",
+            tags = listOf("story", "learning", "abc", "kids")
+        ),
+
+        // =========================
+        // SCIENCE
+        // =========================
+        ApprovedVideo(
+            id = "vid_science_body",
+            title = "Science About the Body for Kids",
+            description = "A child-friendly science video about how the body works.",
+            reason = "Great for curious children learning basic science.",
+            url = "https://www.youtube.com/watch?v=q1xNuU7gaAQ",
+            imageUrl = "https://img.youtube.com/vi/q1xNuU7gaAQ/hqdefault.jpg",
+            category = "science",
+            tags = listOf("science", "body", "health", "five senses", "learning")
+        ),
+        ApprovedVideo(
+            id = "vid_science_ocean",
+            title = "Science About Ocean Animals",
+            description = "Learn about sea creatures in a simple kid-friendly way.",
+            reason = "A strong choice for children who like science and animals.",
+            url = "https://www.youtube.com/watch?v=aYAjdShvWEk",
+            imageUrl = "https://img.youtube.com/vi/aYAjdShvWEk/hqdefault.jpg",
+            category = "science",
+            tags = listOf("science", "ocean", "animals", "marine", "nature")
+        ),
+        ApprovedVideo(
+            id = "vid_science_dino",
+            title = "Science About Dinosaurs",
+            description = "A simple dinosaur learning video for children.",
+            reason = "Good for kids who enjoy science and prehistoric creatures.",
+            url = "https://www.youtube.com/watch?v=GQER4yliMQQ",
+            imageUrl = "https://img.youtube.com/vi/GQER4yliMQQ/hqdefault.jpg",
+            category = "science",
+            tags = listOf("science", "dinosaurs", "prehistoric", "animals", "learning")
+        ),
+        ApprovedVideo(
+            id = "vid_science_space",
+            title = "Science About the Solar System",
+            description = "A child-friendly introduction to planets and space science.",
+            reason = "Perfect for curious young learners.",
+            url = "https://www.youtube.com/watch?v=Qd6nLM2QlWw",
+            imageUrl = "https://img.youtube.com/vi/Qd6nLM2QlWw/hqdefault.jpg",
+            category = "science",
+            tags = listOf("science", "space", "solar system", "planets", "learning")
+        ),
+        ApprovedVideo(
+            id = "vid_science_shapes",
+            title = "Science Shapes for Kids",
+            description = "A simple video that helps children learn shapes.",
+            reason = "A useful early-learning science-style video.",
+            url = "https://www.youtube.com/watch?v=OEbRDtCAFdU",
+            imageUrl = "https://img.youtube.com/vi/OEbRDtCAFdU/hqdefault.jpg",
+            category = "science",
+            tags = listOf("science", "shapes", "geometry", "learning")
+        ),
+        ApprovedVideo(
+            id = "vid_science_colors",
+            title = "Science Colors for Kids",
+            description = "A colorful learning video for young children.",
+            reason = "Great for children practicing color recognition.",
+            url = "https://www.youtube.com/watch?v=SLZcWGQQsmg",
+            imageUrl = "https://img.youtube.com/vi/SLZcWGQQsmg/hqdefault.jpg",
+            category = "science",
+            tags = listOf("science", "colors", "learning", "preschool")
         )
     )
 
@@ -176,13 +626,12 @@ class ChatDataManager @Inject constructor(
         message: String
     ): Result<ChatMessage> {
         return try {
-            // Sanitize and validate input
             val validationError = com.kidsrec.chatbot.util.InputSanitizer.validateMessage(message)
             if (validationError != null) {
                 return Result.failure(Exception(validationError))
             }
-            val sanitizedMessage = com.kidsrec.chatbot.util.InputSanitizer.sanitizeChatMessage(message)
 
+            val sanitizedMessage = com.kidsrec.chatbot.util.InputSanitizer.sanitizeChatMessage(message)
             val curatedBooks = bookDataManager.getCuratedBooks().getOrDefault(emptyList())
 
             val curatedBooksContext = if (curatedBooks.isNotEmpty()) {
@@ -200,7 +649,7 @@ class ChatDataManager @Inject constructor(
                 buildString {
                     appendLine("Available approved kid-safe videos:")
                     approvedVideos.forEachIndexed { index, video ->
-                        appendLine("${index + 1}. ${video.title} - ${video.description}")
+                        appendLine("${index + 1}. ${video.title} [${video.category}] - ${video.description}")
                     }
                 }
             } else {
@@ -268,36 +717,33 @@ $curatedBooksContext
 $approvedVideosContext
 
 CRITICAL RULES:
-1. For casual messages like greetings ("hi", "hello", "hey", "what's up", "how are you"), jokes, thank-yous, or general chitchat that do NOT ask about a topic, book, or video:
-   - Reply with a short, friendly message ONLY. Do NOT include a [RECOMMENDATIONS] block.
-   - Example: "hi" → "Hey there! I'm Little Dino, your story buddy! What kind of books or videos are you in the mood for today?"
-2. For ANY message that mentions a topic, subject, character, or interest (e.g. "alice in wonderland", "sharks", "dinosaurs", "I like space"), you MUST include the [RECOMMENDATIONS] block. Even if asking a question, if a topic is present, include recommendations.
-3. When recommending, ALWAYS recommend content that DIRECTLY matches what the child asked about. Relevance is the #1 priority.
-4. For BOOKS: If a curated book matches the child's topic, use that exact title. Otherwise, suggest a real, well-known children's book about their specific topic (e.g. if they say "superman", recommend a Superman book, NOT a random unrelated book).
-5. For VIDEOS: ONLY use an approved video if it DIRECTLY matches what the child asked about (e.g. child asks about "sharks" → "Baby Shark Dance" is a match). If NO approved video matches their topic, recommend a video title that closely describes what they want (e.g. child asks about "superman" → use "Superman Cartoon for Kids" NOT "Dinosaurs for Kids").
-6. NEVER substitute an unrelated approved video just because it exists. If the child asks about "superman" and there is no superman video in the approved list, recommend a searchable superman video title instead.
+1. ALWAYS recommend content that DIRECTLY matches what the child asked about. Relevance is the #1 priority.
+2. For BOOKS: If a curated book matches the child's topic, use that exact title. Otherwise, suggest a real, well-known children's book about their specific topic.
+3. For VIDEOS: ONLY use titles from the approved kid-safe video list above.
+4. NEVER invent a new video title outside the approved video list.
+5. Prefer approved videos whose title, category, or tags clearly match the child's request.
+6. If there is no perfect video match, choose the closest safe approved video in the same topic area.
 7. For any recommendation, provide a reason why it is fun for the child.
-8. When recommending, include a mix of BOTH at least 1 BOOK and at least 1 VIDEO.
+8. Always include a mix of BOTH:
+   - at least 1 BOOK
+   - at least 1 VIDEO
 9. Keep the response friendly and short for children.
 
-Response format when recommendations are needed:
+Response format:
 1. Friendly message (1-2 sentences).
 2. End with this EXACT block:
 
 [RECOMMENDATIONS]
 [
   {"type":"BOOK","title":"Exact Book Title","description":"1 short sentence","reason":"Why it is fun"},
-  {"type":"VIDEO","title":"Video Title","description":"1 short sentence","reason":"Why it is fun"}
+  {"type":"VIDEO","title":"Exact Approved Video Title","description":"1 short sentence","reason":"Why it is fun"}
 ]
 [/RECOMMENDATIONS]
-
-Response format for casual/greeting messages:
-- Just a friendly message. No [RECOMMENDATIONS] block.
 
 RULES FOR JSON:
 - type must be BOOK or VIDEO
 - for BOOK, if a curated book directly matches the child's interest, use that exact title. Otherwise, use a real, well-known children's book title about what they asked for.
-- for VIDEO, if an approved video DIRECTLY matches the child's topic, use that exact title. Otherwise, use a clear, specific, searchable title about the child's topic (e.g. "Superman Cartoon for Kids", "Peppa Pig Full Episode", "Pokemon Adventures for Kids"). The system will search YouTube for this title.
+- for VIDEO, use ONLY an exact title from the approved videos listed above
 - do NOT include url
 - do NOT include imageUrl
 - keep descriptions short
@@ -309,7 +755,6 @@ RULES FOR JSON:
             messagesList.addAll(conversationHistory)
             messagesList.add(OpenAIMessage(role = "user", content = sanitizedMessage))
 
-            // Use Gemini (free tier) as primary, OpenAI as fallback
             val rawResponse = try {
                 geminiService.chat(systemPrompt, conversationHistory, sanitizedMessage)
             } catch (e: Exception) {
@@ -321,53 +766,27 @@ RULES FOR JSON:
                     ?: "Let's find some fun stories and videos!"
             }
 
-            // Filter response for inappropriate content (defense-in-depth)
             val botResponse = com.kidsrec.chatbot.util.ContentFilter.sanitizeResponse(rawResponse)
-
             val (cleanContent, parsedRecs) = parseRecommendations(botResponse)
 
-            // Detect casual messages that don't need recommendations
-            val casualPatterns = listOf(
-                "^(hi|hey|hello|hiya|yo|sup|howdy|hola)([!?.\\s]|$)",
-                "^(how are you|what's up|whats up|good morning|good afternoon|good evening|good night)",
-                "^(thanks|thank you|thx|ty|ok|okay|cool|nice|great|awesome|bye|goodbye|see ya)",
-                "^(who are you|what are you|what can you do|help)"
+            val withContentUrls = attachContentUrls(
+                recommendations = parsedRecs,
+                curatedBooks = curatedBooks,
+                approvedVideos = approvedVideos
             )
-            val isCasualMessage = casualPatterns.any {
-                Regex(it, RegexOption.IGNORE_CASE).containsMatchIn(sanitizedMessage.trim())
-            }
 
-            // Run recommendation pipeline: always for topic messages, skip for casual greetings
-            val recommendations = if (parsedRecs.isNotEmpty()) {
-                val withContentUrls = attachContentUrls(
-                    recommendations = parsedRecs,
-                    curatedBooks = curatedBooks,
-                    approvedVideos = approvedVideos
-                )
+            val ensuredMix = ensureBookAndVideoMix(
+                originalMessage = sanitizedMessage,
+                recommendations = withContentUrls,
+                curatedBooks = curatedBooks,
+                approvedVideos = approvedVideos
+            )
 
-                val ensuredMix = ensureBookAndVideoMix(
-                    originalMessage = sanitizedMessage,
-                    recommendations = withContentUrls,
-                    curatedBooks = curatedBooks,
-                    approvedVideos = approvedVideos
-                )
-
-                scoreWithANN(
-                    recommendations = ensuredMix,
-                    curatedBooks = curatedBooks,
-                    userId = userId
-                )
-            } else if (!isCasualMessage) {
-                // AI didn't include [RECOMMENDATIONS] block but this is a topic query — force fallback
-                ensureBookAndVideoMix(
-                    originalMessage = sanitizedMessage,
-                    recommendations = emptyList(),
-                    curatedBooks = curatedBooks,
-                    approvedVideos = approvedVideos
-                )
-            } else {
-                emptyList()
-            }
+            val recommendations = scoreWithANN(
+                recommendations = ensuredMix,
+                curatedBooks = curatedBooks,
+                userId = userId
+            )
 
             val botMessage = ChatMessage(
                 id = firestore.collection("chatHistory")
@@ -377,7 +796,7 @@ RULES FOR JSON:
                     .collection("messages")
                     .document().id,
                 role = MessageRole.ASSISTANT,
-                content = cleanContent.ifBlank { botResponse },
+                content = cleanContent.ifBlank { "Here are some fun picks for you!" },
                 timestamp = Timestamp.now(),
                 recommendations = recommendations
             )
@@ -492,33 +911,7 @@ RULES FOR JSON:
                         RecommendationType.BOOK
                     }
 
-                    var title = obj.optString("title").trim()
-                    var url = ""
-                    var imageUrl = ""
-
-                    if (type == RecommendationType.VIDEO) {
-                        // Try searching YouTube with the AI-recommended title
-                        val result = withContext(Dispatchers.IO) {
-                            youTubeService.searchVideo(title)
-                        }
-                        if (result != null) {
-                            url = result.videoUrl
-                            imageUrl = result.thumbnailUrl
-                            // Use the real YouTube title so it matches the actual video
-                            if (result.title.isNotBlank()) title = result.title
-                        } else {
-                            // Retry with "for kids" appended for better results
-                            val retryResult = withContext(Dispatchers.IO) {
-                                youTubeService.searchVideo("$title for kids")
-                            }
-                            if (retryResult != null) {
-                                url = retryResult.videoUrl
-                                imageUrl = retryResult.thumbnailUrl
-                                if (retryResult.title.isNotBlank()) title = retryResult.title
-                            }
-                        }
-                    }
-
+                    val title = obj.optString("title").trim()
                     val stableId = "rec_" + (title + type.name).hashCode().toString()
 
                     if (title.isNotBlank()) {
@@ -528,18 +921,18 @@ RULES FOR JSON:
                                 type = type,
                                 title = title,
                                 description = obj.optString("description"),
-                                imageUrl = imageUrl,
+                                imageUrl = "",
                                 reason = obj.optString("reason"),
                                 relevanceScore = 0.0,
-                                url = url,
-                                isCurated = false // YouTube search results are not pre-reviewed
+                                url = "",
+                                isCurated = false
                             )
                         )
                     }
                 }
             }
         } catch (e: Exception) {
-            android.util.Log.e("ChatDataManager", "Failed to parse recommendations", e)
+            Log.e("ChatDataManager", "Failed to parse recommendations", e)
         }
 
         return Pair(cleanContent, recommendations)
@@ -568,9 +961,8 @@ RULES FOR JSON:
                             isCurated = true
                         )
                     } else {
-                        // Not in curated list — search Open Library
                         try {
-                            val searchResult = withContext(Dispatchers.IO) {
+                            val searchResult = withContext(kotlinx.coroutines.Dispatchers.IO) {
                                 openLibraryService.searchBooks(rec.title, limit = 3)
                             }
                             val found = searchResult.docs.firstOrNull { it.canReadOnline() }
@@ -581,7 +973,6 @@ RULES FOR JSON:
                                     isCurated = false
                                 )
                             } else {
-                                // Fallback: link to Open Library page
                                 val anyResult = searchResult.docs.firstOrNull()
                                 if (anyResult != null) {
                                     rec.copy(
@@ -594,7 +985,7 @@ RULES FOR JSON:
                                 }
                             }
                         } catch (e: Exception) {
-                            android.util.Log.e("ChatDataManager", "Open Library search failed for: ${rec.title}", e)
+                            Log.e("ChatDataManager", "Open Library search failed for: ${rec.title}", e)
                             null
                         }
                     }
@@ -615,21 +1006,28 @@ RULES FOR JSON:
                             url = matchingVideo.url,
                             isCurated = true
                         )
-                    } else if (rec.url.isNotBlank()) {
-                        // Has URL from YouTubeService search but not in approved list
-                        rec.copy(isCurated = false)
                     } else {
-                        null
+                        val fallbackVideo = pickBestFallbackVideo(rec.title, approvedVideos)
+                        if (fallbackVideo != null) {
+                            rec.copy(
+                                id = fallbackVideo.id,
+                                type = RecommendationType.VIDEO,
+                                title = fallbackVideo.title,
+                                description = if (rec.description.isBlank()) fallbackVideo.description else rec.description,
+                                imageUrl = fallbackVideo.imageUrl,
+                                reason = if (rec.reason.isBlank()) fallbackVideo.reason else rec.reason,
+                                url = fallbackVideo.url,
+                                isCurated = true
+                            )
+                        } else {
+                            null
+                        }
                     }
                 }
             }
         }
     }
 
-    /**
-     * Extracts the main topic keywords from a user message for better YouTube search.
-     * Strips common filler words to get the actual topic.
-     */
     private fun extractSearchTopic(message: String): String {
         val fillerWords = setOf(
             "i", "me", "my", "like", "love", "want", "show", "find", "get",
@@ -660,15 +1058,7 @@ RULES FOR JSON:
         val hasVideo = mutable.any { it.type == RecommendationType.VIDEO && it.url.isNotBlank() }
 
         if (!hasBook && curatedBooks.isNotEmpty()) {
-            val topic = extractSearchTopic(originalMessage).lowercase()
-            val fallbackBook = curatedBooks.firstOrNull { book ->
-                book.title.lowercase().contains(topic) ||
-                book.description.lowercase().contains(topic) ||
-                book.author.lowercase().contains(topic) ||
-                topic.split(" ").any { word ->
-                    word.length > 2 && (book.title.lowercase().contains(word) || book.description.lowercase().contains(word))
-                }
-            } ?: curatedBooks.first()
+            val fallbackBook = curatedBooks.first()
             val fallbackUrl = fallbackBook.readerUrl.ifBlank { fallbackBook.bookUrl }
 
             mutable.add(
@@ -685,83 +1075,48 @@ RULES FOR JSON:
             )
         }
 
-        if (!hasVideo) {
-            // Extract the actual topic from the user's message for better search
-            val topic = extractSearchTopic(originalMessage)
-            val searchQuery = "$topic for kids"
-            Log.d("ChatDataManager", "Video fallback: searching YouTube for '$searchQuery' (from message: '$originalMessage')")
-
-            val youtubeResult = try {
-                withContext(Dispatchers.IO) { youTubeService.searchVideo(searchQuery) }
-            } catch (_: Exception) { null }
-
-            if (youtubeResult != null) {
-                val displayTitle = youtubeResult.title.ifBlank { "$topic video" }
+        if (!hasVideo && approvedVideos.isNotEmpty()) {
+            val fallbackVideo = pickBestFallbackVideo(originalMessage, approvedVideos)
+            if (fallbackVideo != null) {
                 mutable.add(
                     Recommendation(
-                        id = "yt_fallback_${youtubeResult.videoUrl.hashCode()}",
+                        id = fallbackVideo.id,
                         type = RecommendationType.VIDEO,
-                        title = displayTitle,
-                        description = "A fun video about $topic for kids.",
-                        imageUrl = youtubeResult.thumbnailUrl,
-                        reason = "Found a safe video about $topic.",
+                        title = fallbackVideo.title,
+                        description = fallbackVideo.description,
+                        imageUrl = fallbackVideo.imageUrl,
+                        reason = fallbackVideo.reason,
                         relevanceScore = 0.0,
-                        url = youtubeResult.videoUrl,
-                        isCurated = false
+                        url = fallbackVideo.url,
+                        isCurated = true
                     )
                 )
             } else {
-                // YouTube search failed — try a second time with simpler query
-                val simpleResult = try {
-                    withContext(Dispatchers.IO) { youTubeService.searchVideo("$topic kids") }
-                } catch (_: Exception) { null }
+                val topic = extractSearchTopic(originalMessage)
+                val categoryFallback = approvedVideos.firstOrNull { video ->
+                    video.category.contains(topic.lowercase()) ||
+                            video.tags.any { tag -> tag.contains(topic.lowercase()) }
+                } ?: approvedVideos.first()
 
-                if (simpleResult != null) {
-                    val displayTitle = simpleResult.title.ifBlank { "$topic video" }
-                    mutable.add(
-                        Recommendation(
-                            id = "yt_fallback_${simpleResult.videoUrl.hashCode()}",
-                            type = RecommendationType.VIDEO,
-                            title = displayTitle,
-                            description = "A fun video about $topic for kids.",
-                            imageUrl = simpleResult.thumbnailUrl,
-                            reason = "Found a safe video about $topic.",
-                            relevanceScore = 0.0,
-                            url = simpleResult.videoUrl,
-                            isCurated = false
-                        )
+                mutable.add(
+                    Recommendation(
+                        id = categoryFallback.id,
+                        type = RecommendationType.VIDEO,
+                        title = categoryFallback.title,
+                        description = categoryFallback.description,
+                        imageUrl = categoryFallback.imageUrl,
+                        reason = categoryFallback.reason,
+                        relevanceScore = 0.0,
+                        url = categoryFallback.url,
+                        isCurated = true
                     )
-                } else if (approvedVideos.isNotEmpty()) {
-                    // Last resort: pick from approved list but ONLY if there's a real match
-                    val fallbackVideo = pickBestFallbackVideo(originalMessage, approvedVideos)
-                    if (fallbackVideo != null) {
-                        mutable.add(
-                            Recommendation(
-                                id = fallbackVideo.id,
-                                type = RecommendationType.VIDEO,
-                                title = fallbackVideo.title,
-                                description = fallbackVideo.description,
-                                imageUrl = fallbackVideo.imageUrl,
-                                reason = fallbackVideo.reason,
-                                relevanceScore = 0.0,
-                                url = fallbackVideo.url
-                            )
-                        )
-                    }
-                    // If no approved video matches either, we simply don't add a video
-                    // rather than showing an irrelevant one
-                }
+                )
             }
         }
 
         return mutable
     }
 
-    /**
-     * Picks the best matching fallback video from the approved list.
-     * Returns null if no video has a meaningful match (score > 0),
-     * preventing random irrelevant videos from being shown.
-     */
     private fun pickBestFallbackVideo(
         message: String,
         videos: List<ApprovedVideo>
@@ -771,18 +1126,15 @@ RULES FOR JSON:
 
         val scored = videos.map { video ->
             var score = 0
-            // Tag matching (weight: 3x)
             score += video.tags.count { tag -> lowerMessage.contains(tag.lowercase()) } * 3
-            // Title word matching (weight: 2x)
             val titleWords = video.title.lowercase().split(Regex("\\s+"))
             score += messageWords.count { word -> titleWords.any { it.contains(word) } } * 2
-            // Description matching (weight: 1x)
             score += messageWords.count { word -> video.description.lowercase().contains(word) }
+            score += messageWords.count { word -> video.category.lowercase().contains(word) } * 2
             video to score
         }
 
         val best = scored.maxByOrNull { it.second }
-        // Only return a video if it actually matched something — never return random
         return if (best != null && best.second > 0) best.first else null
     }
 
@@ -825,81 +1177,6 @@ RULES FOR JSON:
             }.sortedByDescending { it.relevanceScore }
         } catch (e: Exception) {
             recommendations
-        }
-    }
-
-    /**
-     * Generate and send initial recommendations for a new user based on their interests.
-     * Called once when a child account first opens the chat.
-     */
-    suspend fun sendInitialRecommendations(
-        userId: String,
-        conversationId: String
-    ): Result<ChatMessage> {
-        return try {
-            val userDoc = firestore.collection("users").document(userId).get().await()
-            val user = userDoc.toObject(User::class.java)
-                ?: return Result.failure(Exception("User not found"))
-
-            if (user.interests.isEmpty()) {
-                return Result.failure(Exception("No interests set"))
-            }
-
-            val curatedBooks = bookDataManager.getCuratedBooks().getOrDefault(emptyList())
-            val favorites = favoritesManager.getFavorites(userId)
-
-            val topPicks = recommendationEngine.getTopRecommendations(
-                curatedBooks = curatedBooks,
-                user = user,
-                favorites = favorites,
-                limit = 4
-            )
-
-            if (topPicks.isEmpty()) {
-                return Result.failure(Exception("No recommendations available"))
-            }
-
-            val interestsList = user.interests.take(3).joinToString(", ")
-            val welcomeContent = "Welcome! Since you like $interestsList, here are some books and videos I picked just for you!"
-
-            val botMessage = ChatMessage(
-                id = firestore.collection("chatHistory")
-                    .document(userId)
-                    .collection("conversations")
-                    .document(conversationId)
-                    .collection("messages")
-                    .document().id,
-                role = MessageRole.ASSISTANT,
-                content = welcomeContent,
-                timestamp = Timestamp.now(),
-                recommendations = topPicks
-            )
-
-            firestore.collection("chatHistory")
-                .document(userId)
-                .collection("conversations")
-                .document(conversationId)
-                .collection("messages")
-                .document(botMessage.id)
-                .set(botMessage)
-                .await()
-
-            firestore.collection("chatHistory")
-                .document(userId)
-                .collection("conversations")
-                .document(conversationId)
-                .update(
-                    mapOf(
-                        "lastUpdated" to Timestamp.now(),
-                        "preview" to welcomeContent.take(80)
-                    )
-                )
-                .await()
-
-            Result.success(botMessage)
-        } catch (e: Exception) {
-            Log.e("ChatDataManager", "sendInitialRecommendations failed", e)
-            Result.failure(e)
         }
     }
 }

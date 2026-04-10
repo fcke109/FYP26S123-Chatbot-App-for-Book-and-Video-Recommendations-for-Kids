@@ -10,6 +10,7 @@ import com.kidsrec.chatbot.data.repository.AccountManager
 import com.kidsrec.chatbot.data.repository.AnalyticsRepository
 import com.kidsrec.chatbot.data.repository.BookDataManager
 import com.kidsrec.chatbot.data.repository.FavoritesManager
+import com.kidsrec.chatbot.data.repository.InteractionManager
 import com.kidsrec.chatbot.data.repository.RecommendationEngine
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,8 +28,13 @@ class LibraryViewModel @Inject constructor(
     private val accountManager: AccountManager,
     private val favoritesManager: FavoritesManager,
     private val openLibraryService: OpenLibraryService,
-    private val analyticsRepository: AnalyticsRepository
+    private val analyticsRepository: AnalyticsRepository,
+    private val interactionManager: InteractionManager
 ) : ViewModel() {
+
+    companion object {
+        private const val TAG = "LibraryVM"
+    }
 
     private val _curatedBooks = MutableStateFlow<List<Book>>(emptyList())
     val curatedBooks: StateFlow<List<Book>> = _curatedBooks.asStateFlow()
@@ -39,36 +45,50 @@ class LibraryViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    private val _userAge = MutableStateFlow(8)
+    val userAge: StateFlow<Int> = _userAge.asStateFlow()
+
     init {
+        loadUserAge()
         observeBooks()
+    }
+
+    private fun loadUserAge() {
+        viewModelScope.launch {
+            try {
+                val userId = accountManager.getCurrentUserId() ?: return@launch
+                val user = accountManager.getUser(userId) ?: return@launch
+                _userAge.value = user.age
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to load user age: ${e.message}", e)
+            }
+        }
     }
 
     private fun observeBooks() {
         viewModelScope.launch {
             _isLoading.value = true
-            Log.d("LibraryVM", "Starting to observe Curated Books...")
-            
+            Log.d(TAG, "Starting to observe Curated Books...")
+
             bookDataManager.getCuratedBooksFlow()
                 .catch { e ->
-                    Log.e("LibraryVM", "FATAL Error observing books: ${e.message}")
+                    Log.e(TAG, "FATAL Error observing books: ${e.message}", e)
                     try {
                         loadFromOpenLibrary()
                     } catch (e2: Exception) {
-                        Log.e("LibraryVM", "OpenLibrary fallback also failed: ${e2.message}")
+                        Log.e(TAG, "OpenLibrary fallback also failed: ${e2.message}", e2)
                     }
                     _isLoading.value = false
                 }
                 .collectLatest { books ->
-                    Log.d("LibraryVM", "Received ${books.size} books from Firestore")
-                    
+                    Log.d(TAG, "Received ${books.size} books from Firestore")
+
                     if (books.isNotEmpty()) {
-                        // We found admin books! Show them.
                         _curatedBooks.value = books
                         loadTopPicks(books)
                         _isLoading.value = false
                     } else {
-                        // Library is empty or blocked by rules.
-                        Log.w("LibraryVM", "Curated library is empty. Checking OpenLibrary fallback...")
+                        Log.w(TAG, "Curated library is empty. Checking OpenLibrary fallback...")
                         loadFromOpenLibrary()
                         _isLoading.value = false
                     }
@@ -78,7 +98,8 @@ class LibraryViewModel @Inject constructor(
 
     private suspend fun loadFromOpenLibrary() {
         try {
-            Log.d("LibraryVM", "Fetching fallback books from OpenLibrary...")
+            Log.d(TAG, "Fetching fallback books from OpenLibrary...")
+
             val response = openLibraryService.searchBooks("children picture books", limit = 20)
             val books = response.docs
                 .filter { it.canReadOnline() }
@@ -99,14 +120,13 @@ class LibraryViewModel @Inject constructor(
                         difficulty = "easy"
                     )
                 }
-            
-            // Only update if we don't have curated books already
+
             if (_curatedBooks.value.isEmpty()) {
                 _curatedBooks.value = books
                 loadTopPicks(books)
             }
         } catch (e: Exception) {
-            Log.e("LibraryVM", "Failed to load from OpenLibrary: ${e.message}")
+            Log.e(TAG, "Failed to load from OpenLibrary: ${e.message}", e)
         }
     }
 
@@ -115,10 +135,42 @@ class LibraryViewModel @Inject constructor(
             val userId = accountManager.getCurrentUserId() ?: return
             val user = accountManager.getUser(userId) ?: return
             val favorites = favoritesManager.getFavorites(userId)
-            val picks = recommendationEngine.getTopRecommendations(books, user, favorites, limit = 4)
+
+            val picks = recommendationEngine.getTopRecommendations(
+                curatedBooks = books,
+                user = user,
+                favorites = favorites,
+                searchHistory = emptyList(),
+                clickedItems = interactionManager.getClickedItems(),
+                limit = 4
+            )
+
             _topPicks.value = picks
         } catch (e: Exception) {
-            Log.e("LibraryVM", "Failed to load top picks: ${e.message}")
+            Log.e(TAG, "Failed to load top picks: ${e.message}", e)
+        }
+    }
+
+    fun addClickedItem(title: String) {
+        interactionManager.addClickedItem(title)
+        refreshTopPicks()
+    }
+
+    fun getClickedItems(): List<String> {
+        return interactionManager.getClickedItems()
+    }
+
+    fun clearClickedItems() {
+        interactionManager.clearClickedItems()
+        refreshTopPicks()
+    }
+
+    fun refreshTopPicks() {
+        viewModelScope.launch {
+            val books = _curatedBooks.value
+            if (books.isNotEmpty()) {
+                loadTopPicks(books)
+            }
         }
     }
 

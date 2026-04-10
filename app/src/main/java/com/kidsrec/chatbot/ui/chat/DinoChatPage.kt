@@ -1,5 +1,14 @@
 package com.kidsrec.chatbot.ui.chat
 
+import android.Manifest
+import android.app.Activity
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.speech.RecognizerIntent
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -14,8 +23,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.ThumbDown
-import androidx.compose.material.icons.outlined.ThumbUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -34,6 +42,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import coil.compose.AsyncImage
 import com.kidsrec.chatbot.R
 import com.kidsrec.chatbot.data.model.ChatMessage
@@ -61,7 +70,6 @@ fun DinoChatPage(
     val conversations by viewModel.conversations.collectAsState()
     val favoriteItems by favoritesViewModel.favorites.collectAsState()
     val isGuestUser by favoritesViewModel.isGuest.collectAsState()
-    val userFeedback by viewModel.userFeedback.collectAsState()
     val searchUiState by searchViewModel.uiState.collectAsState()
 
     var messageText by remember { mutableStateOf("") }
@@ -70,13 +78,102 @@ fun DinoChatPage(
     val coroutineScope = rememberCoroutineScope()
     var showHistorySheet by remember { mutableStateOf(false) }
 
+    val context = LocalContext.current
+    var isListening by remember { mutableStateOf(false) }
+
+    val speechLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        isListening = false
+
+        if (result.resultCode == Activity.RESULT_OK) {
+            val spokenText = result.data
+                ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+                ?.firstOrNull()
+
+            if (!spokenText.isNullOrBlank()) {
+                messageText = spokenText
+
+                val lastWord = spokenText.substringAfterLast(' ')
+                searchViewModel.onQueryChange(lastWord.ifBlank { spokenText })
+
+                if (inputWarning != null) inputWarning = null
+            }
+        }
+    }
+
+    val audioPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            try {
+                isListening = true
+                val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                    putExtra(
+                        RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                        RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+                    )
+                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+                    putExtra(RecognizerIntent.EXTRA_PROMPT, "Tell Little Dino what you want")
+                }
+                speechLauncher.launch(intent)
+            } catch (e: ActivityNotFoundException) {
+                isListening = false
+                Toast.makeText(
+                    context,
+                    "Speech recognition is not available on this device.",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        } else {
+            Toast.makeText(
+                context,
+                "Microphone permission is needed for voice chat.",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
+    fun startVoiceInput() {
+        when {
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.RECORD_AUDIO
+            ) == PackageManager.PERMISSION_GRANTED -> {
+                try {
+                    isListening = true
+                    val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                        putExtra(
+                            RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                            RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+                        )
+                        putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+                        putExtra(RecognizerIntent.EXTRA_PROMPT, "Tell Little Dino what you want")
+                    }
+                    speechLauncher.launch(intent)
+                } catch (e: ActivityNotFoundException) {
+                    isListening = false
+                    Toast.makeText(
+                        context,
+                        "Speech recognition is not available on this device.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+
+            else -> {
+                audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+            }
+        }
+    }
+
     // Ghost text autocomplete logic
     val autocompleteSuggestion = remember(messageText, searchUiState.suggestions) {
         if (messageText.isBlank() || messageText.endsWith(" ")) return@remember null
-        
+
         val lastWord = messageText.substringAfterLast(' ')
         if (lastWord.isEmpty()) return@remember null
-        
+
         searchUiState.suggestions.firstNotNullOfOrNull { suggestion ->
             if (suggestion.text.startsWith(lastWord, ignoreCase = true)) {
                 val remaining = suggestion.text.substring(lastWord.length)
@@ -141,21 +238,41 @@ fun DinoChatPage(
                 Image(
                     painter = painterResource(id = R.drawable.little_dino),
                     contentDescription = null,
-                    modifier = Modifier.size(48.dp).clip(CircleShape).background(Color.White),
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(Color.White),
                     contentScale = ContentScale.Fit
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Little Dino", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                    Text("Your visual story-time buddy", fontSize = 12.sp, color = Color.White.copy(alpha = 0.8f))
+                    Text(
+                        "Little Dino",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                    Text(
+                        "Your visual story-time buddy",
+                        fontSize = 12.sp,
+                        color = Color.White.copy(alpha = 0.8f)
+                    )
                 }
                 IconButton(onClick = { showHistorySheet = true }) {
-                    Icon(Icons.Default.History, contentDescription = "Chat History", tint = Color.White)
+                    Icon(
+                        Icons.Default.History,
+                        contentDescription = "Chat History",
+                        tint = Color.White
+                    )
                 }
             }
         }
 
-        Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+        ) {
             if (messages.isEmpty()) {
                 WelcomeView()
             } else {
@@ -169,7 +286,6 @@ fun DinoChatPage(
                         MessageBubble(
                             message = message,
                             favoriteItems = favoriteItems,
-                            userFeedback = userFeedback,
                             isGuest = isGuestUser,
                             onToggleFavorite = { rec ->
                                 val isFav = favoriteItems.any { it.itemId == rec.id }
@@ -193,17 +309,15 @@ fun DinoChatPage(
                                     }
                                 }
                             },
-                            onThumbsUp = { rec ->
-                                viewModel.submitFeedback(rec.id, rec.title, rec.type, true)
-                            },
-                            onThumbsDown = { rec ->
-                                viewModel.submitFeedback(rec.id, rec.title, rec.type, false)
-                            },
                             onOpenRecommendation = onOpenRecommendation,
                             onGetBookPreviewUrl = { title -> viewModel.getBookPreviewUrl(title) }
                         )
                     }
-                    if (isLoading) { item { TypingIndicator() } }
+
+                    if (isLoading) {
+                        item { TypingIndicator() }
+                    }
+
                     if (error != null) {
                         item {
                             Surface(
@@ -229,9 +343,11 @@ fun DinoChatPage(
             }
         }
 
-        Surface(shadowElevation = 8.dp, modifier = Modifier.fillMaxWidth()) {
+        Surface(
+            shadowElevation = 8.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
             Column {
-                // Suggestions Row
                 if (messageText.isNotBlank() && searchUiState.suggestions.isNotEmpty()) {
                     LazyRow(
                         modifier = Modifier
@@ -244,14 +360,15 @@ fun DinoChatPage(
                             SuggestionChip(
                                 onClick = {
                                     val prefix = messageText.substringBeforeLast(' ', "")
-                                    messageText = if (prefix.isEmpty()) suggestion.text else "$prefix ${suggestion.text} "
+                                    messageText =
+                                        if (prefix.isEmpty()) suggestion.text else "$prefix ${suggestion.text} "
                                     searchViewModel.onSuggestionClick(suggestion.text)
                                 },
-                                label = { 
+                                label = {
                                     Text(
                                         text = suggestion.text,
                                         fontSize = 12.sp
-                                    ) 
+                                    )
                                 },
                                 colors = SuggestionChipDefaults.suggestionChipColors(
                                     containerColor = MaterialTheme.colorScheme.secondaryContainer,
@@ -264,7 +381,6 @@ fun DinoChatPage(
                     }
                 }
 
-                // Warning banner for inappropriate input
                 inputWarning?.let { warning ->
                     Surface(
                         color = MaterialTheme.colorScheme.errorContainer,
@@ -295,15 +411,16 @@ fun DinoChatPage(
                     }
                 }
 
-                Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     OutlinedTextField(
                         value = messageText,
                         onValueChange = {
                             messageText = it
-                            // Pass the last word to search view model for ghost-text relevant suggestions
                             val lastWord = it.substringAfterLast(' ')
                             searchViewModel.onQueryChange(lastWord.ifBlank { it })
-                            // Clear warning as user types
                             if (inputWarning != null) inputWarning = null
                         },
                         modifier = Modifier.weight(1f),
@@ -311,7 +428,21 @@ fun DinoChatPage(
                         shape = RoundedCornerShape(24.dp),
                         visualTransformation = ghostTextTransformation
                     )
+
                     Spacer(modifier = Modifier.width(8.dp))
+
+                    FloatingActionButton(
+                        onClick = { startVoiceInput() },
+                        containerColor = MaterialTheme.colorScheme.secondary
+                    ) {
+                        Icon(
+                            imageVector = if (isListening) Icons.Default.MicOff else Icons.Default.Mic,
+                            contentDescription = if (isListening) "Listening" else "Voice input"
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
                     FloatingActionButton(
                         onClick = {
                             if (messageText.isNotBlank()) {
@@ -339,7 +470,9 @@ fun DinoChatPage(
 @Composable
 fun WelcomeView() {
     Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -349,8 +482,17 @@ fun WelcomeView() {
             modifier = Modifier.size(200.dp),
             contentScale = ContentScale.Fit
         )
-        Text("Hi! I'm Little Dino!", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-        Text("Ask me for a story or search the library!", fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            "Hi! I'm Little Dino!",
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Text(
+            "Ask me for a story or search the library!",
+            fontSize = 16.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
@@ -358,22 +500,31 @@ fun WelcomeView() {
 fun MessageBubble(
     message: ChatMessage,
     favoriteItems: List<com.kidsrec.chatbot.data.model.Favorite>,
-    userFeedback: List<com.kidsrec.chatbot.data.model.Feedback> = emptyList(),
     isGuest: Boolean = false,
     onToggleFavorite: (Recommendation) -> Unit,
-    onThumbsUp: (Recommendation) -> Unit = {},
-    onThumbsDown: (Recommendation) -> Unit = {},
     onOpenRecommendation: (String, String, Boolean, String, String, String) -> Unit,
     onGetBookPreviewUrl: (suspend (String) -> String)? = null
 ) {
     val isUser = message.role == MessageRole.USER
-    Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = if (isUser) Alignment.End else Alignment.Start) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = if (isUser) Alignment.End else Alignment.Start
+    ) {
         Surface(
             color = if (isUser) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
-            shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomStart = if (isUser) 16.dp else 4.dp, bottomEnd = if (isUser) 4.dp else 16.dp),
+            shape = RoundedCornerShape(
+                topStart = 16.dp,
+                topEnd = 16.dp,
+                bottomStart = if (isUser) 16.dp else 4.dp,
+                bottomEnd = if (isUser) 4.dp else 16.dp
+            ),
             modifier = Modifier.widthIn(max = 300.dp)
         ) {
-            Text(text = message.content, modifier = Modifier.padding(12.dp), fontSize = 16.sp)
+            Text(
+                text = message.content,
+                modifier = Modifier.padding(12.dp),
+                fontSize = 16.sp
+            )
         }
 
         if (!isUser && message.recommendations.isNotEmpty()) {
@@ -385,14 +536,10 @@ fun MessageBubble(
             ) {
                 items(message.recommendations) { recommendation ->
                     val isFavorited = favoriteItems.any { it.itemId == recommendation.id }
-                    val feedback = userFeedback.find { it.recommendationId == recommendation.id }
                     RecommendationCard(
                         recommendation = recommendation,
                         isFavorited = isFavorited,
                         showFavoriteButton = !isGuest,
-                        feedbackState = feedback?.isPositive,
-                        onThumbsUp = { onThumbsUp(recommendation) },
-                        onThumbsDown = { onThumbsDown(recommendation) },
                         onToggleFavorite = { onToggleFavorite(recommendation) },
                         onOpenRecommendation = onOpenRecommendation,
                         onGetBookPreviewUrl = onGetBookPreviewUrl
@@ -408,16 +555,13 @@ fun RecommendationCard(
     recommendation: Recommendation,
     isFavorited: Boolean,
     showFavoriteButton: Boolean = true,
-    feedbackState: Boolean? = null, // null = no feedback, true = thumbs up, false = thumbs down
-    onThumbsUp: () -> Unit = {},
-    onThumbsDown: () -> Unit = {},
     onToggleFavorite: () -> Unit,
     onOpenRecommendation: (String, String, Boolean, String, String, String) -> Unit,
     onGetBookPreviewUrl: (suspend (String) -> String)? = null
 ) {
     val coroutineScope = rememberCoroutineScope()
     val isVideo = recommendation.type == RecommendationType.VIDEO
-    
+
     Card(
         modifier = Modifier
             .width(220.dp)
@@ -430,8 +574,8 @@ fun RecommendationCard(
                     }
                     if (finalUrl.isNotBlank()) {
                         onOpenRecommendation(
-                            finalUrl, 
-                            recommendation.title, 
+                            finalUrl,
+                            recommendation.title,
                             isVideo,
                             recommendation.id,
                             recommendation.imageUrl,
@@ -444,7 +588,11 @@ fun RecommendationCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column {
-            Box(modifier = Modifier.height(120.dp).fillMaxWidth()) {
+            Box(
+                modifier = Modifier
+                    .height(120.dp)
+                    .fillMaxWidth()
+            ) {
                 if (recommendation.imageUrl.isNotEmpty()) {
                     AsyncImage(
                         model = recommendation.imageUrl,
@@ -454,7 +602,9 @@ fun RecommendationCard(
                     )
                 } else {
                     Box(
-                        modifier = Modifier.fillMaxSize().background(if (isVideo) Color(0xFFFFE5E5) else Color(0xFFE5F0FF)),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(if (isVideo) Color(0xFFFFE5E5) else Color(0xFFE5F0FF)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
@@ -465,8 +615,12 @@ fun RecommendationCard(
                         )
                     }
                 }
-                
-                Row(modifier = Modifier.padding(8.dp).align(Alignment.TopStart)) {
+
+                Row(
+                    modifier = Modifier
+                        .padding(8.dp)
+                        .align(Alignment.TopStart)
+                ) {
                     Surface(
                         color = if (isVideo) Color.Red else MaterialTheme.colorScheme.primary,
                         shape = RoundedCornerShape(4.dp)
@@ -481,8 +635,8 @@ fun RecommendationCard(
                     }
 
                     Spacer(modifier = Modifier.width(4.dp))
+
                     if (recommendation.isCurated) {
-                        // Curated/approved content — green badge
                         Surface(
                             color = Color(0xFF4CAF50),
                             shape = RoundedCornerShape(4.dp)
@@ -496,7 +650,6 @@ fun RecommendationCard(
                             )
                         }
                     } else {
-                        // Auto-searched from YouTube with safe search — blue badge
                         Surface(
                             color = Color(0xFF2196F3),
                             shape = RoundedCornerShape(4.dp)
@@ -514,7 +667,9 @@ fun RecommendationCard(
 
                 if (recommendation.relevanceScore > 0) {
                     Surface(
-                        modifier = Modifier.padding(8.dp).align(Alignment.TopEnd),
+                        modifier = Modifier
+                            .padding(8.dp)
+                            .align(Alignment.TopEnd),
                         color = Color(0xFF4CAF50),
                         shape = RoundedCornerShape(4.dp)
                     ) {
@@ -549,11 +704,18 @@ fun RecommendationCard(
 
                 if (recommendation.reason.isNotBlank()) {
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text(text = recommendation.reason, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium)
+                    Text(
+                        text = recommendation.reason,
+                        fontSize = 10.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Medium
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
-                
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -569,8 +731,8 @@ fun RecommendationCard(
                                 }
                                 if (finalUrl.isNotBlank()) {
                                     onOpenRecommendation(
-                                        finalUrl, 
-                                        recommendation.title, 
+                                        finalUrl,
+                                        recommendation.title,
                                         isVideo,
                                         recommendation.id,
                                         recommendation.imageUrl,
@@ -581,46 +743,26 @@ fun RecommendationCard(
                         },
                         contentPadding = PaddingValues(0.dp)
                     ) {
-                        Icon(if (isVideo) Icons.Default.PlayArrow else Icons.AutoMirrored.Filled.MenuBook, null, modifier = Modifier.size(16.dp))
+                        Icon(
+                            if (isVideo) Icons.Default.PlayArrow else Icons.AutoMirrored.Filled.MenuBook,
+                            null,
+                            modifier = Modifier.size(16.dp)
+                        )
                         Spacer(Modifier.width(4.dp))
                         Text(if (isVideo) "Watch" else "Read", fontSize = 12.sp)
                     }
-                    
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+
+                    if (showFavoriteButton) {
                         IconButton(
-                            onClick = onThumbsUp,
-                            modifier = Modifier.size(36.dp)
+                            onClick = onToggleFavorite,
+                            modifier = Modifier.size(32.dp)
                         ) {
                             Icon(
-                                imageVector = if (feedbackState == true) Icons.Default.ThumbUp else Icons.Outlined.ThumbUp,
-                                contentDescription = "Thumbs Up",
-                                modifier = Modifier.size(18.dp),
-                                tint = if (feedbackState == true) Color(0xFF4CAF50) else MaterialTheme.colorScheme.onSurfaceVariant
+                                imageVector = if (isFavorited) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                contentDescription = "Toggle Favorite",
+                                modifier = Modifier.size(20.dp),
+                                tint = if (isFavorited) Color.Red else MaterialTheme.colorScheme.primary
                             )
-                        }
-                        IconButton(
-                            onClick = onThumbsDown,
-                            modifier = Modifier.size(36.dp)
-                        ) {
-                            Icon(
-                                imageVector = if (feedbackState == false) Icons.Default.ThumbDown else Icons.Outlined.ThumbDown,
-                                contentDescription = "Thumbs Down",
-                                modifier = Modifier.size(18.dp),
-                                tint = if (feedbackState == false) Color(0xFFF44336) else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        if (showFavoriteButton) {
-                            IconButton(
-                                onClick = onToggleFavorite,
-                                modifier = Modifier.size(36.dp)
-                            ) {
-                                Icon(
-                                    imageVector = if (isFavorited) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                                    contentDescription = "Toggle Favorite",
-                                    modifier = Modifier.size(18.dp),
-                                    tint = if (isFavorited) Color.Red else MaterialTheme.colorScheme.primary
-                                )
-                            }
                         }
                     }
                 }
@@ -631,8 +773,15 @@ fun RecommendationCard(
 
 @Composable
 fun TypingIndicator() {
-    Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(16.dp)) {
-        Text("Dino is thinking...", modifier = Modifier.padding(12.dp), fontSize = 12.sp)
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Text(
+            "Dino is thinking...",
+            modifier = Modifier.padding(12.dp),
+            fontSize = 12.sp
+        )
     }
 }
 
@@ -645,14 +794,22 @@ fun ChatHistorySheet(
     val dateFormat = remember { SimpleDateFormat("MMM d, h:mm a", Locale.getDefault()) }
 
     Column(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 32.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .padding(bottom = 32.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(text = "Chat History", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+            Text(
+                text = "Chat History",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
             FilledTonalButton(onClick = onNewChat) {
                 Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(4.dp))
@@ -663,24 +820,59 @@ fun ChatHistorySheet(
         Spacer(modifier = Modifier.height(12.dp))
 
         if (conversations.isEmpty()) {
-            Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                Text("No past conversations yet!", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(32.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    "No past conversations yet!",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         } else {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.heightIn(max = 400.dp)) {
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.heightIn(max = 400.dp)
+            ) {
                 items(conversations) { conversation ->
                     Card(
-                        modifier = Modifier.fillMaxWidth().clickable { onSelectConversation(conversation.id) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onSelectConversation(conversation.id) },
                         shape = RoundedCornerShape(12.dp)
                     ) {
-                        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.ChatBubbleOutline, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.ChatBubbleOutline,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(24.dp)
+                            )
                             Spacer(modifier = Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(text = conversation.preview.ifBlank { "Empty conversation" }, fontWeight = FontWeight.Medium, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text(text = dateFormat.format(conversation.lastUpdated.toDate()), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(
+                                    text = conversation.preview.ifBlank { "Empty conversation" },
+                                    fontWeight = FontWeight.Medium,
+                                    fontSize = 14.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = dateFormat.format(conversation.lastUpdated.toDate()),
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
-                            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Icon(
+                                Icons.Default.ChevronRight,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
                 }

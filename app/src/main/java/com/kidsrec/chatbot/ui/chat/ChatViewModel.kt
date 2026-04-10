@@ -4,14 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kidsrec.chatbot.data.model.ChatMessage
 import com.kidsrec.chatbot.data.model.Conversation
-import com.kidsrec.chatbot.data.model.Feedback
-import com.kidsrec.chatbot.data.model.RecommendationType
 import com.kidsrec.chatbot.data.remote.OpenLibraryService
 import com.kidsrec.chatbot.data.repository.AccountManager
 import com.kidsrec.chatbot.data.repository.AnalyticsRepository
 import com.kidsrec.chatbot.data.repository.BookDataManager
 import com.kidsrec.chatbot.data.repository.ChatDataManager
-import com.kidsrec.chatbot.data.repository.FeedbackManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import android.util.Log
 import kotlinx.coroutines.Job
@@ -31,8 +28,7 @@ class ChatViewModel @Inject constructor(
     private val accountManager: AccountManager,
     private val bookDataManager: BookDataManager,
     private val openLibraryService: OpenLibraryService,
-    private val analyticsRepository: AnalyticsRepository,
-    private val feedbackManager: FeedbackManager
+    private val analyticsRepository: AnalyticsRepository
 ) : ViewModel() {
 
     private val _messages = MutableStateFlow<List<ChatMessage>>(emptyList())
@@ -47,18 +43,12 @@ class ChatViewModel @Inject constructor(
     private val _conversations = MutableStateFlow<List<Conversation>>(emptyList())
     val conversations: StateFlow<List<Conversation>> = _conversations.asStateFlow()
 
-    private val _userFeedback = MutableStateFlow<List<Feedback>>(emptyList())
-    val userFeedback: StateFlow<List<Feedback>> = _userFeedback.asStateFlow()
-
     private var currentConversationId: String? = null
     private var messagesJob: Job? = null
-    private var feedbackJob: Job? = null
-    private var hasTriggeredInitialRecs = false
 
     init {
         initializeConversation()
         loadConversationsList()
-        loadUserFeedback()
     }
 
     private fun initializeConversation() {
@@ -71,17 +61,11 @@ class ChatViewModel @Inject constructor(
                 currentConversationId = latestConversation.id
                 loadMessages(userId, latestConversation.id)
             } else {
-                // Brand new user — no conversations exist
                 val result = chatDataManager.createConversation(userId)
                 result.fold(
                     onSuccess = { conversationId ->
                         currentConversationId = conversationId
                         loadMessages(userId, conversationId)
-                        // Send initial recommendations for new users with interests
-                        if (!hasTriggeredInitialRecs) {
-                            hasTriggeredInitialRecs = true
-                            chatDataManager.sendInitialRecommendations(userId, conversationId)
-                        }
                     },
                     onFailure = { error ->
                         _error.value = error.message
@@ -100,16 +84,6 @@ class ChatViewModel @Inject constructor(
                     // Only show conversations that have at least one message (non-empty preview)
                     _conversations.value = convos.filter { it.preview.isNotBlank() }
                 }
-        }
-    }
-
-    private fun loadUserFeedback() {
-        feedbackJob?.cancel()
-        feedbackJob = viewModelScope.launch {
-            val userId = accountManager.getCurrentUserId() ?: return@launch
-            feedbackManager.getUserFeedbackFlow(userId)
-                .catch { e -> Log.e("ChatVM", "Failed to load feedback", e) }
-                .collect { feedback -> _userFeedback.value = feedback }
         }
     }
 
@@ -172,30 +146,6 @@ class ChatViewModel @Inject constructor(
                     _error.value = error.message ?: "Something went wrong. Please try again!"
                 }
             )
-        }
-    }
-
-    fun submitFeedback(
-        recommendationId: String,
-        recommendationTitle: String,
-        recommendationType: RecommendationType,
-        isPositive: Boolean
-    ) {
-        viewModelScope.launch {
-            val userId = accountManager.getCurrentUserId() ?: return@launch
-            Log.d("ChatVM", "submitFeedback: recId=$recommendationId, title=$recommendationTitle, positive=$isPositive")
-            val existing = _userFeedback.value.find { it.recommendationId == recommendationId }
-
-            if (existing != null) {
-                // Toggle off if same feedback, switch if different
-                feedbackManager.removeFeedback(existing.id)
-                if (existing.isPositive != isPositive) {
-                    feedbackManager.submitFeedback(userId, recommendationId, recommendationTitle, recommendationType, isPositive)
-                }
-            } else {
-                val result = feedbackManager.submitFeedback(userId, recommendationId, recommendationTitle, recommendationType, isPositive)
-                Log.d("ChatVM", "submitFeedback result: ${result.isSuccess}")
-            }
         }
     }
 
