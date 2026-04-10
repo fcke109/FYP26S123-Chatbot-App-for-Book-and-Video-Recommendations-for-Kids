@@ -3,7 +3,6 @@ package com.kidsrec.chatbot.data.repository
 import android.util.Log
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.Query
 import com.kidsrec.chatbot.data.model.Feedback
 import com.kidsrec.chatbot.data.model.RecommendationType
 import kotlinx.coroutines.channels.awaitClose
@@ -22,7 +21,6 @@ class FeedbackManager @Inject constructor(
     fun getUserFeedbackFlow(userId: String): Flow<List<Feedback>> = callbackFlow {
         val listener = collection
             .whereEqualTo("userId", userId)
-            .orderBy("timestamp", Query.Direction.DESCENDING)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     Log.e("FeedbackManager", "Listen failed", error)

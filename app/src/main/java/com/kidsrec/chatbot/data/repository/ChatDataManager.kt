@@ -271,7 +271,7 @@ CRITICAL RULES:
 1. For casual messages like greetings ("hi", "hello", "hey", "what's up", "how are you"), jokes, thank-yous, or general chitchat that do NOT ask about a topic, book, or video:
    - Reply with a short, friendly message ONLY. Do NOT include a [RECOMMENDATIONS] block.
    - Example: "hi" → "Hey there! I'm Little Dino, your story buddy! What kind of books or videos are you in the mood for today?"
-2. ONLY include recommendations when the child asks about a specific topic, requests a book/video, or expresses an interest.
+2. For ANY message that mentions a topic, subject, character, or interest (e.g. "alice in wonderland", "sharks", "dinosaurs", "I like space"), you MUST include the [RECOMMENDATIONS] block. Even if asking a question, if a topic is present, include recommendations.
 3. When recommending, ALWAYS recommend content that DIRECTLY matches what the child asked about. Relevance is the #1 priority.
 4. For BOOKS: If a curated book matches the child's topic, use that exact title. Otherwise, suggest a real, well-known children's book about their specific topic (e.g. if they say "superman", recommend a Superman book, NOT a random unrelated book).
 5. For VIDEOS: ONLY use an approved video if it DIRECTLY matches what the child asked about (e.g. child asks about "sharks" → "Baby Shark Dance" is a match). If NO approved video matches their topic, recommend a video title that closely describes what they want (e.g. child asks about "superman" → use "Superman Cartoon for Kids" NOT "Dinosaurs for Kids").
@@ -326,7 +326,18 @@ RULES FOR JSON:
 
             val (cleanContent, parsedRecs) = parseRecommendations(botResponse)
 
-            // Only run recommendation pipeline if the AI actually returned recommendations
+            // Detect casual messages that don't need recommendations
+            val casualPatterns = listOf(
+                "^(hi|hey|hello|hiya|yo|sup|howdy|hola)([!?.\\s]|$)",
+                "^(how are you|what's up|whats up|good morning|good afternoon|good evening|good night)",
+                "^(thanks|thank you|thx|ty|ok|okay|cool|nice|great|awesome|bye|goodbye|see ya)",
+                "^(who are you|what are you|what can you do|help)"
+            )
+            val isCasualMessage = casualPatterns.any {
+                Regex(it, RegexOption.IGNORE_CASE).containsMatchIn(sanitizedMessage.trim())
+            }
+
+            // Run recommendation pipeline: always for topic messages, skip for casual greetings
             val recommendations = if (parsedRecs.isNotEmpty()) {
                 val withContentUrls = attachContentUrls(
                     recommendations = parsedRecs,
@@ -345,6 +356,14 @@ RULES FOR JSON:
                     recommendations = ensuredMix,
                     curatedBooks = curatedBooks,
                     userId = userId
+                )
+            } else if (!isCasualMessage) {
+                // AI didn't include [RECOMMENDATIONS] block but this is a topic query — force fallback
+                ensureBookAndVideoMix(
+                    originalMessage = sanitizedMessage,
+                    recommendations = emptyList(),
+                    curatedBooks = curatedBooks,
+                    approvedVideos = approvedVideos
                 )
             } else {
                 emptyList()
@@ -641,7 +660,15 @@ RULES FOR JSON:
         val hasVideo = mutable.any { it.type == RecommendationType.VIDEO && it.url.isNotBlank() }
 
         if (!hasBook && curatedBooks.isNotEmpty()) {
-            val fallbackBook = curatedBooks.first()
+            val topic = extractSearchTopic(originalMessage).lowercase()
+            val fallbackBook = curatedBooks.firstOrNull { book ->
+                book.title.lowercase().contains(topic) ||
+                book.description.lowercase().contains(topic) ||
+                book.author.lowercase().contains(topic) ||
+                topic.split(" ").any { word ->
+                    word.length > 2 && (book.title.lowercase().contains(word) || book.description.lowercase().contains(word))
+                }
+            } ?: curatedBooks.first()
             val fallbackUrl = fallbackBook.readerUrl.ifBlank { fallbackBook.bookUrl }
 
             mutable.add(

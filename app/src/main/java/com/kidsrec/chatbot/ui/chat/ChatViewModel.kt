@@ -183,6 +183,7 @@ class ChatViewModel @Inject constructor(
     ) {
         viewModelScope.launch {
             val userId = accountManager.getCurrentUserId() ?: return@launch
+            Log.d("ChatVM", "submitFeedback: recId=$recommendationId, title=$recommendationTitle, positive=$isPositive")
             val existing = _userFeedback.value.find { it.recommendationId == recommendationId }
 
             if (existing != null) {
@@ -192,7 +193,8 @@ class ChatViewModel @Inject constructor(
                     feedbackManager.submitFeedback(userId, recommendationId, recommendationTitle, recommendationType, isPositive)
                 }
             } else {
-                feedbackManager.submitFeedback(userId, recommendationId, recommendationTitle, recommendationType, isPositive)
+                val result = feedbackManager.submitFeedback(userId, recommendationId, recommendationTitle, recommendationType, isPositive)
+                Log.d("ChatVM", "submitFeedback result: ${result.isSuccess}")
             }
         }
     }

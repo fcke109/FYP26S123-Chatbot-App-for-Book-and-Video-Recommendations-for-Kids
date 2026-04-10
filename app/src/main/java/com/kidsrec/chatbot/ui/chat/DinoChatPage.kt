@@ -586,33 +586,33 @@ fun RecommendationCard(
                         Text(if (isVideo) "Watch" else "Read", fontSize = 12.sp)
                     }
                     
-                    Row {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         IconButton(
                             onClick = onThumbsUp,
-                            modifier = Modifier.size(28.dp)
+                            modifier = Modifier.size(36.dp)
                         ) {
                             Icon(
                                 imageVector = if (feedbackState == true) Icons.Default.ThumbUp else Icons.Outlined.ThumbUp,
                                 contentDescription = "Thumbs Up",
-                                modifier = Modifier.size(16.dp),
+                                modifier = Modifier.size(18.dp),
                                 tint = if (feedbackState == true) Color(0xFF4CAF50) else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                         IconButton(
                             onClick = onThumbsDown,
-                            modifier = Modifier.size(28.dp)
+                            modifier = Modifier.size(36.dp)
                         ) {
                             Icon(
                                 imageVector = if (feedbackState == false) Icons.Default.ThumbDown else Icons.Outlined.ThumbDown,
                                 contentDescription = "Thumbs Down",
-                                modifier = Modifier.size(16.dp),
+                                modifier = Modifier.size(18.dp),
                                 tint = if (feedbackState == false) Color(0xFFF44336) else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                         if (showFavoriteButton) {
                             IconButton(
                                 onClick = onToggleFavorite,
-                                modifier = Modifier.size(28.dp)
+                                modifier = Modifier.size(36.dp)
                             ) {
                                 Icon(
                                     imageVector = if (isFavorited) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
