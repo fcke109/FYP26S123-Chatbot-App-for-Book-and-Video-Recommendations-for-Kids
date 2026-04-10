@@ -35,6 +35,13 @@ export function initFeedbackDashboard() {
   });
 }
 
+function isPositiveFeedback(f) {
+  // Handle both Firestore field names: "isPositive" (with @PropertyName) and "positive" (JavaBean default)
+  if (typeof f.isPositive === 'boolean') return f.isPositive;
+  if (typeof f.positive === 'boolean') return f.positive;
+  return false;
+}
+
 function renderDashboard(items) {
   renderStats(items);
   renderTopItems(items);
@@ -43,7 +50,7 @@ function renderDashboard(items) {
 
 function renderStats(items) {
   const total = items.length;
-  const positive = items.filter(f => f.isPositive === true).length;
+  const positive = items.filter(f => isPositiveFeedback(f)).length;
   const negative = total - positive;
   const pct = total > 0 ? Math.round((positive / total) * 100) : 0;
 
@@ -58,7 +65,7 @@ function renderTopItems(items) {
   items.forEach(f => {
     const key = f.recommendationTitle || 'Unknown';
     if (!byTitle[key]) byTitle[key] = { title: key, type: f.recommendationType || 'BOOK', up: 0, down: 0 };
-    if (f.isPositive) byTitle[key].up++;
+    if (isPositiveFeedback(f)) byTitle[key].up++;
     else byTitle[key].down++;
   });
 
@@ -106,10 +113,11 @@ function renderRecentFeedback(items) {
     const timeStr = ts.toLocaleDateString() + ' ' + ts.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const type = f.recommendationType || 'BOOK';
 
+    const pos = isPositiveFeedback(f);
     row.innerHTML = `
       <td>${esc(f.recommendationTitle || 'Unknown')}</td>
       <td><span class="badge ${type === 'VIDEO' ? 'badge-video' : 'badge-book'}">${esc(type)}</span></td>
-      <td class="${f.isPositive ? 'feedback-positive' : 'feedback-negative'}">${f.isPositive ? '\u{1F44D}' : '\u{1F44E}'}</td>
+      <td class="${pos ? 'feedback-positive' : 'feedback-negative'}">${pos ? '\u{1F44D}' : '\u{1F44E}'}</td>
       <td>${timeStr}</td>`;
     tbody.appendChild(row);
   });

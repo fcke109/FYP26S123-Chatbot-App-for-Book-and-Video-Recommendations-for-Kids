@@ -585,9 +585,16 @@
         return;
       }
 
+      // Helper: handle both "isPositive" and "positive" Firestore field names
+      function isPos(f) {
+        if (typeof f.isPositive === 'boolean') return f.isPositive;
+        if (typeof f.positive === 'boolean') return f.positive;
+        return false;
+      }
+
       // Stats
       const total = items.length;
-      const positive = items.filter(f => f.isPositive === true).length;
+      const positive = items.filter(f => isPos(f)).length;
       const pct = Math.round((positive / total) * 100);
       document.getElementById('live-total').textContent = total;
       document.getElementById('live-positive').textContent = positive;
@@ -595,13 +602,14 @@
       if (statsRow) statsRow.style.display = 'flex';
 
       // Build cards (duplicate for infinite scroll)
-      const positiveItems = items.filter(f => f.isPositive === true);
+      const positiveItems = items.filter(f => isPos(f));
       const displayItems = positiveItems.length > 0 ? positiveItems : items;
 
       let html = '';
       const buildCard = (f) => {
         const type = f.recommendationType || 'BOOK';
-        const icon = f.isPositive ? '\u{1F44D}' : '\u{1F44E}';
+        const liked = isPos(f);
+        const icon = liked ? '\u{1F44D}' : '\u{1F44E}';
         const title = esc(f.recommendationTitle || 'Unknown');
         return `<div class="feedback-card glass-card">
           <div class="feedback-card-header">
@@ -609,7 +617,7 @@
             <span class="feedback-card-type ${type === 'VIDEO' ? 'video' : 'book'}">${type}</span>
           </div>
           <h4>${title}</h4>
-          <p>${f.isPositive ? 'Loved this recommendation!' : 'Not a fan of this one'}</p>
+          <p>${liked ? 'Loved this recommendation!' : 'Not a fan of this one'}</p>
         </div>`;
       };
 
