@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
-import { getFirestore, collection, query, where, orderBy, limit, startAfter, getDocs, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
+import { getFirestore, collection, query, where, orderBy, limit, startAfter, getDocs, doc, setDoc, serverTimestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAsZfL8NaSDAPuO2JgC5q1ogJcTbZge0xk",
@@ -20,7 +20,7 @@ export {
   onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword,
   signOut, sendPasswordResetEmail,
   collection, query, where, orderBy, limit, startAfter, getDocs,
-  doc, setDoc, serverTimestamp
+  doc, setDoc, serverTimestamp, onSnapshot
 };
 
 // Shared auth state UI updater

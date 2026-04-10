@@ -12,6 +12,8 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+enum class FavoriteFilter { ALL, BOOKS, VIDEOS }
+
 @HiltViewModel
 class FavoritesViewModel @Inject constructor(
     private val favoritesManager: FavoritesManager,
@@ -21,11 +23,29 @@ class FavoritesViewModel @Inject constructor(
     private val _favorites = MutableStateFlow<List<Favorite>>(emptyList())
     val favorites: StateFlow<List<Favorite>> = _favorites.asStateFlow()
 
+    private val _selectedFilter = MutableStateFlow(FavoriteFilter.ALL)
+    val selectedFilter: StateFlow<FavoriteFilter> = _selectedFilter.asStateFlow()
+
+    val filteredFavorites: StateFlow<List<Favorite>> = combine(_favorites, _selectedFilter) { favs, filter ->
+        when (filter) {
+            FavoriteFilter.ALL -> favs
+            FavoriteFilter.BOOKS -> favs.filter { it.type == RecommendationType.BOOK }
+            FavoriteFilter.VIDEOS -> favs.filter { it.type == RecommendationType.VIDEO }
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val totalFavoritesCount: StateFlow<Int> = _favorites.map { it.size }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
     private val _isGuest = MutableStateFlow(false)
     val isGuest: StateFlow<Boolean> = _isGuest.asStateFlow()
+
+    fun setFilter(filter: FavoriteFilter) {
+        _selectedFilter.value = filter
+    }
 
     private var currentListeningUserId: String? = null
     private var favoritesJob: kotlinx.coroutines.Job? = null

@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.PlayCircle
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -36,7 +37,9 @@ fun FavoritesScreen(
     viewModel: FavoritesViewModel,
     onOpenFavorite: (String, String, Boolean, String, String, String) -> Unit
 ) {
-    val favorites by viewModel.favorites.collectAsState()
+    val favorites by viewModel.filteredFavorites.collectAsState()
+    val totalCount by viewModel.totalFavoritesCount.collectAsState()
+    val selectedFilter by viewModel.selectedFilter.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val isGuest by viewModel.isGuest.collectAsState()
 
@@ -47,90 +50,137 @@ fun FavoritesScreen(
             )
         }
     ) { paddingValues ->
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            when {
-                isLoading -> {
-                    CircularProgressIndicator(
-                        modifier = Modifier.align(Alignment.Center)
+            // Filter chips row
+            if (!isGuest && !isLoading && totalCount > 0) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(
+                        selected = selectedFilter == FavoriteFilter.ALL,
+                        onClick = { viewModel.setFilter(FavoriteFilter.ALL) },
+                        label = { Text("All") },
+                        leadingIcon = {
+                            Icon(Icons.Default.Star, contentDescription = null, modifier = Modifier.size(18.dp))
+                        }
+                    )
+                    FilterChip(
+                        selected = selectedFilter == FavoriteFilter.BOOKS,
+                        onClick = { viewModel.setFilter(FavoriteFilter.BOOKS) },
+                        label = { Text("Books") },
+                        leadingIcon = {
+                            Icon(Icons.Default.Book, contentDescription = null, modifier = Modifier.size(18.dp))
+                        }
+                    )
+                    FilterChip(
+                        selected = selectedFilter == FavoriteFilter.VIDEOS,
+                        onClick = { viewModel.setFilter(FavoriteFilter.VIDEOS) },
+                        label = { Text("Videos") },
+                        leadingIcon = {
+                            Icon(Icons.Default.PlayCircle, contentDescription = null, modifier = Modifier.size(18.dp))
+                        }
                     )
                 }
-                isGuest -> {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(32.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Text(
-                            text = "Favorites require an account",
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Create an account to save your favorite books and videos!",
-                            fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+            }
+
+            Box(modifier = Modifier.fillMaxSize()) {
+                when {
+                    isLoading -> {
+                        CircularProgressIndicator(
+                            modifier = Modifier.align(Alignment.Center)
                         )
                     }
-                }
-                favorites.isEmpty() -> {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(32.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Text(
-                            text = "No favorites yet!",
-                            fontSize = 24.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Favorite your best stories from the Library or Chat!",
-                            fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-                else -> {
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(2),
-                        contentPadding = PaddingValues(16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        items(favorites) { favorite ->
-                            FavoriteCard(
-                                favorite = favorite,
-                                onRemove = { viewModel.removeFavorite(favorite.itemId) },
-                                onOpen = {
-                                    val isVideo = favorite.type == RecommendationType.VIDEO
-                                    val url = if (favorite.url.isNotBlank()) {
-                                        favorite.url
-                                    } else if (isVideo) {
-                                        val encodedTitle = URLEncoder.encode(favorite.title, "UTF-8")
-                                        "https://www.youtube.com/results?search_query=$encodedTitle+for+kids"
-                                    } else {
-                                        "https://archive.org/details/texts?query=${URLEncoder.encode(favorite.title, "UTF-8")}"
-                                    }
-                                    onOpenFavorite(
-                                        url, 
-                                        favorite.title, 
-                                        isVideo, 
-                                        favorite.itemId, 
-                                        favorite.imageUrl, 
-                                        favorite.description
-                                    )
-                                }
+                    isGuest -> {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(32.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                text = "Favorites require an account",
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Bold
                             )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Create an account to save your favorite books and videos!",
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    favorites.isEmpty() -> {
+                        val emptyMessage = when {
+                            totalCount == 0 -> "No favorites yet!"
+                            selectedFilter == FavoriteFilter.BOOKS -> "No books in your favorites"
+                            selectedFilter == FavoriteFilter.VIDEOS -> "No videos in your favorites"
+                            else -> "No favorites yet!"
+                        }
+                        val emptySubtext = when {
+                            totalCount == 0 -> "Favorite your best stories from the Library or Chat!"
+                            else -> "Try a different filter or add some from Chat!"
+                        }
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(32.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                text = emptyMessage,
+                                fontSize = 24.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = emptySubtext,
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    else -> {
+                        LazyVerticalGrid(
+                            columns = GridCells.Fixed(2),
+                            contentPadding = PaddingValues(16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(favorites) { favorite ->
+                                FavoriteCard(
+                                    favorite = favorite,
+                                    onRemove = { viewModel.removeFavorite(favorite.itemId) },
+                                    onOpen = {
+                                        val isVideo = favorite.type == RecommendationType.VIDEO
+                                        val url = if (favorite.url.isNotBlank()) {
+                                            favorite.url
+                                        } else if (isVideo) {
+                                            val encodedTitle = URLEncoder.encode(favorite.title, "UTF-8")
+                                            "https://www.youtube.com/results?search_query=$encodedTitle+for+kids"
+                                        } else {
+                                            "https://archive.org/details/texts?query=${URLEncoder.encode(favorite.title, "UTF-8")}"
+                                        }
+                                        onOpenFavorite(
+                                            url,
+                                            favorite.title,
+                                            isVideo,
+                                            favorite.itemId,
+                                            favorite.imageUrl,
+                                            favorite.description
+                                        )
+                                    }
+                                )
+                            }
                         }
                     }
                 }

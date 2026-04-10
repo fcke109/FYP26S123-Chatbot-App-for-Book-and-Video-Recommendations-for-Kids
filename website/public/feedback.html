@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Feedback Dashboard | Little Dino</title>
+
+  <link rel="icon" type="image/png" href="/images/little_dino_icon_512.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="/css/styles.css" />
+  <style>
+    .feedback-section { padding: 3rem 0 5rem; }
+    .feedback-header h1 { font-family: 'Baloo 2', sans-serif; font-size: clamp(1.8rem, 3vw, 2.4rem); margin-bottom: 0.3rem; }
+    .feedback-header p { color: var(--muted); margin-bottom: 1.5rem; }
+    .live-badge { display: inline-flex; align-items: center; gap: 0.4rem; background: #e8f5e9; color: #2e7d32; padding: 0.3rem 0.8rem; border-radius: 999px; font-size: 0.8rem; font-weight: 700; }
+    .live-dot { width: 8px; height: 8px; border-radius: 50%; background: #4caf50; animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+    .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2.5rem; }
+    .stat-card {
+      background: rgba(255,255,255,0.72); backdrop-filter: blur(14px);
+      border: 1px solid rgba(139, 92, 246, 0.08); box-shadow: var(--shadow);
+      border-radius: var(--radius-xl); padding: 1.5rem; text-align: center;
+    }
+    .stat-card .stat-value { font-family: 'Baloo 2', sans-serif; font-size: 2rem; color: var(--primary-dark); }
+    .stat-card .stat-label { color: var(--muted); font-size: 0.85rem; font-weight: 600; }
+
+    .top-items-section h2, .recent-section h2 { font-family: 'Baloo 2', sans-serif; font-size: 1.3rem; margin-bottom: 1rem; }
+    .top-items-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2.5rem; }
+    .top-item-card {
+      background: rgba(255,255,255,0.72); backdrop-filter: blur(14px);
+      border: 1px solid rgba(139, 92, 246, 0.08); box-shadow: var(--shadow);
+      border-radius: var(--radius-xl); padding: 1rem;
+    }
+    .top-item-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+    .top-item-card h4 { font-size: 0.95rem; margin: 0.3rem 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .top-item-votes { display: flex; gap: 1rem; font-size: 0.85rem; color: var(--muted); }
+    .top-item-score { font-weight: 800; font-size: 0.9rem; }
+    .score-positive { color: #2e7d32; }
+    .score-negative { color: #c62828; }
+
+    .badge { padding: 0.2rem 0.6rem; border-radius: 999px; font-size: 0.7rem; font-weight: 800; color: white; }
+    .badge-book { background: var(--primary); }
+    .badge-video { background: #f44336; }
+
+    .feedback-table { width: 100%; border-collapse: collapse; }
+    .feedback-table th {
+      text-align: left; padding: 0.8rem 1rem; background: rgba(139, 92, 246, 0.06);
+      font-size: 0.85rem; font-weight: 700; color: var(--primary-dark);
+    }
+    .feedback-table td { padding: 0.7rem 1rem; border-bottom: 1px solid rgba(0,0,0,0.06); font-size: 0.9rem; }
+    .feedback-positive { color: #2e7d32; font-size: 1.2rem; }
+    .feedback-negative { color: #c62828; font-size: 1.2rem; }
+
+    .table-card {
+      background: rgba(255,255,255,0.72); backdrop-filter: blur(14px);
+      border: 1px solid rgba(139, 92, 246, 0.08); box-shadow: var(--shadow);
+      border-radius: var(--radius-xl); overflow: hidden;
+    }
+
+    .login-prompt-card { max-width: 500px; margin: 5rem auto; text-align: center; padding: 2.5rem; border-radius: var(--radius-xl); border: 1px solid rgba(139, 92, 246, 0.08); box-shadow: var(--shadow); }
+    .login-prompt-card h2 { font-family: 'Baloo 2', sans-serif; margin-bottom: 0.5rem; }
+    .login-prompt-card p { color: var(--muted); margin-bottom: 1.5rem; }
+
+    .spinner-wrap { display: flex; justify-content: center; padding: 3rem; }
+    .spinner { width: 36px; height: 36px; border: 4px solid rgba(139,92,246,0.15); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (max-width: 980px) { .stats-grid, .top-items-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 480px) { .stats-grid, .top-items-grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <div class="bg-orb orb-3"></div>
+  <div class="bg-grid"></div>
+
+  <header class="site-header">
+    <div class="container nav">
+      <a href="/" class="brand">
+        <img src="/images/little_dino_icon_512.png" alt="Little Dino logo" class="brand-logo" />
+        <div class="brand-text">
+          <span class="brand-title">Little Dino</span>
+          <span class="brand-subtitle">Safe Kids Book & Video Discovery</span>
+        </div>
+      </a>
+
+      <button class="menu-toggle" id="menuToggle" aria-label="Toggle navigation menu" aria-expanded="false">
+        <span class="menu-bar"></span>
+        <span class="menu-bar"></span>
+        <span class="menu-bar"></span>
+      </button>
+
+      <nav class="nav-links" id="navLinks">
+        <a href="/">Home</a>
+        <a href="/catalog.html">Book Catalog</a>
+        <a href="/feedback.html" style="color:var(--primary-dark);">Feedback</a>
+        <a href="/login.html" id="nav-login-link" class="nav-cta">Login</a>
+        <span id="nav-user-name" style="display:none;font-weight:700;color:var(--primary-dark);"></span>
+        <button id="nav-logout-btn" style="display:none;background:none;border:1px solid var(--primary);color:var(--primary-dark);padding:0.5rem 1rem;border-radius:999px;font-weight:700;font-size:0.88rem;cursor:pointer;font-family:inherit;">Logout</button>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div id="login-prompt" class="login-prompt-card glass-card" style="display:none;">
+      <h2>Login Required</h2>
+      <p>Sign in to view the feedback dashboard.</p>
+      <a href="/login.html" class="btn btn-primary">Login / Register</a>
+    </div>
+
+    <section id="feedback-dashboard" class="feedback-section" style="display:none;">
+      <div class="container">
+        <div class="feedback-header">
+          <h1>Feedback Dashboard</h1>
+          <p>Real-time feedback from kids on book and video recommendations <span class="live-badge"><span class="live-dot"></span>Live</span></p>
+        </div>
+
+        <div id="feedback-loading" class="spinner-wrap">
+          <div class="spinner"></div>
+        </div>
+
+        <!-- Summary Stats -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-value" id="stat-total">0</div>
+            <div class="stat-label">Total Feedback</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="stat-positive">0</div>
+            <div class="stat-label">Thumbs Up</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="stat-negative">0</div>
+            <div class="stat-label">Thumbs Down</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="stat-pct">0%</div>
+            <div class="stat-label">Positive Rate</div>
+          </div>
+        </div>
+
+        <!-- Top Rated Items -->
+        <div class="top-items-section">
+          <h2>Top Rated Recommendations</h2>
+          <div class="top-items-grid" id="top-items"></div>
+        </div>
+
+        <!-- Recent Feedback -->
+        <div class="recent-section">
+          <h2>Recent Feedback</h2>
+          <div class="table-card">
+            <table class="feedback-table">
+              <thead>
+                <tr>
+                  <th>Title</th>
+                  <th>Type</th>
+                  <th>Feedback</th>
+                  <th>Time</th>
+                </tr>
+              </thead>
+              <tbody id="feedback-tbody">
+                <tr><td colspan="4" style="text-align:center;color:var(--muted);">Loading...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/js/script.js"></script>
+  <script type="module">
+    import { initAuthUI } from './js/firebase-config.js';
+    import { initFeedbackDashboard } from './js/feedback.js';
+    initAuthUI();
+    initFeedbackDashboard();
+  </script>
+</body>
+</html>

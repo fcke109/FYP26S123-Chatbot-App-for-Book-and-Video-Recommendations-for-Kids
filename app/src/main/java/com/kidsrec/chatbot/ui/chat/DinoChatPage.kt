@@ -14,6 +14,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.ThumbDown
+import androidx.compose.material.icons.outlined.ThumbUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -59,6 +61,7 @@ fun DinoChatPage(
     val conversations by viewModel.conversations.collectAsState()
     val favoriteItems by favoritesViewModel.favorites.collectAsState()
     val isGuestUser by favoritesViewModel.isGuest.collectAsState()
+    val userFeedback by viewModel.userFeedback.collectAsState()
     val searchUiState by searchViewModel.uiState.collectAsState()
 
     var messageText by remember { mutableStateOf("") }
@@ -166,6 +169,7 @@ fun DinoChatPage(
                         MessageBubble(
                             message = message,
                             favoriteItems = favoriteItems,
+                            userFeedback = userFeedback,
                             isGuest = isGuestUser,
                             onToggleFavorite = { rec ->
                                 val isFav = favoriteItems.any { it.itemId == rec.id }
@@ -188,6 +192,12 @@ fun DinoChatPage(
                                         )
                                     }
                                 }
+                            },
+                            onThumbsUp = { rec ->
+                                viewModel.submitFeedback(rec.id, rec.title, rec.type, true)
+                            },
+                            onThumbsDown = { rec ->
+                                viewModel.submitFeedback(rec.id, rec.title, rec.type, false)
                             },
                             onOpenRecommendation = onOpenRecommendation,
                             onGetBookPreviewUrl = { title -> viewModel.getBookPreviewUrl(title) }
@@ -348,8 +358,11 @@ fun WelcomeView() {
 fun MessageBubble(
     message: ChatMessage,
     favoriteItems: List<com.kidsrec.chatbot.data.model.Favorite>,
+    userFeedback: List<com.kidsrec.chatbot.data.model.Feedback> = emptyList(),
     isGuest: Boolean = false,
     onToggleFavorite: (Recommendation) -> Unit,
+    onThumbsUp: (Recommendation) -> Unit = {},
+    onThumbsDown: (Recommendation) -> Unit = {},
     onOpenRecommendation: (String, String, Boolean, String, String, String) -> Unit,
     onGetBookPreviewUrl: (suspend (String) -> String)? = null
 ) {
@@ -372,10 +385,14 @@ fun MessageBubble(
             ) {
                 items(message.recommendations) { recommendation ->
                     val isFavorited = favoriteItems.any { it.itemId == recommendation.id }
+                    val feedback = userFeedback.find { it.recommendationId == recommendation.id }
                     RecommendationCard(
                         recommendation = recommendation,
                         isFavorited = isFavorited,
                         showFavoriteButton = !isGuest,
+                        feedbackState = feedback?.isPositive,
+                        onThumbsUp = { onThumbsUp(recommendation) },
+                        onThumbsDown = { onThumbsDown(recommendation) },
                         onToggleFavorite = { onToggleFavorite(recommendation) },
                         onOpenRecommendation = onOpenRecommendation,
                         onGetBookPreviewUrl = onGetBookPreviewUrl
@@ -391,6 +408,9 @@ fun RecommendationCard(
     recommendation: Recommendation,
     isFavorited: Boolean,
     showFavoriteButton: Boolean = true,
+    feedbackState: Boolean? = null, // null = no feedback, true = thumbs up, false = thumbs down
+    onThumbsUp: () -> Unit = {},
+    onThumbsDown: () -> Unit = {},
     onToggleFavorite: () -> Unit,
     onOpenRecommendation: (String, String, Boolean, String, String, String) -> Unit,
     onGetBookPreviewUrl: (suspend (String) -> String)? = null
@@ -566,17 +586,41 @@ fun RecommendationCard(
                         Text(if (isVideo) "Watch" else "Read", fontSize = 12.sp)
                     }
                     
-                    if (showFavoriteButton) {
+                    Row {
                         IconButton(
-                            onClick = onToggleFavorite,
-                            modifier = Modifier.size(32.dp)
+                            onClick = onThumbsUp,
+                            modifier = Modifier.size(28.dp)
                         ) {
                             Icon(
-                                imageVector = if (isFavorited) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                                contentDescription = "Toggle Favorite",
-                                modifier = Modifier.size(20.dp),
-                                tint = if (isFavorited) Color.Red else MaterialTheme.colorScheme.primary
+                                imageVector = if (feedbackState == true) Icons.Default.ThumbUp else Icons.Outlined.ThumbUp,
+                                contentDescription = "Thumbs Up",
+                                modifier = Modifier.size(16.dp),
+                                tint = if (feedbackState == true) Color(0xFF4CAF50) else MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                        }
+                        IconButton(
+                            onClick = onThumbsDown,
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (feedbackState == false) Icons.Default.ThumbDown else Icons.Outlined.ThumbDown,
+                                contentDescription = "Thumbs Down",
+                                modifier = Modifier.size(16.dp),
+                                tint = if (feedbackState == false) Color(0xFFF44336) else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        if (showFavoriteButton) {
+                            IconButton(
+                                onClick = onToggleFavorite,
+                                modifier = Modifier.size(28.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (isFavorited) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                    contentDescription = "Toggle Favorite",
+                                    modifier = Modifier.size(18.dp),
+                                    tint = if (isFavorited) Color.Red else MaterialTheme.colorScheme.primary
+                                )
+                            }
                         }
                     }
                 }

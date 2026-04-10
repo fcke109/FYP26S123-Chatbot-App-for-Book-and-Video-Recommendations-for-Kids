@@ -800,4 +800,79 @@ RULES FOR JSON:
             recommendations
         }
     }
+
+    /**
+     * Generate and send initial recommendations for a new user based on their interests.
+     * Called once when a child account first opens the chat.
+     */
+    suspend fun sendInitialRecommendations(
+        userId: String,
+        conversationId: String
+    ): Result<ChatMessage> {
+        return try {
+            val userDoc = firestore.collection("users").document(userId).get().await()
+            val user = userDoc.toObject(User::class.java)
+                ?: return Result.failure(Exception("User not found"))
+
+            if (user.interests.isEmpty()) {
+                return Result.failure(Exception("No interests set"))
+            }
+
+            val curatedBooks = bookDataManager.getCuratedBooks().getOrDefault(emptyList())
+            val favorites = favoritesManager.getFavorites(userId)
+
+            val topPicks = recommendationEngine.getTopRecommendations(
+                curatedBooks = curatedBooks,
+                user = user,
+                favorites = favorites,
+                limit = 4
+            )
+
+            if (topPicks.isEmpty()) {
+                return Result.failure(Exception("No recommendations available"))
+            }
+
+            val interestsList = user.interests.take(3).joinToString(", ")
+            val welcomeContent = "Welcome! Since you like $interestsList, here are some books and videos I picked just for you!"
+
+            val botMessage = ChatMessage(
+                id = firestore.collection("chatHistory")
+                    .document(userId)
+                    .collection("conversations")
+                    .document(conversationId)
+                    .collection("messages")
+                    .document().id,
+                role = MessageRole.ASSISTANT,
+                content = welcomeContent,
+                timestamp = Timestamp.now(),
+                recommendations = topPicks
+            )
+
+            firestore.collection("chatHistory")
+                .document(userId)
+                .collection("conversations")
+                .document(conversationId)
+                .collection("messages")
+                .document(botMessage.id)
+                .set(botMessage)
+                .await()
+
+            firestore.collection("chatHistory")
+                .document(userId)
+                .collection("conversations")
+                .document(conversationId)
+                .update(
+                    mapOf(
+                        "lastUpdated" to Timestamp.now(),
+                        "preview" to welcomeContent.take(80)
+                    )
+                )
+                .await()
+
+            Result.success(botMessage)
+        } catch (e: Exception) {
+            Log.e("ChatDataManager", "sendInitialRecommendations failed", e)
+            Result.failure(e)
+        }
+    }
 }
