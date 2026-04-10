@@ -266,7 +266,7 @@ fun DinoChatPage(
                         ) {
                             Text(
                                 text = warning,
-                                color = MaterialTheme.colorScheme.errorContainer,
+                                color = MaterialTheme.colorScheme.onErrorContainer,
                                 fontSize = 13.sp,
                                 modifier = Modifier.weight(1f)
                             )
