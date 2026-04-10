@@ -6,6 +6,12 @@ import com.kidsrec.chatbot.data.model.AccountType
 import com.kidsrec.chatbot.data.model.PlanType
 import com.kidsrec.chatbot.data.model.User
 import com.kidsrec.chatbot.data.repository.AccountManager
+import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
+import com.google.firebase.auth.FirebaseAuthInvalidUserException
+import com.google.firebase.auth.FirebaseAuthUserCollisionException
+import com.google.firebase.auth.FirebaseAuthWeakPasswordException
+import com.google.firebase.FirebaseNetworkException
+import com.google.firebase.FirebaseTooManyRequestsException
 import dagger.hilt.android.lifecycle.HiltViewModel
 import android.util.Log
 import kotlinx.coroutines.flow.*
@@ -76,7 +82,8 @@ class AuthViewModel @Inject constructor(
                     }
                 },
                 onFailure = { error ->
-                    _authState.value = AuthState.Error(mapFirebaseError(error.message))
+                    Log.e("AuthVM", "Sign-in error: ${error::class.simpleName} -> ${error.message}", error)
+                    _authState.value = AuthState.Error(mapFirebaseError(error))
                 }
             )
         }
@@ -114,7 +121,7 @@ class AuthViewModel @Inject constructor(
                     loadUserData(user.uid)
                 },
                 onFailure = { error ->
-                    _authState.value = AuthState.Error(mapFirebaseError(error.message))
+                    _authState.value = AuthState.Error(mapFirebaseError(error))
                 }
             )
         }
@@ -133,7 +140,7 @@ class AuthViewModel @Inject constructor(
                 },
                 onFailure = { error ->
                     _currentUser.value = null
-                    _authState.value = AuthState.Error(mapFirebaseError(error.message))
+                    _authState.value = AuthState.Error(mapFirebaseError(error))
                 }
             )
         }
@@ -162,9 +169,7 @@ class AuthViewModel @Inject constructor(
                 onFailure = { error ->
                     // Ensure we're signed out if signup failed
                     _currentUser.value = null
-                    _authState.value = AuthState.Error(
-                        error.message ?: "Something went wrong."
-                    )
+                    _authState.value = AuthState.Error(mapFirebaseError(error))
                 }
             )
         }
@@ -203,7 +208,7 @@ class AuthViewModel @Inject constructor(
                         if (error.message?.contains("ADMIN_ONLY_OPERATION") == true ||
                             error.message?.contains("anonymous") == true)
                             "Guest browsing is not enabled. Please ask the admin to enable Anonymous sign-in in Firebase."
-                        else mapFirebaseError(error.message)
+                        else mapFirebaseError(error)
                     )
                 }
             )
@@ -265,18 +270,18 @@ class AuthViewModel @Inject constructor(
         }
     }
 
-    private fun mapFirebaseError(message: String?): String {
-        if (message == null) return "Something went wrong."
-        val msg = message.lowercase()
-        return when {
-            msg.contains("badly formatted") -> "Valid email required."
-            msg.contains("wrong password") || msg.contains("invalid credential") || msg.contains("invalid_login_credentials") -> "Incorrect email or password."
-            msg.contains("no user record") || msg.contains("user_not_found") -> "No account found."
-            msg.contains("already in use") || msg.contains("email_exists") -> "Email already registered."
-            msg.contains("too many") || msg.contains("too_many_attempts") -> "Too many attempts. Try again later."
-            msg.contains("weak password") || msg.contains("weak_password") -> "Password is too weak. Use at least 6 characters."
-            msg.contains("network") -> "Network error. Check your connection."
-            else -> "Something went wrong."
+    private fun mapFirebaseError(error: Throwable): String {
+        return when (error) {
+            is FirebaseAuthInvalidCredentialsException -> "Incorrect email or password."
+            is FirebaseAuthInvalidUserException -> "No account found with this email."
+            is FirebaseAuthUserCollisionException -> "Email already registered."
+            is FirebaseAuthWeakPasswordException -> "Password is too weak. Use at least 6 characters."
+            is FirebaseTooManyRequestsException -> "Too many attempts. Try again later."
+            is FirebaseNetworkException -> "Network error. Check your connection."
+            else -> {
+                Log.w("AuthVM", "Unmapped auth error: ${error::class.simpleName} -> ${error.message}")
+                "Something went wrong. Please try again."
+            }
         }
     }
 }

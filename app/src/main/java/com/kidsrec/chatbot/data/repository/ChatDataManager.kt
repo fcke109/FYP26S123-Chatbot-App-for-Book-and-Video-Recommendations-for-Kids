@@ -268,17 +268,19 @@ $curatedBooksContext
 $approvedVideosContext
 
 CRITICAL RULES:
-1. ALWAYS recommend content that DIRECTLY matches what the child asked about. Relevance is the #1 priority.
-2. For BOOKS: If a curated book matches the child's topic, use that exact title. Otherwise, suggest a real, well-known children's book about their specific topic (e.g. if they say "superman", recommend a Superman book, NOT a random unrelated book).
-3. For VIDEOS: ONLY use an approved video if it DIRECTLY matches what the child asked about (e.g. child asks about "sharks" → "Baby Shark Dance" is a match). If NO approved video matches their topic, recommend a video title that closely describes what they want (e.g. child asks about "superman" → use "Superman Cartoon for Kids" NOT "Dinosaurs for Kids").
-4. NEVER substitute an unrelated approved video just because it exists. If the child asks about "superman" and there is no superman video in the approved list, recommend a searchable superman video title instead.
-5. For any recommendation, provide a reason why it is fun for the child.
-6. Always include a mix of BOTH:
-   - at least 1 BOOK
-   - at least 1 VIDEO
-7. Keep the response friendly and short for children.
+1. For casual messages like greetings ("hi", "hello", "hey", "what's up", "how are you"), jokes, thank-yous, or general chitchat that do NOT ask about a topic, book, or video:
+   - Reply with a short, friendly message ONLY. Do NOT include a [RECOMMENDATIONS] block.
+   - Example: "hi" → "Hey there! I'm Little Dino, your story buddy! What kind of books or videos are you in the mood for today?"
+2. ONLY include recommendations when the child asks about a specific topic, requests a book/video, or expresses an interest.
+3. When recommending, ALWAYS recommend content that DIRECTLY matches what the child asked about. Relevance is the #1 priority.
+4. For BOOKS: If a curated book matches the child's topic, use that exact title. Otherwise, suggest a real, well-known children's book about their specific topic (e.g. if they say "superman", recommend a Superman book, NOT a random unrelated book).
+5. For VIDEOS: ONLY use an approved video if it DIRECTLY matches what the child asked about (e.g. child asks about "sharks" → "Baby Shark Dance" is a match). If NO approved video matches their topic, recommend a video title that closely describes what they want (e.g. child asks about "superman" → use "Superman Cartoon for Kids" NOT "Dinosaurs for Kids").
+6. NEVER substitute an unrelated approved video just because it exists. If the child asks about "superman" and there is no superman video in the approved list, recommend a searchable superman video title instead.
+7. For any recommendation, provide a reason why it is fun for the child.
+8. When recommending, include a mix of BOTH at least 1 BOOK and at least 1 VIDEO.
+9. Keep the response friendly and short for children.
 
-Response format:
+Response format when recommendations are needed:
 1. Friendly message (1-2 sentences).
 2. End with this EXACT block:
 
@@ -288,6 +290,9 @@ Response format:
   {"type":"VIDEO","title":"Video Title","description":"1 short sentence","reason":"Why it is fun"}
 ]
 [/RECOMMENDATIONS]
+
+Response format for casual/greeting messages:
+- Just a friendly message. No [RECOMMENDATIONS] block.
 
 RULES FOR JSON:
 - type must be BOOK or VIDEO
@@ -321,24 +326,29 @@ RULES FOR JSON:
 
             val (cleanContent, parsedRecs) = parseRecommendations(botResponse)
 
-            val withContentUrls = attachContentUrls(
-                recommendations = parsedRecs,
-                curatedBooks = curatedBooks,
-                approvedVideos = approvedVideos
-            )
+            // Only run recommendation pipeline if the AI actually returned recommendations
+            val recommendations = if (parsedRecs.isNotEmpty()) {
+                val withContentUrls = attachContentUrls(
+                    recommendations = parsedRecs,
+                    curatedBooks = curatedBooks,
+                    approvedVideos = approvedVideos
+                )
 
-            val ensuredMix = ensureBookAndVideoMix(
-                originalMessage = sanitizedMessage,
-                recommendations = withContentUrls,
-                curatedBooks = curatedBooks,
-                approvedVideos = approvedVideos
-            )
+                val ensuredMix = ensureBookAndVideoMix(
+                    originalMessage = sanitizedMessage,
+                    recommendations = withContentUrls,
+                    curatedBooks = curatedBooks,
+                    approvedVideos = approvedVideos
+                )
 
-            val recommendations = scoreWithANN(
-                recommendations = ensuredMix,
-                curatedBooks = curatedBooks,
-                userId = userId
-            )
+                scoreWithANN(
+                    recommendations = ensuredMix,
+                    curatedBooks = curatedBooks,
+                    userId = userId
+                )
+            } else {
+                emptyList()
+            }
 
             val botMessage = ChatMessage(
                 id = firestore.collection("chatHistory")
@@ -348,7 +358,7 @@ RULES FOR JSON:
                     .collection("messages")
                     .document().id,
                 role = MessageRole.ASSISTANT,
-                content = cleanContent.ifBlank { "Here are some fun picks for you!" },
+                content = cleanContent.ifBlank { botResponse },
                 timestamp = Timestamp.now(),
                 recommendations = recommendations
             )
