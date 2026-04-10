@@ -567,8 +567,8 @@
       onSnapshot(feedbackQuery, (snapshot) => {
         const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         renderLiveFeedback(items);
-      }, () => {
-        // On error (e.g. not authenticated), show empty state
+      }, (err) => {
+        console.warn('Live feedback listener error:', err.message);
         renderLiveFeedback([]);
       });
     })();

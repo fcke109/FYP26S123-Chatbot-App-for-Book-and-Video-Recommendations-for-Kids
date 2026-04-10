@@ -101,10 +101,10 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // Feedback collection
+    // Feedback collection (read is public so the website landing page can show live feedback)
     match /feedback/{feedbackId} {
+      allow read: if true;
       allow create: if isAuthenticated();
-      allow read: if isAuthenticated();
       allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
 
