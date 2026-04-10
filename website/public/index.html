@@ -419,122 +419,21 @@
     <section class="section alt-bg" id="testimonials">
       <div class="container">
         <div class="section-heading">
-          <span class="tag">Testimonials</span>
-          <h2>What families may say about Little Dino</h2>
-          <p>A moving testimonial section helps the website feel more alive and more human.</p>
+          <span class="tag">Live Feedback</span>
+          <h2>What kids think of their recommendations</h2>
+          <p>Real-time feedback from children using Little Dino. <span class="live-badge"><span class="live-dot"></span>Live</span></p>
+        </div>
+
+        <div id="live-feedback-stats" class="live-stats-row" style="display:none;">
+          <div class="live-stat glass-card"><span id="live-total" class="live-stat-value">0</span><span class="live-stat-label">Total</span></div>
+          <div class="live-stat glass-card"><span id="live-positive" class="live-stat-value">0</span><span class="live-stat-label">Liked</span></div>
+          <div class="live-stat glass-card"><span id="live-pct" class="live-stat-value">0%</span><span class="live-stat-label">Positive</span></div>
         </div>
 
         <div class="testimonial-slider-wrapper">
-          <div class="testimonial-slider-track">
-            <div class="testimonial-card moving-card glass-card">
-              <div class="testimonial-user">
-                <img src="https://i.pravatar.cc/100?img=32" alt="Parent profile" class="testimonial-avatar" />
-                <div>
-                  <h4>Amira, Parent</h4>
-                  <span>★★★★★</span>
-                </div>
-              </div>
-              <p>"Little Dino has made it much easier for my child to explore content safely."</p>
-            </div>
-
-            <div class="testimonial-card moving-card glass-card">
-              <div class="testimonial-user">
-                <img src="https://i.pravatar.cc/100?img=12" alt="Parent profile" class="testimonial-avatar" />
-                <div>
-                  <h4>Daniel, Parent</h4>
-                  <span>★★★★★</span>
-                </div>
-              </div>
-              <p>"My child just asks the chatbot and gets great recommendations instantly."</p>
-            </div>
-
-            <div class="testimonial-card moving-card glass-card">
-              <div class="testimonial-user">
-                <img src="https://i.pravatar.cc/100?img=47" alt="Parent profile" class="testimonial-avatar" />
-                <div>
-                  <h4>Sophia, Parent</h4>
-                  <span>★★★★★</span>
-                </div>
-              </div>
-              <p>"The screen time feature is a game changer for our family."</p>
-            </div>
-
-            <div class="testimonial-card moving-card glass-card">
-              <div class="testimonial-user">
-                <img src="https://i.pravatar.cc/400?img=37" alt="Child profile" class="testimonial-avatar" />
-                <div>
-                  <h4>Maxine, Child</h4>
-                  <span>★★★★★</span>
-                </div>
-              </div>
-              <p>"I love talking to the dino! It gives me cool books and videos."</p>
-            </div>
-
-            <div class="testimonial-card moving-card glass-card">
-              <div class="testimonial-user">
-                <img src="https://i.pravatar.cc/400?img=4" alt="Child profile" class="testimonial-avatar" />
-                <div>
-                  <h4>Daniel, Child</h4>
-                  <span>★★★★★</span>
-                </div>
-              </div>
-              <p>"It feels like a fun story helper inside the app."</p>
-            </div>
-
-            <!-- Duplicate for infinite scroll -->
-            <div class="testimonial-card moving-card glass-card">
-              <div class="testimonial-user">
-                <img src="https://i.pravatar.cc/100?img=32" alt="Parent profile" class="testimonial-avatar" />
-                <div>
-                  <h4>Amira, Parent</h4>
-                  <span>★★★★★</span>
-                </div>
-              </div>
-              <p>"Little Dino has made it much easier for my child to explore content safely."</p>
-            </div>
-
-            <div class="testimonial-card moving-card glass-card">
-              <div class="testimonial-user">
-                <img src="https://i.pravatar.cc/100?img=12" alt="Parent profile" class="testimonial-avatar" />
-                <div>
-                  <h4>Daniel, Parent</h4>
-                  <span>★★★★★</span>
-                </div>
-              </div>
-              <p>"My child just asks the chatbot and gets great recommendations instantly."</p>
-            </div>
-
-            <div class="testimonial-card moving-card glass-card">
-              <div class="testimonial-user">
-                <img src="https://i.pravatar.cc/100?img=47" alt="Parent profile" class="testimonial-avatar" />
-                <div>
-                  <h4>Sophia, Parent</h4>
-                  <span>★★★★★</span>
-                </div>
-              </div>
-              <p>"The screen time feature is a game changer for our family."</p>
-            </div>
-
-            <div class="testimonial-card moving-card glass-card">
-              <div class="testimonial-user">
-                <img src="https://i.pravatar.cc/400?img=37" alt="Child profile" class="testimonial-avatar" />
-                <div>
-                  <h4>Maxine, Child</h4>
-                  <span>★★★★★</span>
-                </div>
-              </div>
-              <p>"I love talking to the dino! It gives me cool books and videos."</p>
-            </div>
-
-            <div class="testimonial-card moving-card glass-card">
-              <div class="testimonial-user">
-                <img src="https://i.pravatar.cc/400?img=4" alt="Child profile" class="testimonial-avatar" />
-                <div>
-                  <h4>Daniel, Child</h4>
-                  <span>★★★★★</span>
-                </div>
-              </div>
-              <p>"It feels like a fun story helper inside the app."</p>
+          <div class="testimonial-slider-track" id="live-feedback-track">
+            <div class="testimonial-card glass-card" style="min-width:280px;text-align:center;padding:2rem;">
+              <p style="color:var(--muted);">Loading live feedback...</p>
             </div>
           </div>
         </div>
@@ -660,7 +559,72 @@
 
   <script src="/js/script.js"></script>
   <script type="module">
-    import { auth, initAuthUI, onAuthStateChanged, signOut } from '/js/firebase-config.js';
+    import { auth, db, initAuthUI, onAuthStateChanged, signOut, collection, query, orderBy, limit, onSnapshot } from '/js/firebase-config.js';
+
+    // Live feedback loader
+    (function loadLiveFeedback() {
+      const feedbackQuery = query(collection(db, 'feedback'), orderBy('timestamp', 'desc'), limit(50));
+      onSnapshot(feedbackQuery, (snapshot) => {
+        const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        renderLiveFeedback(items);
+      }, () => {
+        // On error (e.g. not authenticated), show empty state
+        renderLiveFeedback([]);
+      });
+    })();
+
+    function renderLiveFeedback(items) {
+      const track = document.getElementById('live-feedback-track');
+      const statsRow = document.getElementById('live-feedback-stats');
+      if (!track) return;
+
+      if (items.length === 0) {
+        track.innerHTML = '<div class="no-feedback-msg glass-card">No feedback yet. Be the first to rate a recommendation in the app!</div>';
+        if (statsRow) statsRow.style.display = 'none';
+        track.style.animation = 'none';
+        return;
+      }
+
+      // Stats
+      const total = items.length;
+      const positive = items.filter(f => f.isPositive === true).length;
+      const pct = Math.round((positive / total) * 100);
+      document.getElementById('live-total').textContent = total;
+      document.getElementById('live-positive').textContent = positive;
+      document.getElementById('live-pct').textContent = pct + '%';
+      if (statsRow) statsRow.style.display = 'flex';
+
+      // Build cards (duplicate for infinite scroll)
+      const positiveItems = items.filter(f => f.isPositive === true);
+      const displayItems = positiveItems.length > 0 ? positiveItems : items;
+
+      let html = '';
+      const buildCard = (f) => {
+        const type = f.recommendationType || 'BOOK';
+        const icon = f.isPositive ? '\u{1F44D}' : '\u{1F44E}';
+        const title = esc(f.recommendationTitle || 'Unknown');
+        return `<div class="feedback-card glass-card">
+          <div class="feedback-card-header">
+            <span class="feedback-card-icon">${icon}</span>
+            <span class="feedback-card-type ${type === 'VIDEO' ? 'video' : 'book'}">${type}</span>
+          </div>
+          <h4>${title}</h4>
+          <p>${f.isPositive ? 'Loved this recommendation!' : 'Not a fan of this one'}</p>
+        </div>`;
+      };
+
+      displayItems.forEach(f => { html += buildCard(f); });
+      // Duplicate for seamless scroll
+      displayItems.forEach(f => { html += buildCard(f); });
+
+      track.innerHTML = html;
+
+      // Adjust scroll speed based on item count
+      const duration = Math.max(12, displayItems.length * 4);
+      track.style.animation = `scrollTestimonials ${duration}s linear infinite`;
+    }
+
+    function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
     const loginLink = document.getElementById('nav-login-link');
     const userName = document.getElementById('nav-user-name');
