@@ -270,10 +270,12 @@ class AuthViewModel @Inject constructor(
         val msg = message.lowercase()
         return when {
             msg.contains("badly formatted") -> "Valid email required."
-            msg.contains("wrong password") || msg.contains("invalid credential") -> "Incorrect email or password."
-            msg.contains("no user record") -> "No account found."
-            msg.contains("already in use") -> "Email already registered."
-            msg.contains("network") -> "Network error."
+            msg.contains("wrong password") || msg.contains("invalid credential") || msg.contains("invalid_login_credentials") -> "Incorrect email or password."
+            msg.contains("no user record") || msg.contains("user_not_found") -> "No account found."
+            msg.contains("already in use") || msg.contains("email_exists") -> "Email already registered."
+            msg.contains("too many") || msg.contains("too_many_attempts") -> "Too many attempts. Try again later."
+            msg.contains("weak password") || msg.contains("weak_password") -> "Password is too weak. Use at least 6 characters."
+            msg.contains("network") -> "Network error. Check your connection."
             else -> "Something went wrong."
         }
     }
