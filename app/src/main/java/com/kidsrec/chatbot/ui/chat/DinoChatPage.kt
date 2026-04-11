@@ -6,6 +6,7 @@ import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.speech.RecognizerIntent
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -44,12 +45,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import coil.compose.AsyncImage
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import com.kidsrec.chatbot.R
 import com.kidsrec.chatbot.data.model.ChatMessage
 import com.kidsrec.chatbot.data.model.Conversation
 import com.kidsrec.chatbot.data.model.MessageRole
 import com.kidsrec.chatbot.data.model.Recommendation
 import com.kidsrec.chatbot.data.model.RecommendationType
+import com.kidsrec.chatbot.data.repository.LearningProgressManager
 import com.kidsrec.chatbot.ui.favorites.FavoritesViewModel
 import com.kidsrec.chatbot.ui.library.SmartSearchViewModel
 import kotlinx.coroutines.launch
@@ -167,7 +171,64 @@ fun DinoChatPage(
         }
     }
 
-    // Ghost text autocomplete logic
+    val trackedOpenRecommendation: (String, String, Boolean, String, String, String) -> Unit =
+        { url, title, isVideo, itemId, imageUrl, description ->
+
+            val currentUid = FirebaseAuth.getInstance().currentUser?.uid
+
+            if (currentUid != null) {
+                coroutineScope.launch {
+                    try {
+                        val learningProgressManager =
+                            LearningProgressManager(FirebaseFirestore.getInstance())
+
+                        if (isVideo) {
+                            val result = learningProgressManager.trackVideoWatched(
+                                childUserId = currentUid,
+                                contentId = itemId,
+                                title = title,
+                                topic = title
+                            )
+
+                            if (result.isFailure) {
+                                Log.e(
+                                    "DinoChatPage",
+                                    "Failed to track video watched: ${result.exceptionOrNull()?.message}",
+                                    result.exceptionOrNull()
+                                )
+                            } else {
+                                Log.d("DinoChatPage", "Tracked video watched: $title")
+                            }
+                        } else {
+                            val result = learningProgressManager.trackBookRead(
+                                childUserId = currentUid,
+                                contentId = itemId,
+                                title = title,
+                                topic = title,
+                                readingLevel = "Beginner"
+                            )
+
+                            if (result.isFailure) {
+                                Log.e(
+                                    "DinoChatPage",
+                                    "Failed to track book read: ${result.exceptionOrNull()?.message}",
+                                    result.exceptionOrNull()
+                                )
+                            } else {
+                                Log.d("DinoChatPage", "Tracked book read: $title")
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.e("DinoChatPage", "Tracking recommendation failed: ${e.message}", e)
+                    }
+
+                    onOpenRecommendation(url, title, isVideo, itemId, imageUrl, description)
+                }
+            } else {
+                onOpenRecommendation(url, title, isVideo, itemId, imageUrl, description)
+            }
+        }
+
     val autocompleteSuggestion = remember(messageText, searchUiState.suggestions) {
         if (messageText.isBlank() || messageText.endsWith(" ")) return@remember null
 
@@ -309,7 +370,7 @@ fun DinoChatPage(
                                     }
                                 }
                             },
-                            onOpenRecommendation = onOpenRecommendation,
+                            onOpenRecommendation = trackedOpenRecommendation,
                             onGetBookPreviewUrl = { title -> viewModel.getBookPreviewUrl(title) }
                         )
                     }

@@ -59,6 +59,7 @@ import com.kidsrec.chatbot.ui.library.SmartSearchViewModel
 import com.kidsrec.chatbot.ui.library.UserLibraryScreen
 import com.kidsrec.chatbot.ui.parent.ParentDashboardScreen
 import com.kidsrec.chatbot.ui.parent.ParentDashboardViewModel
+import com.kidsrec.chatbot.ui.parent.ParentProgressViewModel
 import com.kidsrec.chatbot.ui.profile.ProfileScreen
 import com.kidsrec.chatbot.ui.profile.ProfileViewModel
 import com.kidsrec.chatbot.ui.billing.PremiumUpgradeScreen
@@ -167,7 +168,6 @@ private fun buildContentRoute(
     Log.d("KidsRecNav", "Clean URL: $cleanUrl")
     Log.d("KidsRecNav", "Incoming isVideo: $isVideo")
 
-    // Route YouTube videos to in-app player (only if URL is actually YouTube)
     if (isYoutubeLikeUrl(cleanUrl)) {
         val youtubeId = extractYoutubeId(cleanUrl)
         if (youtubeId != null) {
@@ -176,7 +176,6 @@ private fun buildContentRoute(
         }
     }
 
-    // FORCE correct mode from URL when possible
     val finalIsVideo = when {
         cleanUrl.isBlank() -> isVideo
         isKnownBookUrl(cleanUrl) -> false
@@ -221,10 +220,14 @@ fun AppNavigation() {
 
     when (authState) {
         is AuthState.Authenticated -> MainScreen(
-            authViewModel, isAdmin, isParent,
+            authViewModel,
+            isAdmin,
+            isParent,
             isGuest = currentUser?.isGuest == true
         )
+
         is AuthState.EmailNotVerified -> EmailVerificationScreen(authViewModel)
+
         is AuthState.Initial -> Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
@@ -265,7 +268,12 @@ fun AuthNavigation(authViewModel: AuthViewModel) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean = false, isGuest: Boolean = false) {
+fun MainScreen(
+    authViewModel: AuthViewModel,
+    isAdmin: Boolean,
+    isParent: Boolean = false,
+    isGuest: Boolean = false
+) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
@@ -273,24 +281,20 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
     val favoritesViewModel: FavoritesViewModel = hiltViewModel()
     val notificationsViewModel: NotificationsViewModel = hiltViewModel()
 
-    // Check for unread announcements on login
     val currentUser by authViewModel.currentUser.collectAsState()
     val notifications by notificationsViewModel.uiState.collectAsState()
     val unreadAnnouncements = notifications.filter { !it.read && it.type == "announcement" }
 
-    // Start notifications listener when user is available
     LaunchedEffect(currentUser?.id) {
         currentUser?.id?.let { userId ->
             notificationsViewModel.startListening(userId)
         }
     }
 
-    // Show announcement dialog if there are unread announcements
     if (unreadAnnouncements.isNotEmpty()) {
         AnnouncementDialog(
             announcements = unreadAnnouncements,
             onDismiss = {
-                // Mark all announcements as read
                 currentUser?.id?.let { userId ->
                     unreadAnnouncements.forEach { notification ->
                         notificationsViewModel.markRead(userId, notification.id)
@@ -300,7 +304,6 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
         )
     }
 
-    // Re-trigger favourites loading after auth completes (fixes new account race condition)
     LaunchedEffect(Unit) {
         favoritesViewModel.loadFavorites()
     }
@@ -353,6 +356,7 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
     ) { innerPadding ->
 
         val isChildAccount = !isAdmin && !isParent
+
         val navContent: @Composable () -> Unit = {
             NavHost(
                 navController = navController,
@@ -360,296 +364,305 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
                 modifier = Modifier.padding(innerPadding)
             ) {
 
-            composable(Screen.Chat.route) {
-                val chatViewModel: ChatViewModel = hiltViewModel()
-                val searchViewModel: SmartSearchViewModel = hiltViewModel()
+                composable(Screen.Chat.route) {
+                    val chatViewModel: ChatViewModel = hiltViewModel()
+                    val searchViewModel: SmartSearchViewModel = hiltViewModel()
 
-                DinoChatPage(
-                    viewModel = chatViewModel,
-                    favoritesViewModel = favoritesViewModel,
-                    searchViewModel = searchViewModel,
-                    onOpenRecommendation = { url, title, isVideo, itemId, imageUrl, description ->
-                        profileViewModel.trackReading(title, url, coverUrl = imageUrl, isVideo = isVideo)
-                        navController.navigate(
-                            buildContentRoute(
-                                url = url,
-                                title = title,
-                                isVideo = isVideo,
-                                itemId = itemId,
-                                imageUrl = imageUrl,
-                                description = description
-                            )
-                        )
-                    }
-                )
-            }
-
-            composable(Screen.Library.route) {
-                val libraryViewModel: LibraryViewModel = hiltViewModel()
-                val searchViewModel: SmartSearchViewModel = hiltViewModel()
-
-                UserLibraryScreen(
-                    viewModel = libraryViewModel,
-                    favoritesViewModel = favoritesViewModel,
-                    searchViewModel = searchViewModel,
-                    onOpenRecommendation = { url, title, isVideo, itemId, imageUrl, description ->
-                        profileViewModel.trackReading(title, url, coverUrl = imageUrl, isVideo = isVideo)
-                        navController.navigate(
-                            buildContentRoute(
-                                url = url,
-                                title = title,
-                                isVideo = isVideo,
-                                itemId = itemId,
-                                imageUrl = imageUrl,
-                                description = description
-                            )
-                        )
-                    }
-                )
-            }
-
-            composable(Screen.Favorites.route) {
-                FavoritesScreen(
-                    viewModel = favoritesViewModel,
-                    onOpenFavorite = { url, title, isVideo, itemId, imageUrl, description ->
-                        profileViewModel.trackReading(title, url, coverUrl = imageUrl, isVideo = isVideo)
-                        navController.navigate(
-                            buildContentRoute(
-                                url = url,
-                                title = title,
-                                isVideo = isVideo,
-                                itemId = itemId,
-                                imageUrl = imageUrl,
-                                description = description
-                            )
-                        )
-                    }
-                )
-            }
-
-            composable(Screen.Profile.route) {
-                ProfileScreen(
-                    authViewModel = authViewModel,
-                    profileViewModel = profileViewModel,
-                    onItemClick = { url, title, isVideo ->
-                        navController.navigate(
-                            buildContentRoute(
-                                url = url,
-                                title = title,
-                                isVideo = isVideo,
-                                itemId = "history",
-                                imageUrl = "none",
-                                description = "none"
-                            )
-                        )
-                    },
-                    onNavigateToParentalControls = {
-                        navController.navigate(Screen.ParentalControls.route)
-                    }
-                )
-            }
-
-            composable(Screen.Admin.route) {
-                val adminViewModel: AdminViewModel = hiltViewModel()
-
-                AdminScreen(
-                    viewModel = adminViewModel,
-                    onLogout = { authViewModel.signOut() },
-                    onViewBook = { title, url, isVideo ->
-                        navController.navigate(
-                            buildContentRoute(
-                                url = url,
-                                title = title,
-                                isVideo = isVideo,
-                                itemId = "admin",
-                                imageUrl = "none",
-                                description = "none"
-                            )
-                        )
-                    }
-                )
-            }
-
-            composable(Screen.AdminUpgrade.route) {
-                AdminUpgradeScreen(
-                    onBack = { navController.popBackStack() }
-                )
-            }
-
-            composable(Screen.ParentDashboard.route) {
-                val parentDashboardViewModel: ParentDashboardViewModel = hiltViewModel()
-
-                ParentDashboardScreen(
-                    viewModel = parentDashboardViewModel,
-                    onLogout = { authViewModel.signOut() },
-                    onUpgradePremium = { navController.navigate(Screen.PremiumUpgrade.route) }
-                )
-            }
-
-            composable(Screen.ParentalControls.route) {
-                ParentalControlsScreen(
-                    onNavigateBack = { navController.popBackStack() },
-                    authViewModel = authViewModel
-                )
-            }
-
-            composable(
-                Screen.SafeWebView.route,
-                arguments = listOf(
-                    navArgument("url") {
-                        type = NavType.StringType
-                        defaultValue = ""
-                    },
-                    navArgument("title") {
-                        type = NavType.StringType
-                        defaultValue = ""
-                    },
-                    navArgument("isVideo") {
-                        type = NavType.BoolType
-                        defaultValue = false
-                    },
-                    navArgument("itemId") {
-                        type = NavType.StringType
-                        defaultValue = ""
-                    },
-                    navArgument("imageUrl") {
-                        type = NavType.StringType
-                        defaultValue = ""
-                    },
-                    navArgument("description") {
-                        type = NavType.StringType
-                        defaultValue = ""
-                    }
-                )
-            ) { bse ->
-                val url = bse.arguments?.getString("url") ?: ""
-                if (url.isBlank()) {
-                    LaunchedEffect(Unit) { navController.popBackStack() }
-                } else {
-                    val analyticsRepository = EntryPointAccessors.fromApplication(
-                        LocalContext.current.applicationContext,
-                        AnalyticsEntryPoint::class.java
-                    ).analyticsRepository()
-                    val scope = rememberCoroutineScope()
-                    val itemId = bse.arguments?.getString("itemId") ?: ""
-                    val title = bse.arguments?.getString("title") ?: ""
-
-                    SafeWebViewScreen(
-                        url = url,
-                        title = title,
-                        isVideo = bse.arguments?.getBoolean("isVideo") ?: false,
-                        onClose = { durationSeconds ->
-                            val closeTimestamp = com.google.firebase.Timestamp.now()
-                            val openedAt = com.google.firebase.Timestamp(Date(closeTimestamp.toDate().time - durationSeconds * 1000))
-                            val userId = currentUser?.id ?: "unknown"
-                            scope.launch {
-                                analyticsRepository.trackDropOffPoint(
+                    DinoChatPage(
+                        viewModel = chatViewModel,
+                        favoritesViewModel = favoritesViewModel,
+                        searchViewModel = searchViewModel,
+                        onOpenRecommendation = { url, title, isVideo, itemId, imageUrl, description ->
+                            profileViewModel.trackReading(title, url, coverUrl = imageUrl, isVideo = isVideo)
+                            navController.navigate(
+                                buildContentRoute(
+                                    url = url,
+                                    title = title,
+                                    isVideo = isVideo,
                                     itemId = itemId,
-                                    itemTitle = title.ifBlank { url },
-                                    userId = userId,
-                                    openedAt = openedAt,
-                                    closedAt = closeTimestamp,
-                                    durationSeconds = durationSeconds
+                                    imageUrl = imageUrl,
+                                    description = description
                                 )
-                            }
-                            navController.popBackStack()
+                            )
                         }
                     )
                 }
-            }
 
-            composable(
-                Screen.YouTubePlayer.route,
-                arguments = listOf(
-                    navArgument("videoId") {
-                        type = NavType.StringType
-                        defaultValue = ""
-                    },
-                    navArgument("title") {
-                        type = NavType.StringType
-                        defaultValue = ""
+                composable(Screen.Library.route) {
+                    val libraryViewModel: LibraryViewModel = hiltViewModel()
+                    val searchViewModel: SmartSearchViewModel = hiltViewModel()
+
+                    UserLibraryScreen(
+                        viewModel = libraryViewModel,
+                        favoritesViewModel = favoritesViewModel,
+                        searchViewModel = searchViewModel,
+                        onOpenRecommendation = { url, title, isVideo, itemId, imageUrl, description ->
+                            profileViewModel.trackReading(title, url, coverUrl = imageUrl, isVideo = isVideo)
+                            navController.navigate(
+                                buildContentRoute(
+                                    url = url,
+                                    title = title,
+                                    isVideo = isVideo,
+                                    itemId = itemId,
+                                    imageUrl = imageUrl,
+                                    description = description
+                                )
+                            )
+                        }
+                    )
+                }
+
+                composable(Screen.Favorites.route) {
+                    FavoritesScreen(
+                        viewModel = favoritesViewModel,
+                        onOpenFavorite = { url, title, isVideo, itemId, imageUrl, description ->
+                            profileViewModel.trackReading(title, url, coverUrl = imageUrl, isVideo = isVideo)
+                            navController.navigate(
+                                buildContentRoute(
+                                    url = url,
+                                    title = title,
+                                    isVideo = isVideo,
+                                    itemId = itemId,
+                                    imageUrl = imageUrl,
+                                    description = description
+                                )
+                            )
+                        }
+                    )
+                }
+
+                composable(Screen.Profile.route) {
+                    ProfileScreen(
+                        authViewModel = authViewModel,
+                        profileViewModel = profileViewModel,
+                        onItemClick = { url, title, isVideo ->
+                            navController.navigate(
+                                buildContentRoute(
+                                    url = url,
+                                    title = title,
+                                    isVideo = isVideo,
+                                    itemId = "history",
+                                    imageUrl = "none",
+                                    description = "none"
+                                )
+                            )
+                        },
+                        onNavigateToParentalControls = {
+                            navController.navigate(Screen.ParentalControls.route)
+                        }
+                    )
+                }
+
+                composable(Screen.Admin.route) {
+                    val adminViewModel: AdminViewModel = hiltViewModel()
+
+                    AdminScreen(
+                        viewModel = adminViewModel,
+                        onLogout = { authViewModel.signOut() },
+                        onViewBook = { title, url, isVideo ->
+                            navController.navigate(
+                                buildContentRoute(
+                                    url = url,
+                                    title = title,
+                                    isVideo = isVideo,
+                                    itemId = "admin",
+                                    imageUrl = "none",
+                                    description = "none"
+                                )
+                            )
+                        }
+                    )
+                }
+
+                composable(Screen.AdminUpgrade.route) {
+                    AdminUpgradeScreen(
+                        onBack = { navController.popBackStack() }
+                    )
+                }
+
+                composable(Screen.ParentDashboard.route) {
+                    val parentDashboardViewModel: ParentDashboardViewModel = hiltViewModel()
+                    val parentProgressViewModel: ParentProgressViewModel = hiltViewModel()
+
+                    ParentDashboardScreen(
+                        viewModel = parentDashboardViewModel,
+                        parentProgressViewModel = parentProgressViewModel,
+                        onLogout = { authViewModel.signOut() },
+                        onUpgradePremium = { navController.navigate(Screen.PremiumUpgrade.route) }
+                    )
+                }
+
+                composable(Screen.ParentalControls.route) {
+                    ParentalControlsScreen(
+                        onNavigateBack = { navController.popBackStack() },
+                        authViewModel = authViewModel
+                    )
+                }
+
+                composable(
+                    Screen.SafeWebView.route,
+                    arguments = listOf(
+                        navArgument("url") {
+                            type = NavType.StringType
+                            defaultValue = ""
+                        },
+                        navArgument("title") {
+                            type = NavType.StringType
+                            defaultValue = ""
+                        },
+                        navArgument("isVideo") {
+                            type = NavType.BoolType
+                            defaultValue = false
+                        },
+                        navArgument("itemId") {
+                            type = NavType.StringType
+                            defaultValue = ""
+                        },
+                        navArgument("imageUrl") {
+                            type = NavType.StringType
+                            defaultValue = ""
+                        },
+                        navArgument("description") {
+                            type = NavType.StringType
+                            defaultValue = ""
+                        }
+                    )
+                ) { bse ->
+                    val url = bse.arguments?.getString("url") ?: ""
+                    if (url.isBlank()) {
+                        LaunchedEffect(Unit) { navController.popBackStack() }
+                    } else {
+                        val analyticsRepository = EntryPointAccessors.fromApplication(
+                            LocalContext.current.applicationContext,
+                            AnalyticsEntryPoint::class.java
+                        ).analyticsRepository()
+                        val scope = rememberCoroutineScope()
+                        val itemId = bse.arguments?.getString("itemId") ?: ""
+                        val title = bse.arguments?.getString("title") ?: ""
+
+                        SafeWebViewScreen(
+                            url = url,
+                            title = title,
+                            isVideo = bse.arguments?.getBoolean("isVideo") ?: false,
+                            onClose = { durationSeconds ->
+                                val closeTimestamp = com.google.firebase.Timestamp.now()
+                                val openedAt = com.google.firebase.Timestamp(
+                                    Date(closeTimestamp.toDate().time - durationSeconds * 1000)
+                                )
+                                val userId = currentUser?.id ?: "unknown"
+                                scope.launch {
+                                    analyticsRepository.trackDropOffPoint(
+                                        itemId = itemId,
+                                        itemTitle = title.ifBlank { url },
+                                        userId = userId,
+                                        openedAt = openedAt,
+                                        closedAt = closeTimestamp,
+                                        durationSeconds = durationSeconds
+                                    )
+                                }
+                                navController.popBackStack()
+                            }
+                        )
                     }
-                )
-            ) { bse ->
-                val videoId = bse.arguments?.getString("videoId") ?: ""
-                if (videoId.isBlank()) {
-                    LaunchedEffect(Unit) { navController.popBackStack() }
-                } else {
-                    val analyticsRepository = EntryPointAccessors.fromApplication(
-                        LocalContext.current.applicationContext,
-                        AnalyticsEntryPoint::class.java
-                    ).analyticsRepository()
-                    val scope = rememberCoroutineScope()
-                    val title = bse.arguments?.getString("title") ?: ""
-                    YouTubePlayerScreen(
-                        videoId = videoId,
-                        title = title,
-                        onBack = { durationSeconds ->
-                            val closeTimestamp = com.google.firebase.Timestamp.now()
-                            val openedAt = com.google.firebase.Timestamp(Date(closeTimestamp.toDate().time - durationSeconds * 1000))
-                            val userId = currentUser?.id ?: "unknown"
-                            scope.launch {
-                                analyticsRepository.trackDropOffPoint(
-                                    itemId = videoId,
-                                    itemTitle = title.ifBlank { videoId },
-                                    userId = userId,
-                                    openedAt = openedAt,
-                                    closedAt = closeTimestamp,
-                                    durationSeconds = durationSeconds
-                                )
-                            }
-                            navController.popBackStack()
+                }
+
+                composable(
+                    Screen.YouTubePlayer.route,
+                    arguments = listOf(
+                        navArgument("videoId") {
+                            type = NavType.StringType
+                            defaultValue = ""
+                        },
+                        navArgument("title") {
+                            type = NavType.StringType
+                            defaultValue = ""
                         }
+                    )
+                ) { bse ->
+                    val videoId = bse.arguments?.getString("videoId") ?: ""
+                    if (videoId.isBlank()) {
+                        LaunchedEffect(Unit) { navController.popBackStack() }
+                    } else {
+                        val analyticsRepository = EntryPointAccessors.fromApplication(
+                            LocalContext.current.applicationContext,
+                            AnalyticsEntryPoint::class.java
+                        ).analyticsRepository()
+                        val scope = rememberCoroutineScope()
+                        val title = bse.arguments?.getString("title") ?: ""
+
+                        YouTubePlayerScreen(
+                            videoId = videoId,
+                            title = title,
+                            onBack = { durationSeconds ->
+                                val closeTimestamp = com.google.firebase.Timestamp.now()
+                                val openedAt = com.google.firebase.Timestamp(
+                                    Date(closeTimestamp.toDate().time - durationSeconds * 1000)
+                                )
+                                val userId = currentUser?.id ?: "unknown"
+                                scope.launch {
+                                    analyticsRepository.trackDropOffPoint(
+                                        itemId = videoId,
+                                        itemTitle = title.ifBlank { videoId },
+                                        userId = userId,
+                                        openedAt = openedAt,
+                                        closedAt = closeTimestamp,
+                                        durationSeconds = durationSeconds
+                                    )
+                                }
+                                navController.popBackStack()
+                            }
+                        )
+                    }
+                }
+
+                composable(
+                    Screen.Reader.route,
+                    arguments = listOf(
+                        navArgument("url") { type = NavType.StringType }
+                    )
+                ) { bse ->
+                    val url = bse.arguments?.getString("url") ?: ""
+                    if (url.isBlank()) {
+                        LaunchedEffect(Unit) { navController.popBackStack() }
+                    } else {
+                        val analyticsRepository = EntryPointAccessors.fromApplication(
+                            LocalContext.current.applicationContext,
+                            AnalyticsEntryPoint::class.java
+                        ).analyticsRepository()
+                        val scope = rememberCoroutineScope()
+
+                        BookReaderScreen(
+                            url = url,
+                            onBack = { durationSeconds ->
+                                val closeTimestamp = com.google.firebase.Timestamp.now()
+                                val openedAt = com.google.firebase.Timestamp(
+                                    Date(closeTimestamp.toDate().time - durationSeconds * 1000)
+                                )
+                                val userId = currentUser?.id ?: "unknown"
+                                scope.launch {
+                                    analyticsRepository.trackDropOffPoint(
+                                        itemId = url,
+                                        itemTitle = url,
+                                        userId = userId,
+                                        openedAt = openedAt,
+                                        closedAt = closeTimestamp,
+                                        durationSeconds = durationSeconds
+                                    )
+                                }
+                                navController.popBackStack()
+                            }
+                        )
+                    }
+                }
+
+                composable(Screen.PremiumUpgrade.route) {
+                    PremiumUpgradeScreen(
+                        onBack = { navController.popBackStack() }
                     )
                 }
             }
-
-            composable(
-                Screen.Reader.route,
-                arguments = listOf(
-                    navArgument("url") { type = NavType.StringType }
-                )
-            ) { bse ->
-                val url = bse.arguments?.getString("url") ?: ""
-                if (url.isBlank()) {
-                    LaunchedEffect(Unit) { navController.popBackStack() }
-                } else {
-                    val analyticsRepository = EntryPointAccessors.fromApplication(
-                        LocalContext.current.applicationContext,
-                        AnalyticsEntryPoint::class.java
-                    ).analyticsRepository()
-                    val scope = rememberCoroutineScope()
-                    BookReaderScreen(
-                        url = url,
-                        onBack = { durationSeconds ->
-                            val closeTimestamp = com.google.firebase.Timestamp.now()
-                            val openedAt = com.google.firebase.Timestamp(Date(closeTimestamp.toDate().time - durationSeconds * 1000))
-                            val userId = currentUser?.id ?: "unknown"
-                            scope.launch {
-                                analyticsRepository.trackDropOffPoint(
-                                    itemId = url,
-                                    itemTitle = url,
-                                    userId = userId,
-                                    openedAt = openedAt,
-                                    closedAt = closeTimestamp,
-                                    durationSeconds = durationSeconds
-                                )
-                            }
-                            navController.popBackStack()
-                        }
-                    )
-                }
-            }
-
-            composable(Screen.PremiumUpgrade.route) {
-                PremiumUpgradeScreen(
-                    onBack = { navController.popBackStack() }
-                )
-            }
-        }
         }
 
-        // Wrap child accounts with screen time tracking
         if (isChildAccount) {
             ScreenTimeWrapper { navContent() }
         } else {

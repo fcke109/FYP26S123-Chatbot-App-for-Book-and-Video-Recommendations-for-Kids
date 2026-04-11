@@ -17,6 +17,7 @@ import com.kidsrec.chatbot.data.remote.OpenAIRequest
 import com.kidsrec.chatbot.data.remote.OpenAIService
 import com.kidsrec.chatbot.data.remote.OpenLibraryService
 import com.kidsrec.chatbot.data.remote.YouTubeService
+import com.kidsrec.chatbot.util.TopicExtractor
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -36,7 +37,8 @@ class ChatDataManager @Inject constructor(
     private val accountManager: AccountManager,
     private val favoritesManager: FavoritesManager,
     private val openLibraryService: OpenLibraryService,
-    private val youTubeService: YouTubeService
+    private val youTubeService: YouTubeService,
+    private val learningProgressManager: LearningProgressManager
 ) {
 
     private data class ApprovedVideo(
@@ -632,6 +634,22 @@ class ChatDataManager @Inject constructor(
             }
 
             val sanitizedMessage = com.kidsrec.chatbot.util.InputSanitizer.sanitizeChatMessage(message)
+
+            val exploredTopic = TopicExtractor.extractTopic(sanitizedMessage)
+            val trackingResult = learningProgressManager.trackTopicExplored(
+                childUserId = userId,
+                topic = exploredTopic
+            )
+            if (trackingResult.isFailure) {
+                Log.e(
+                    "ChatDataManager",
+                    "Topic tracking failed: ${trackingResult.exceptionOrNull()?.message}",
+                    trackingResult.exceptionOrNull()
+                )
+            } else {
+                Log.d("ChatDataManager", "Tracked topic: $exploredTopic for userId=$userId")
+            }
+
             val curatedBooks = bookDataManager.getCuratedBooks().getOrDefault(emptyList())
 
             val curatedBooksContext = if (curatedBooks.isNotEmpty()) {
