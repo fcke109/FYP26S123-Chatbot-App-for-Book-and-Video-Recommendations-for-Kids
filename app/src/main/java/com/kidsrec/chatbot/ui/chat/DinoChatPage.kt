@@ -53,6 +53,7 @@ import com.kidsrec.chatbot.data.model.Conversation
 import com.kidsrec.chatbot.data.model.MessageRole
 import com.kidsrec.chatbot.data.model.Recommendation
 import com.kidsrec.chatbot.data.model.RecommendationType
+import com.kidsrec.chatbot.data.repository.GamificationManager
 import com.kidsrec.chatbot.data.repository.LearningProgressManager
 import com.kidsrec.chatbot.ui.favorites.FavoritesViewModel
 import com.kidsrec.chatbot.ui.library.SmartSearchViewModel
@@ -179,8 +180,9 @@ fun DinoChatPage(
             if (currentUid != null) {
                 coroutineScope.launch {
                     try {
-                        val learningProgressManager =
-                            LearningProgressManager(FirebaseFirestore.getInstance())
+                        val firestore = FirebaseFirestore.getInstance()
+                        val learningProgressManager = LearningProgressManager(firestore)
+                        val gamificationManager = GamificationManager(firestore)
 
                         if (isVideo) {
                             val result = learningProgressManager.trackVideoWatched(
@@ -198,6 +200,17 @@ fun DinoChatPage(
                                 )
                             } else {
                                 Log.d("DinoChatPage", "Tracked video watched: $title")
+
+                                val gamificationResult = gamificationManager.refreshGamification(currentUid)
+                                if (gamificationResult.isFailure) {
+                                    Log.e(
+                                        "DinoChatPage",
+                                        "Failed to refresh gamification after video: ${gamificationResult.exceptionOrNull()?.message}",
+                                        gamificationResult.exceptionOrNull()
+                                    )
+                                } else {
+                                    Log.d("DinoChatPage", "Gamification refreshed after video")
+                                }
                             }
                         } else {
                             val result = learningProgressManager.trackBookRead(
@@ -216,6 +229,17 @@ fun DinoChatPage(
                                 )
                             } else {
                                 Log.d("DinoChatPage", "Tracked book read: $title")
+
+                                val gamificationResult = gamificationManager.refreshGamification(currentUid)
+                                if (gamificationResult.isFailure) {
+                                    Log.e(
+                                        "DinoChatPage",
+                                        "Failed to refresh gamification after book: ${gamificationResult.exceptionOrNull()?.message}",
+                                        gamificationResult.exceptionOrNull()
+                                    )
+                                } else {
+                                    Log.d("DinoChatPage", "Gamification refreshed after book")
+                                }
                             }
                         }
                     } catch (e: Exception) {

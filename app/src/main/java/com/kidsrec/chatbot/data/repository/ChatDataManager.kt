@@ -38,7 +38,8 @@ class ChatDataManager @Inject constructor(
     private val favoritesManager: FavoritesManager,
     private val openLibraryService: OpenLibraryService,
     private val youTubeService: YouTubeService,
-    private val learningProgressManager: LearningProgressManager
+    private val learningProgressManager: LearningProgressManager,
+    private val gamificationManager: GamificationManager
 ) {
 
     private data class ApprovedVideo(
@@ -648,6 +649,17 @@ class ChatDataManager @Inject constructor(
                 )
             } else {
                 Log.d("ChatDataManager", "Tracked topic: $exploredTopic for userId=$userId")
+
+                val gamificationResult = gamificationManager.refreshGamification(userId)
+                if (gamificationResult.isFailure) {
+                    Log.e(
+                        "ChatDataManager",
+                        "Gamification refresh failed: ${gamificationResult.exceptionOrNull()?.message}",
+                        gamificationResult.exceptionOrNull()
+                    )
+                } else {
+                    Log.d("ChatDataManager", "Gamification refreshed for userId=$userId")
+                }
             }
 
             val curatedBooks = bookDataManager.getCuratedBooks().getOrDefault(emptyList())

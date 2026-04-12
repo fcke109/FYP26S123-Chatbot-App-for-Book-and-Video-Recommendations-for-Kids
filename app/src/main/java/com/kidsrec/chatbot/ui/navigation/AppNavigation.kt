@@ -185,6 +185,12 @@ private fun buildContentRoute(
 
     Log.d("KidsRecNav", "Final isVideo: $finalIsVideo")
 
+    if (!finalIsVideo && isKnownBookUrl(cleanUrl)) {
+        val encodedUrl = URLEncoder.encode(cleanUrl, "UTF-8")
+        Log.d("KidsRecNav", "Routing to BookReaderScreen")
+        return "reader/$encodedUrl"
+    }
+
     val encodedUrl = URLEncoder.encode(cleanUrl, "UTF-8")
     val encodedTitle = URLEncoder.encode(title, "UTF-8")
     val encodedImg = URLEncoder.encode(if (imageUrl.isBlank()) "none" else imageUrl, "UTF-8")

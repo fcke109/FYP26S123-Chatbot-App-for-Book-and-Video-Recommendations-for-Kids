@@ -21,9 +21,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.kidsrec.chatbot.data.model.ReadingHistory
 import com.kidsrec.chatbot.ui.auth.AuthViewModel
+import com.kidsrec.chatbot.ui.gamification.ChildGamificationSection
+import com.kidsrec.chatbot.ui.gamification.GamificationViewModel
 import com.kidsrec.chatbot.ui.parental.ChildSafetyLockGate
 import com.kidsrec.chatbot.ui.parental.ChildSettingsEntry
 
@@ -38,13 +41,14 @@ fun ProfileScreen(
     val user by authViewModel.currentUser.collectAsState()
     val updateSuccess by profileViewModel.updateSuccess.collectAsState()
     val readingHistory by profileViewModel.readingHistory.collectAsState()
+    val gamificationViewModel: GamificationViewModel = hiltViewModel()
 
     var isEditing by remember { mutableStateOf(false) }
     var name by remember { mutableStateOf("") }
     var age by remember { mutableStateOf("") }
     var selectedInterests by remember { mutableStateOf(setOf<String>()) }
     var readingLevel by remember { mutableStateOf("Beginner") }
-    
+
     var showEditLockGate by remember { mutableStateOf(false) }
     var isParentalUnlocked by remember { mutableStateOf(false) }
 
@@ -82,7 +86,6 @@ fun ProfileScreen(
                 isEditing = true
             },
             content = {
-                // If not locked, just open editing
                 LaunchedEffect(Unit) {
                     showEditLockGate = false
                     isEditing = true
@@ -116,7 +119,6 @@ fun ProfileScreen(
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Profile Icon
             Surface(
                 color = MaterialTheme.colorScheme.primaryContainer,
                 shape = MaterialTheme.shapes.large,
@@ -164,7 +166,6 @@ fun ProfileScreen(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Selected interests chips
                 if (selectedInterests.isNotEmpty()) {
                     FlowRow(
                         modifier = Modifier.fillMaxWidth(),
@@ -189,7 +190,6 @@ fun ProfileScreen(
                     Spacer(modifier = Modifier.height(8.dp))
                 }
 
-                // Dropdown selector
                 ExposedDropdownMenuBox(
                     expanded = interestsExpanded,
                     onExpandedChange = { interestsExpanded = it }
@@ -286,10 +286,8 @@ fun ProfileScreen(
                     }
                 }
             } else {
-                // Display mode
                 user?.let { currentUser ->
                     if (currentUser.isGuest) {
-                        // Guest profile display
                         Text(
                             text = "Guest",
                             fontSize = 28.sp,
@@ -320,7 +318,6 @@ fun ProfileScreen(
                             }
                         }
                     } else {
-                        // Regular user profile display
                         Text(
                             text = currentUser.name,
                             fontSize = 28.sp,
@@ -381,12 +378,17 @@ fun ProfileScreen(
 
                         Spacer(modifier = Modifier.height(24.dp))
 
-                        // Parental Controls Section
+                        ChildGamificationSection(
+                            viewModel = gamificationViewModel,
+                            childUserId = currentUser.id
+                        )
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
                         ChildSettingsEntry(
                             lockEnabled = currentUser.parentalPin?.isNotEmpty() == true,
                             isUnlocked = isParentalUnlocked,
                             onRequestUnlock = {
-                                // Direct navigation which has its own PIN check
                                 onNavigateToParentalControls()
                             }
                         ) {
@@ -401,7 +403,6 @@ fun ProfileScreen(
                             }
                         }
 
-                        // Recently Read & Watched Section
                         if (readingHistory.isNotEmpty()) {
                             Spacer(modifier = Modifier.height(24.dp))
                             RecentlyReadSection(readingHistory, onItemClick)
