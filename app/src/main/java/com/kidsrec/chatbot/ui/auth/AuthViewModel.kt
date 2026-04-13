@@ -1,23 +1,35 @@
 package com.kidsrec.chatbot.ui.auth
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.kidsrec.chatbot.data.model.AccountType
-import com.kidsrec.chatbot.data.model.PlanType
-import com.kidsrec.chatbot.data.model.User
-import com.kidsrec.chatbot.data.repository.AccountManager
+import com.google.firebase.FirebaseNetworkException
+import com.google.firebase.FirebaseTooManyRequestsException
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthInvalidUserException
 import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.FirebaseAuthWeakPasswordException
-import com.google.firebase.FirebaseNetworkException
-import com.google.firebase.FirebaseTooManyRequestsException
+import com.kidsrec.chatbot.data.model.AccountType
+import com.kidsrec.chatbot.data.model.PlanType
+import com.kidsrec.chatbot.data.model.User
+import com.kidsrec.chatbot.data.repository.AccountManager
 import dagger.hilt.android.lifecycle.HiltViewModel
-import android.util.Log
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+
+private const val ADMIN_EMAIL = "admin@littledino.com"
+
+private fun isAdminEmail(email: String?): Boolean {
+    return email.equals(ADMIN_EMAIL, ignoreCase = true)
+}
 
 @HiltViewModel
 class AuthViewModel @Inject constructor(
@@ -31,11 +43,14 @@ class AuthViewModel @Inject constructor(
     val currentUser: StateFlow<User?> = _currentUser.asStateFlow()
 
     val isAdmin: StateFlow<Boolean> = _currentUser.map { user ->
-        user?.planType == PlanType.ADMIN
+        val firebaseEmail = FirebaseAuth.getInstance().currentUser?.email
+        isAdminEmail(firebaseEmail) || isAdminEmail(user?.email)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     val isParent: StateFlow<Boolean> = _currentUser.map { user ->
-        user?.accountType == AccountType.PARENT
+        val firebaseEmail = FirebaseAuth.getInstance().currentUser?.email
+        val admin = isAdminEmail(firebaseEmail) || isAdminEmail(user?.email)
+        !admin && user?.accountType == AccountType.PARENT
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     init {
@@ -44,9 +59,17 @@ class AuthViewModel @Inject constructor(
 
     private fun checkAuthState() {
         val userId = accountManager.getCurrentUserId()
+        val firebaseEmail = FirebaseAuth.getInstance().currentUser?.email
+
         if (userId != null) {
-            _authState.value = AuthState.Authenticated(userId)
-            loadUserData(userId)
+            // Admin bypasses email verification flow
+            if (isAdminEmail(firebaseEmail)) {
+                _authState.value = AuthState.Authenticated(userId)
+                loadUserData(userId)
+            } else {
+                _authState.value = AuthState.Authenticated(userId)
+                loadUserData(userId)
+            }
         } else {
             _authState.value = AuthState.Unauthenticated
         }
@@ -71,14 +94,28 @@ class AuthViewModel @Inject constructor(
             val result = accountManager.signIn(email, password)
             result.fold(
                 onSuccess = { user ->
-                    // Check if this is a parent account that needs email verification
+                    val signedInEmail = user.email ?: FirebaseAuth.getInstance().currentUser?.email
+                    val isAdminUser = isAdminEmail(signedInEmail)
+
                     val userData = accountManager.getUser(user.uid)
-                    if (userData?.accountType == AccountType.PARENT && !accountManager.isEmailVerified()) {
-                        _authState.value = AuthState.EmailNotVerified(user.uid)
-                        loadUserData(user.uid)
-                    } else {
-                        _authState.value = AuthState.Authenticated(user.uid)
-                        loadUserData(user.uid)
+
+                    when {
+                        // Admin bypasses email verification completely
+                        isAdminUser -> {
+                            _authState.value = AuthState.Authenticated(user.uid)
+                            loadUserData(user.uid)
+                        }
+
+                        // Normal parent account still requires email verification
+                        userData?.accountType == AccountType.PARENT && !accountManager.isEmailVerified() -> {
+                            _authState.value = AuthState.EmailNotVerified(user.uid)
+                            loadUserData(user.uid)
+                        }
+
+                        else -> {
+                            _authState.value = AuthState.Authenticated(user.uid)
+                            loadUserData(user.uid)
+                        }
                     }
                 },
                 onFailure = { error ->
@@ -127,15 +164,19 @@ class AuthViewModel @Inject constructor(
         }
     }
 
-    // ── Parent signup ─────────────────────────────────────────────
     fun signUpParent(email: String, password: String, name: String) {
         viewModelScope.launch {
             _authState.value = AuthState.Loading
             val result = accountManager.signUpParent(email, password, name)
             result.fold(
                 onSuccess = { user ->
-                    // Parent must verify email before accessing dashboard
-                    _authState.value = AuthState.EmailNotVerified(user.uid)
+                    val signedInEmail = user.email ?: FirebaseAuth.getInstance().currentUser?.email
+
+                    if (isAdminEmail(signedInEmail)) {
+                        _authState.value = AuthState.Authenticated(user.uid)
+                    } else {
+                        _authState.value = AuthState.EmailNotVerified(user.uid)
+                    }
                     loadUserData(user.uid)
                 },
                 onFailure = { error ->
@@ -146,7 +187,6 @@ class AuthViewModel @Inject constructor(
         }
     }
 
-    // ── Child signup with invite code ─────────────────────────────
     fun signUpChild(
         email: String,
         password: String,
@@ -167,7 +207,6 @@ class AuthViewModel @Inject constructor(
                     loadUserData(user.uid)
                 },
                 onFailure = { error ->
-                    // Ensure we're signed out if signup failed
                     _currentUser.value = null
                     _authState.value = AuthState.Error(mapFirebaseError(error))
                 }
@@ -175,7 +214,6 @@ class AuthViewModel @Inject constructor(
         }
     }
 
-    // ── Guest mode (anonymous auth) ──────────────────────────────
     fun continueAsGuest() {
         viewModelScope.launch {
             _authState.value = AuthState.Loading
@@ -194,7 +232,10 @@ class AuthViewModel @Inject constructor(
                     val updateResult = accountManager.updateUser(guestDoc)
                     if (updateResult.isFailure) {
                         Log.e("AuthVM", "Failed to create guest profile", updateResult.exceptionOrNull())
-                        try { user.delete() } catch (_: Exception) {}
+                        try {
+                            user.delete()
+                        } catch (_: Exception) {
+                        }
                         accountManager.signOut()
                         _authState.value = AuthState.Error("Failed to create guest account. Try again.")
                         return@fold
@@ -205,10 +246,14 @@ class AuthViewModel @Inject constructor(
                 onFailure = { error ->
                     Log.e("AuthVM", "Guest sign-in failed", error)
                     _authState.value = AuthState.Error(
-                        if (error.message?.contains("ADMIN_ONLY_OPERATION") == true ||
-                            error.message?.contains("anonymous") == true)
+                        if (
+                            error.message?.contains("ADMIN_ONLY_OPERATION") == true ||
+                            error.message?.contains("anonymous") == true
+                        ) {
                             "Guest browsing is not enabled. Please ask the admin to enable Anonymous sign-in in Firebase."
-                        else mapFirebaseError(error)
+                        } else {
+                            mapFirebaseError(error)
+                        }
                     )
                 }
             )
@@ -221,16 +266,17 @@ class AuthViewModel @Inject constructor(
         }
     }
 
-    // ── Email verification ───────────────────────────────────────
     private val _verificationMessage = MutableStateFlow<String?>(null)
     val verificationMessage: StateFlow<String?> = _verificationMessage.asStateFlow()
 
     fun checkEmailVerified() {
         viewModelScope.launch {
             val state = _authState.value
+            val firebaseEmail = FirebaseAuth.getInstance().currentUser?.email
+
             if (state is AuthState.EmailNotVerified) {
                 try {
-                    if (accountManager.isEmailVerified()) {
+                    if (isAdminEmail(firebaseEmail) || accountManager.isEmailVerified()) {
                         _verificationMessage.value = null
                         _authState.value = AuthState.Authenticated(state.userId)
                     } else {

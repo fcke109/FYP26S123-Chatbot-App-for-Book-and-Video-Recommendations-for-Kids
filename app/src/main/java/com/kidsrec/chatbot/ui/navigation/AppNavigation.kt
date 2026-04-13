@@ -29,9 +29,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -48,8 +46,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.google.firebase.auth.FirebaseAuth
 import com.kidsrec.chatbot.data.model.AccountType
-import com.kidsrec.chatbot.data.model.PlanType
 import com.kidsrec.chatbot.data.model.UserNotification
 import com.kidsrec.chatbot.ui.admin.AdminScreen
 import com.kidsrec.chatbot.ui.admin.AdminUpgradeScreen
@@ -85,6 +83,12 @@ import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.launch
 import java.net.URLEncoder
 import java.util.Date
+
+private const val ADMIN_EMAIL = "admin@littledino.com"
+
+private fun isAdminEmail(email: String?): Boolean {
+    return email.equals(ADMIN_EMAIL, ignoreCase = true)
+}
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector? = null) {
     object Login : Screen("login", "Login")
@@ -218,16 +222,11 @@ fun AppNavigation() {
     val authState by authViewModel.authState.collectAsState()
     val currentUser by authViewModel.currentUser.collectAsState()
 
-    val isAdmin by remember(currentUser) {
-        derivedStateOf { currentUser?.planType == PlanType.ADMIN }
-    }
+    // IMPORTANT: do not wrap this in remember
+    val firebaseEmail = FirebaseAuth.getInstance().currentUser?.email
 
-    val isParent by remember(currentUser) {
-        derivedStateOf {
-            currentUser?.accountType == AccountType.PARENT &&
-                    currentUser?.planType != PlanType.ADMIN
-        }
-    }
+    val isAdmin = isAdminEmail(firebaseEmail) || isAdminEmail(currentUser?.email)
+    val isParent = !isAdmin && currentUser?.accountType == AccountType.PARENT
 
     when (authState) {
         is AuthState.Authenticated -> MainScreen(
@@ -332,6 +331,23 @@ fun MainScreen(
         isAdmin -> Screen.Admin.route
         isParent -> Screen.ParentDashboard.route
         else -> Screen.Chat.route
+    }
+
+    LaunchedEffect(isAdmin, isParent) {
+        val targetRoute = when {
+            isAdmin -> Screen.Admin.route
+            isParent -> Screen.ParentDashboard.route
+            else -> null
+        }
+
+        if (targetRoute != null && currentDestination?.route != targetRoute) {
+            navController.navigate(targetRoute) {
+                popUpTo(navController.graph.findStartDestination().id) {
+                    inclusive = false
+                }
+                launchSingleTop = true
+            }
+        }
     }
 
     Scaffold(
