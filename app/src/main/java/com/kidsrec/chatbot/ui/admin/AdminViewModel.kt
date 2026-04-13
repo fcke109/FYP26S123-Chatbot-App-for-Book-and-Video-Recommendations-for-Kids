@@ -20,6 +20,7 @@ import com.kidsrec.chatbot.data.repository.AnalyticsRepository
 import com.kidsrec.chatbot.data.repository.BookDataManager
 import com.kidsrec.chatbot.data.remote.OpenLibraryService
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -84,7 +85,18 @@ class AdminViewModel @Inject constructor(
     private val _topDropOffs = MutableStateFlow<List<com.kidsrec.chatbot.data.model.TopDropOff>>(emptyList())
     val topDropOffs: StateFlow<List<com.kidsrec.chatbot.data.model.TopDropOff>> = _topDropOffs.asStateFlow()
 
+    private var usersJob: Job? = null
+    private var booksJob: Job? = null
+    private var topSearchJob: Job? = null
+    private var topViewedJob: Job? = null
+    private var topDropOffJob: Job? = null
+
     init {
+        refreshAllAdminData()
+    }
+
+    fun refreshAllAdminData() {
+        startManagingUsers()
         loadCuratedBooks()
         refreshAdminStats()
         loadAnalytics()
@@ -93,7 +105,8 @@ class AdminViewModel @Inject constructor(
     fun getCurrentUserId(): String? = accountManager.getCurrentUserId()
 
     fun startManagingUsers() {
-        viewModelScope.launch {
+        usersJob?.cancel()
+        usersJob = viewModelScope.launch {
             accountManager.getAllUsersFlow()
                 .catch { e -> Log.e("AdminVM", "Permission denied for users list", e) }
                 .collect { userList -> _users.value = userList }
@@ -101,7 +114,8 @@ class AdminViewModel @Inject constructor(
     }
 
     private fun loadCuratedBooks() {
-        viewModelScope.launch {
+        booksJob?.cancel()
+        booksJob = viewModelScope.launch {
             bookDataManager.getCuratedBooksFlow()
                 .catch { e -> Log.e("AdminVM", "Load failed", e) }
                 .collect { books -> _curatedBooks.value = books }
@@ -182,19 +196,23 @@ class AdminViewModel @Inject constructor(
     }
 
     private fun loadAnalytics() {
-        viewModelScope.launch {
-            // Load top searched topics
+        topSearchJob?.cancel()
+        topViewedJob?.cancel()
+        topDropOffJob?.cancel()
+
+        topSearchJob = viewModelScope.launch {
             analyticsRepository.getTopSearchedTopicsFlow()
+                .catch { e -> Log.e("AdminVM", "Failed to load top searched topics", e) }
                 .collect { topics -> _topSearchedTopics.value = topics }
         }
-        viewModelScope.launch {
-            // Load top viewed books
+        topViewedJob = viewModelScope.launch {
             analyticsRepository.getTopViewedBooksFlow()
+                .catch { e -> Log.e("AdminVM", "Failed to load top viewed books", e) }
                 .collect { books -> _topViewedBooks.value = books }
         }
-        viewModelScope.launch {
-            // Load top drop-off points
+        topDropOffJob = viewModelScope.launch {
             analyticsRepository.getTopDropOffsFlow()
+                .catch { e -> Log.e("AdminVM", "Failed to load top drop-off points", e) }
                 .collect { dropOffs -> _topDropOffs.value = dropOffs }
         }
     }
@@ -208,35 +226,35 @@ class AdminViewModel @Inject constructor(
                 // Track search analytics
                 val currentUserId = accountManager.getCurrentUserId() ?: "unknown"
                 analyticsRepository.trackSearch(lowerQuery, currentUserId)
-                
+
                 val response = openLibraryService.searchBooks("$query subject:\"Children's fiction\" language:eng")
                 val results: List<Book> = response.docs.mapNotNull { doc ->
                     val iaId = doc.ia?.firstOrNull() ?: return@mapNotNull null
                     if (doc.cover_i == null) return@mapNotNull null
-                    
+
                     val title = doc.title
                     val author = doc.author_name?.firstOrNull() ?: "Unknown"
-                    
+
                     // Basic Scoring
                     var score = 0
                     if (title.lowercase().contains(lowerQuery)) score += 60
                     if (author.lowercase().contains(lowerQuery)) score += 20
                     if (title.lowercase() == lowerQuery) score += 40
-                    
+
                     // Cap score at 100
                     val finalScore = score.coerceAtMost(100)
-                    
+
                     if (finalScore > 0) {
                         Book(
-                            id = iaId, 
-                            title = title, 
+                            id = iaId,
+                            title = title,
                             author = author,
                             coverUrl = "https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg",
                             bookUrl = "https://archive.org/embed/$iaId",
                             readerUrl = "https://archive.org/embed/$iaId",
-                            source = "ICDL/Archive", 
-                            ageMin = 3, 
-                            ageMax = 12, 
+                            source = "ICDL/Archive",
+                            ageMin = 3,
+                            ageMax = 12,
                             isKidSafe = true
                         ).apply { searchScore = finalScore }
                     } else null
@@ -259,9 +277,9 @@ class AdminViewModel @Inject constructor(
     }
 
     fun addBookToLibrary(book: Book) {
-        viewModelScope.launch { 
+        viewModelScope.launch {
             // The DataManager will now automatically pick the next sequential ID
-            bookDataManager.addBook(book.copy(id = "")) 
+            bookDataManager.addBook(book.copy(id = ""))
         }
     }
 
@@ -491,12 +509,12 @@ class AdminViewModel @Inject constructor(
                     .document(activityId)
                     .update("resolved", true)
                     .await()
-                
+
                 // Update local state
-                _suspiciousActivities.value = _suspiciousActivities.value.map { 
-                    if (it.id == activityId) it.copy(resolved = true) else it 
+                _suspiciousActivities.value = _suspiciousActivities.value.map {
+                    if (it.id == activityId) it.copy(resolved = true) else it
                 }
-                
+
                 Log.d("AdminVM", "Marked suspicious activity $activityId as resolved")
             } catch (e: Exception) {
                 Log.e("AdminVM", "Failed to mark activity as resolved", e)

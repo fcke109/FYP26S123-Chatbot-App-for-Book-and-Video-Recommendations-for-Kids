@@ -41,6 +41,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.google.firebase.auth.FirebaseAuth
 import com.kidsrec.chatbot.data.model.AccountType
 import com.kidsrec.chatbot.data.model.PlanType
 import com.kidsrec.chatbot.ui.admin.AdminScreen
@@ -60,7 +61,6 @@ import com.kidsrec.chatbot.ui.library.UserLibraryScreen
 import com.kidsrec.chatbot.ui.parent.ParentDashboardScreen
 import com.kidsrec.chatbot.ui.parent.ParentDashboardViewModel
 import com.kidsrec.chatbot.ui.parent.ParentProgressViewModel
-import com.kidsrec.chatbot.ui.parent.ParentInviteSetupRoute
 import com.kidsrec.chatbot.ui.profile.ProfileScreen
 import com.kidsrec.chatbot.ui.profile.ProfileViewModel
 import com.kidsrec.chatbot.ui.billing.PremiumUpgradeScreen
@@ -75,6 +75,12 @@ import com.kidsrec.chatbot.ui.webview.YouTubePlayerScreen
 import java.net.URLEncoder
 import java.util.Date
 
+private const val ADMIN_EMAIL = "admin@littledino.com"
+
+private fun isAdminEmail(email: String?): Boolean {
+    return email.equals(ADMIN_EMAIL, ignoreCase = true)
+}
+
 sealed class Screen(val route: String, val title: String, val icon: ImageVector? = null) {
     object Login : Screen("login", "Login")
     object Register : Screen("register", "Register")
@@ -82,10 +88,10 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
     object Library : Screen("library", "Library", Icons.AutoMirrored.Filled.MenuBook)
     object Favorites : Screen("favorites", "Favorites", Icons.Default.Favorite)
     object Profile : Screen("profile", "Profile", Icons.Default.Person)
+    object BadgesRewards : Screen("badges_rewards", "Badges & Rewards")
     object Admin : Screen("admin", "Admin", Icons.Default.Shield)
     object AdminUpgrade : Screen("admin_upgrade", "Admin CMS Upgrade")
     object ParentDashboard : Screen("parent_dashboard", "Dashboard", Icons.Default.Person)
-    object ParentInviteSetup : Screen("parent_invite_setup", "Set Child Interests")
     object ParentalControls : Screen("parental_controls", "Parental Controls")
     object Reader : Screen("reader/{url}", "Reader")
     object SafeWebView : Screen(
@@ -189,6 +195,12 @@ private fun buildContentRoute(
 
     Log.d("KidsRecNav", "Final isVideo: $finalIsVideo")
 
+    if (!finalIsVideo && isKnownBookUrl(cleanUrl)) {
+        val encodedUrl = URLEncoder.encode(cleanUrl, "UTF-8")
+        Log.d("KidsRecNav", "Routing to BookReaderScreen")
+        return "reader/$encodedUrl"
+    }
+
     val encodedUrl = URLEncoder.encode(cleanUrl, "UTF-8")
     val encodedTitle = URLEncoder.encode(title, "UTF-8")
     val encodedImg = URLEncoder.encode(if (imageUrl.isBlank()) "none" else imageUrl, "UTF-8")
@@ -210,15 +222,22 @@ fun AppNavigation() {
     val authState by authViewModel.authState.collectAsState()
     val currentUser by authViewModel.currentUser.collectAsState()
 
-    val isAdmin by remember(currentUser) {
+    val firebaseEmail = FirebaseAuth.getInstance().currentUser?.email
+
+    val isAdmin by remember(currentUser, firebaseEmail) {
         derivedStateOf {
-            currentUser?.planType == PlanType.ADMIN
+            currentUser?.planType == PlanType.ADMIN ||
+                    isAdminEmail(firebaseEmail) ||
+                    isAdminEmail(currentUser?.email)
         }
     }
 
-    val isParent by remember(currentUser) {
+    val isParent by remember(currentUser, firebaseEmail) {
         derivedStateOf {
-            currentUser?.accountType == AccountType.PARENT && currentUser?.planType != PlanType.ADMIN
+            currentUser?.accountType == AccountType.PARENT &&
+                    currentUser?.planType != PlanType.ADMIN &&
+                    !isAdminEmail(firebaseEmail) &&
+                    !isAdminEmail(currentUser?.email)
         }
     }
 
@@ -272,7 +291,6 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
-    val currentRoute = currentDestination?.route
     val profileViewModel: ProfileViewModel = hiltViewModel()
     val favoritesViewModel: FavoritesViewModel = hiltViewModel()
     val notificationsViewModel: NotificationsViewModel = hiltViewModel()
@@ -323,12 +341,29 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
         else -> Screen.Chat.route
     }
 
+    LaunchedEffect(isAdmin, isParent) {
+        val targetRoute = when {
+            isAdmin -> Screen.Admin.route
+            isParent -> Screen.ParentDashboard.route
+            else -> null
+        }
+
+        if (targetRoute != null && currentDestination?.route != targetRoute) {
+            navController.navigate(targetRoute) {
+                popUpTo(navController.graph.findStartDestination().id) {
+                    inclusive = false
+                }
+                launchSingleTop = true
+            }
+        }
+    }
+
     Scaffold(
         bottomBar = {
             if (
                 bottomNavItems.isNotEmpty() &&
-                currentRoute?.startsWith("webview") == false &&
-                currentRoute in bottomNavItems.map { it.route }
+                currentDestination?.route?.startsWith("webview") == false &&
+                currentDestination?.route in bottomNavItems.map { it.route }
             ) {
                 NavigationBar {
                     bottomNavItems.forEach { screen ->
@@ -339,7 +374,7 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
                                 }
                             },
                             label = { Text(screen.title) },
-                            selected = currentDestination.hierarchy.any { it.route == screen.route },
+                            selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
                             onClick = {
                                 navController.navigate(screen.route) {
                                     popUpTo(navController.graph.findStartDestination().id) {
@@ -453,6 +488,22 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
                     )
                 }
 
+                composable(Screen.BadgesRewards.route) {
+                    val childUser = currentUser
+
+                    if (childUser != null && !childUser.isGuest) {
+                        BadgesRewardsPlaceholderScreen(
+                            childName = childUser.name,
+                            onBack = { navController.popBackStack() }
+                        )
+                    } else {
+                        LaunchedEffect(Unit) {
+                            navController.popBackStack()
+                        }
+                    }
+                }
+
+
                 composable(Screen.Admin.route) {
                     val adminViewModel: AdminViewModel = hiltViewModel()
 
@@ -488,25 +539,9 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
                         viewModel = parentDashboardViewModel,
                         parentProgressViewModel = parentProgressViewModel,
                         onLogout = { authViewModel.signOut() },
-                        onUpgradePremium = { navController.navigate(Screen.PremiumUpgrade.route) },
-                        onGenerateCode = { navController.navigate(Screen.ParentInviteSetup.route) }
+                        onUpgradePremium = { navController.navigate(Screen.PremiumUpgrade.route) }
                     )
                 }
-
-                composable(Screen.ParentInviteSetup.route) {
-                    val parentUser = currentUser
-
-                    if (parentUser == null || parentUser.accountType != AccountType.PARENT) {
-                        LaunchedEffect(Unit) { navController.popBackStack() }
-                    } else {
-                        ParentInviteSetupRoute(
-                            parentId = parentUser.id,
-                            parentName = parentUser.name,
-                            onBack = { navController.popBackStack() }
-                        )
-                    }
-                }
-
 
                 composable(Screen.ParentalControls.route) {
                     ParentalControlsScreen(
@@ -679,6 +714,44 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
         }
     }
 }
+
+@Composable
+private fun BadgesRewardsPlaceholderScreen(
+    childName: String,
+    onBack: () -> Unit
+) {
+    Scaffold { innerPadding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(24.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Card {
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "Badges & Rewards",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Rewards page for $childName is not connected in the current profile screen version yet.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    TextButton(onClick = onBack) {
+                        Text("Back")
+                    }
+                }
+            }
+        }
+    }
+}
+
 
 @Composable
 fun AnnouncementDialog(

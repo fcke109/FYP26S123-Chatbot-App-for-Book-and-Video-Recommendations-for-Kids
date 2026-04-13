@@ -30,6 +30,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.google.firebase.auth.FirebaseAuth
 import com.kidsrec.chatbot.data.model.Book
 import com.kidsrec.chatbot.data.model.LoginAttempt
 import com.kidsrec.chatbot.data.model.MessageRole
@@ -45,6 +46,12 @@ import com.kidsrec.chatbot.data.model.UserStatus
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
+private const val ADMIN_EMAIL = "admin@littledino.com"
+
+private fun isAdminEmail(email: String?): Boolean {
+    return email.equals(ADMIN_EMAIL, ignoreCase = true)
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdminScreen(
@@ -52,6 +59,24 @@ fun AdminScreen(
     onLogout: () -> Unit,
     onViewBook: (String, String, Boolean) -> Unit
 ) {
+    val firebaseUser = FirebaseAuth.getInstance().currentUser
+    val isAdmin = remember(firebaseUser?.email) { isAdminEmail(firebaseUser?.email) }
+
+    if (!isAdmin) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "Access Denied 🚫\nYou are not an admin.",
+                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.error
+            )
+        }
+        return
+    }
+
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var selectedTabIndex by remember { mutableIntStateOf(0) }
@@ -151,19 +176,19 @@ fun DashboardTab(users: List<User>, books: List<Book>, stats: AdminStats, isLoad
     val activeUsers = users.count { it.status == UserStatus.ACTIVE }
     val suspendedUsers = users.count { it.status == UserStatus.SUSPENDED }
     val bannedUsers = users.count { it.status == UserStatus.BANNED }
-    
+
     val freeUsers = users.count { it.planType == PlanType.FREE }
     val premiumUsers = users.count { it.planType == PlanType.PREMIUM }
-    val adminUsers = users.count { it.planType == PlanType.ADMIN }
-    
+    val adminUsers = users.count { isAdminEmail(it.email) }
+
     val totalBooks = books.size
     val avgAge = if (users.isNotEmpty()) users.map { it.age }.average().toInt() else 0
-    
+
     LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item {
             Text("User Statistics", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
         }
-        
+
         // User Status Overview
         item {
             Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
@@ -178,7 +203,7 @@ fun DashboardTab(users: List<User>, books: List<Book>, stats: AdminStats, isLoad
                 }
             }
         }
-        
+
         // Plan Distribution
         item {
             Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
@@ -215,7 +240,7 @@ fun DashboardTab(users: List<User>, books: List<Book>, stats: AdminStats, isLoad
                 }
             }
         }
-        
+
         // Additional Stats
         item {
             Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
@@ -228,13 +253,13 @@ fun DashboardTab(users: List<User>, books: List<Book>, stats: AdminStats, isLoad
                 }
             }
         }
-        
+
         // Age Distribution
         item {
             Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text("Age Distribution", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 12.dp))
-                    val ageGroups = users.groupBy { 
+                    val ageGroups = users.groupBy {
                         when {
                             it.age < 6 -> "Under 6"
                             it.age < 10 -> "6-9"
@@ -380,7 +405,7 @@ fun StatCard(label: String, value: String, color: Color) {
 
 @Composable
 fun CuratorSearchTab(
-    viewModel: AdminViewModel, 
+    viewModel: AdminViewModel,
     snackbarHostState: SnackbarHostState,
     onViewBook: (String, String, Boolean) -> Unit
 ) {
@@ -388,7 +413,7 @@ fun CuratorSearchTab(
     val searchResults by viewModel.searchResults.collectAsState()
     val isSearching by viewModel.isSearching.collectAsState()
     val scope = rememberCoroutineScope()
-    
+
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
 
@@ -428,7 +453,7 @@ fun CuratorSearchTab(
                 items(searchResults) { book ->
                     BookAdminCard(
                         book = book,
-                        onAction = { 
+                        onAction = {
                             viewModel.addBookToLibrary(book)
                             scope.launch { snackbarHostState.showSnackbar("Book added to collection!") }
                         },
@@ -447,8 +472,8 @@ fun CuratorSearchTab(
 
 @Composable
 fun BookLibraryTab(
-    books: List<Book>, 
-    viewModel: AdminViewModel, 
+    books: List<Book>,
+    viewModel: AdminViewModel,
     snackbarHostState: SnackbarHostState,
     onViewBook: (String, String, Boolean) -> Unit
 ) {
@@ -493,7 +518,7 @@ fun BookLibraryTab(
             }
         )
     }
-    
+
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -502,7 +527,7 @@ fun BookLibraryTab(
         ) {
             Text("Curated Library (${books.size})", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         }
-        
+
         Spacer(modifier = Modifier.height(12.dp))
 
         if (books.isEmpty()) {
@@ -543,7 +568,7 @@ fun BookLibraryTab(
                                 IconButton(onClick = { bookToRemoveUnsafe = book }) {
                                     Icon(Icons.Default.GppBad, "Remove unsafe", tint = MaterialTheme.colorScheme.error)
                                 }
-                                IconButton(onClick = { 
+                                IconButton(onClick = {
                                     viewModel.deleteBookFromLibrary(book.id)
                                     scope.launch { snackbarHostState.showSnackbar("Book removed") }
                                 }) {
@@ -670,8 +695,8 @@ fun UserManagementTab(
             }
             val matchesAccountType = appliedAccountType == "ALL" || user.accountType.name == appliedAccountType
             matchesSearch && matchesPlan && matchesStatus && matchesAge && matchesAccountType
-        }.sortedWith(compareBy<User> { user -> 
-            user.planType != PlanType.ADMIN
+        }.sortedWith(compareBy<User> { user ->
+            !isAdminEmail(user.email)
         }.thenBy { it.name })
     }
 
@@ -920,7 +945,7 @@ fun UserManagementTab(
         } else {
             LazyColumn(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(filteredUsers) { user ->
-                    val isAdminUser = user.email.lowercase() == "admin@littledino.com" || user.planType == PlanType.ADMIN
+                    val isAdminUser = isAdminEmail(user.email)
 
                     Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))) {
                         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -1233,7 +1258,7 @@ fun UserActivityDialog(
                             }
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                 Text("Joined:", style = MaterialTheme.typography.bodyMedium)
-                                Text(user.createdAt.toDate().let { 
+                                Text(user.createdAt.toDate().let {
                                     java.text.SimpleDateFormat("MMM dd, yyyy", java.util.Locale.getDefault()).format(it)
                                 }, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
                             }
@@ -1253,7 +1278,7 @@ fun UserActivityDialog(
                                         Spacer(Modifier.width(8.dp))
                                         Column(modifier = Modifier.weight(1f)) {
                                             Text(history.title, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                            Text("Opened: ${history.openedAt.toDate().let { 
+                                            Text("Opened: ${history.openedAt.toDate().let {
                                                 java.text.SimpleDateFormat("MMM dd, HH:mm", java.util.Locale.getDefault()).format(it)
                                             }}", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
                                         }
@@ -1278,7 +1303,7 @@ fun UserActivityDialog(
                                         Column(modifier = Modifier.weight(1f)) {
                                             Text(if (message.role == MessageRole.USER) "User" else "Bot", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
                                             Text(message.content, style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                                            Text(message.timestamp.toDate().let { 
+                                            Text(message.timestamp.toDate().let {
                                                 java.text.SimpleDateFormat("MMM dd, HH:mm", java.util.Locale.getDefault()).format(it)
                                             }, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
                                         }
