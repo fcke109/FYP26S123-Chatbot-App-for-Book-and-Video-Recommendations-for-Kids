@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -20,9 +19,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Chat
+import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.ChildCare
 import androidx.compose.material.icons.filled.Close
@@ -31,8 +32,6 @@ import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.Logout
-import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Star
@@ -41,7 +40,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -88,7 +86,8 @@ fun ParentDashboardScreen(
     viewModel: ParentDashboardViewModel,
     parentProgressViewModel: ParentProgressViewModel,
     onLogout: () -> Unit,
-    onUpgradePremium: () -> Unit = {}
+    onUpgradePremium: () -> Unit = {},
+    onGenerateCode: () -> Unit = {}
 ) {
     val children by viewModel.children.collectAsState()
     val selectedChild by viewModel.selectedChild.collectAsState()
@@ -112,7 +111,7 @@ fun ParentDashboardScreen(
                 navigationIcon = {
                     if (selectedChild != null) {
                         IconButton(onClick = { viewModel.clearSelectedChild() }) {
-                            Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                         }
                     }
                 },
@@ -126,7 +125,7 @@ fun ParentDashboardScreen(
                     }
                     IconButton(onClick = onLogout) {
                         Icon(
-                            Icons.Default.Logout,
+                            Icons.AutoMirrored.Filled.Logout,
                             contentDescription = "Logout",
                             tint = Color(0xFFE53935)
                         )
@@ -159,7 +158,7 @@ fun ParentDashboardScreen(
                 inviteCode = inviteCode,
                 isLoading = isLoading,
                 errorMessage = errorMessage,
-                onGenerateCode = { viewModel.generateInviteCode() },
+                onGenerateCode = onGenerateCode,
                 onDismissCode = { viewModel.dismissInviteCode() },
                 onDismissError = { viewModel.dismissError() },
                 onSelectChild = { child: User -> viewModel.selectChild(child) },
@@ -223,7 +222,7 @@ private fun ParentHomeView(
                     } else {
                         Icon(Icons.Default.Add, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Generate Invite Code")
+                        Text("Add Child / Generate Invite Code")
                     }
                 }
             }
@@ -578,7 +577,7 @@ private fun ActivityTab(history: List<ReadingHistory>) {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            imageVector = if (entry.isVideo) Icons.Default.PlayCircle else Icons.Default.MenuBook,
+                            imageVector = if (entry.isVideo) Icons.Default.PlayCircle else Icons.AutoMirrored.Filled.MenuBook,
                             contentDescription = null,
                             tint = if (entry.isVideo) Color.Red else MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(28.dp)
@@ -783,7 +782,7 @@ private fun ChatHistoryTab(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back to conversations")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back to conversations")
                     }
                     Text(
                         "Conversation",
@@ -877,7 +876,7 @@ private fun ChatHistoryTab(
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(
-                        Icons.Default.Chat,
+                        Icons.AutoMirrored.Filled.Chat,
                         contentDescription = null,
                         modifier = Modifier.size(48.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
@@ -914,7 +913,7 @@ private fun ChatHistoryTab(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Chat,
+                                imageVector = Icons.AutoMirrored.Filled.Chat,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(28.dp)

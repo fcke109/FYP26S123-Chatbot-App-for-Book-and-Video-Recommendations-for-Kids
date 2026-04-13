@@ -55,7 +55,7 @@ fun AdminScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var selectedTabIndex by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Dashboard", "Users", "Library", "Add Books", "Analytics", "Security", "Post Notifications")
+    val tabs = listOf("Dashboard", "Users", "Library", "Add Books", "Analytics", "Security", "Post Notifications", "Feedback")
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
 
     val users by viewModel.users.collectAsState()
@@ -101,6 +101,7 @@ fun AdminScreen(
                                 4 -> Icon(Icons.Default.BarChart, null)
                                 5 -> Icon(Icons.Default.Security, null)
                                 6 -> Icon(Icons.Default.Notifications, null)
+                                7 -> Icon(Icons.Default.Feedback, null)
                             }
                         },
                         modifier = Modifier.padding(horizontal = 12.dp)
@@ -139,6 +140,11 @@ fun AdminScreen(
                     4 -> AnalyticsTab(topSearchedTopics, topViewedBooks, topDropOffs)
                     5 -> SecurityControlPanel(viewModel, snackbarHostState)
                     6 -> NotificationTab(viewModel, snackbarHostState)
+                    7 -> FeedbackManagementTab(
+                        feedbackList = viewModel.feedbackList.collectAsState().value,
+                        onMarkReviewed = { id -> viewModel.updateFeedbackStatus(id, "REVIEWED") },
+                        onResolve = { id -> viewModel.updateFeedbackStatus(id, "RESOLVED") }
+                    )
                 }
             }
         }
@@ -151,19 +157,19 @@ fun DashboardTab(users: List<User>, books: List<Book>, stats: AdminStats, isLoad
     val activeUsers = users.count { it.status == UserStatus.ACTIVE }
     val suspendedUsers = users.count { it.status == UserStatus.SUSPENDED }
     val bannedUsers = users.count { it.status == UserStatus.BANNED }
-    
+
     val freeUsers = users.count { it.planType == PlanType.FREE }
     val premiumUsers = users.count { it.planType == PlanType.PREMIUM }
     val adminUsers = users.count { it.planType == PlanType.ADMIN }
-    
+
     val totalBooks = books.size
     val avgAge = if (users.isNotEmpty()) users.map { it.age }.average().toInt() else 0
-    
+
     LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item {
             Text("User Statistics", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
         }
-        
+
         // User Status Overview
         item {
             Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
@@ -178,7 +184,7 @@ fun DashboardTab(users: List<User>, books: List<Book>, stats: AdminStats, isLoad
                 }
             }
         }
-        
+
         // Plan Distribution
         item {
             Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
@@ -215,7 +221,7 @@ fun DashboardTab(users: List<User>, books: List<Book>, stats: AdminStats, isLoad
                 }
             }
         }
-        
+
         // Additional Stats
         item {
             Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
@@ -228,13 +234,13 @@ fun DashboardTab(users: List<User>, books: List<Book>, stats: AdminStats, isLoad
                 }
             }
         }
-        
+
         // Age Distribution
         item {
             Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text("Age Distribution", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 12.dp))
-                    val ageGroups = users.groupBy { 
+                    val ageGroups = users.groupBy {
                         when {
                             it.age < 6 -> "Under 6"
                             it.age < 10 -> "6-9"
@@ -380,7 +386,7 @@ fun StatCard(label: String, value: String, color: Color) {
 
 @Composable
 fun CuratorSearchTab(
-    viewModel: AdminViewModel, 
+    viewModel: AdminViewModel,
     snackbarHostState: SnackbarHostState,
     onViewBook: (String, String, Boolean) -> Unit
 ) {
@@ -388,7 +394,7 @@ fun CuratorSearchTab(
     val searchResults by viewModel.searchResults.collectAsState()
     val isSearching by viewModel.isSearching.collectAsState()
     val scope = rememberCoroutineScope()
-    
+
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
 
@@ -428,7 +434,7 @@ fun CuratorSearchTab(
                 items(searchResults) { book ->
                     BookAdminCard(
                         book = book,
-                        onAction = { 
+                        onAction = {
                             viewModel.addBookToLibrary(book)
                             scope.launch { snackbarHostState.showSnackbar("Book added to collection!") }
                         },
@@ -447,8 +453,8 @@ fun CuratorSearchTab(
 
 @Composable
 fun BookLibraryTab(
-    books: List<Book>, 
-    viewModel: AdminViewModel, 
+    books: List<Book>,
+    viewModel: AdminViewModel,
     snackbarHostState: SnackbarHostState,
     onViewBook: (String, String, Boolean) -> Unit
 ) {
@@ -493,7 +499,7 @@ fun BookLibraryTab(
             }
         )
     }
-    
+
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -502,7 +508,7 @@ fun BookLibraryTab(
         ) {
             Text("Curated Library (${books.size})", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         }
-        
+
         Spacer(modifier = Modifier.height(12.dp))
 
         if (books.isEmpty()) {
@@ -543,7 +549,7 @@ fun BookLibraryTab(
                                 IconButton(onClick = { bookToRemoveUnsafe = book }) {
                                     Icon(Icons.Default.GppBad, "Remove unsafe", tint = MaterialTheme.colorScheme.error)
                                 }
-                                IconButton(onClick = { 
+                                IconButton(onClick = {
                                     viewModel.deleteBookFromLibrary(book.id)
                                     scope.launch { snackbarHostState.showSnackbar("Book removed") }
                                 }) {
@@ -616,7 +622,6 @@ fun UserManagementTab(
     viewModel: AdminViewModel,
     snackbarHostState: SnackbarHostState
 ) {
-    val scope = rememberCoroutineScope()
     var userToDelete by remember { mutableStateOf<User?>(null) }
     var isDeletingUser by remember { mutableStateOf(false) }
     val deleteResult by viewModel.deleteResult.collectAsState()
@@ -670,7 +675,7 @@ fun UserManagementTab(
             }
             val matchesAccountType = appliedAccountType == "ALL" || user.accountType.name == appliedAccountType
             matchesSearch && matchesPlan && matchesStatus && matchesAge && matchesAccountType
-        }.sortedWith(compareBy<User> { user -> 
+        }.sortedWith(compareBy<User> { user ->
             user.planType != PlanType.ADMIN
         }.thenBy { it.name })
     }
@@ -1233,7 +1238,7 @@ fun UserActivityDialog(
                             }
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                 Text("Joined:", style = MaterialTheme.typography.bodyMedium)
-                                Text(user.createdAt.toDate().let { 
+                                Text(user.createdAt.toDate().let {
                                     java.text.SimpleDateFormat("MMM dd, yyyy", java.util.Locale.getDefault()).format(it)
                                 }, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
                             }
@@ -1278,7 +1283,7 @@ fun UserActivityDialog(
                                         Column(modifier = Modifier.weight(1f)) {
                                             Text(if (message.role == MessageRole.USER) "User" else "Bot", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
                                             Text(message.content, style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                                            Text(message.timestamp.toDate().let { 
+                                            Text(message.timestamp.toDate().let {
                                                 java.text.SimpleDateFormat("MMM dd, HH:mm", java.util.Locale.getDefault()).format(it)
                                             }, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
                                         }
@@ -1438,6 +1443,74 @@ fun NotificationTab(viewModel: AdminViewModel, snackbarHostState: SnackbarHostSt
     )
 }
 
+@Composable
+fun FeedbackManagementTab(
+    feedbackList: List<com.kidsrec.chatbot.data.model.Feedback>,
+    onMarkReviewed: (String) -> Unit,
+    onResolve: (String) -> Unit
+) {
+    if (feedbackList.isEmpty()) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("No feedback submitted yet.", color = Color.Gray)
+        }
+        return
+    }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        items(feedbackList) { item ->
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = item.category,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Text("${item.userName} • ${item.userEmail}")
+                    Text("Rating: ${item.rating}/5")
+                    Text(item.message)
+                    Text(
+                        text = "Status: ${item.status}",
+                        color = when (item.status) {
+                            "NEW" -> MaterialTheme.colorScheme.primary
+                            "REVIEWED" -> Color(0xFFFF9800)
+                            "RESOLVED" -> Color(0xFF4CAF50)
+                            else -> MaterialTheme.colorScheme.onSurface
+                        }
+                    )
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(
+                            onClick = { onMarkReviewed(item.id) },
+                            enabled = item.status == "NEW"
+                        ) {
+                            Text("Mark Reviewed")
+                        }
+
+                        Button(
+                            onClick = { onResolve(item.id) },
+                            enabled = item.status != "RESOLVED"
+                        ) {
+                            Text("Resolve")
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FilterDropdown(

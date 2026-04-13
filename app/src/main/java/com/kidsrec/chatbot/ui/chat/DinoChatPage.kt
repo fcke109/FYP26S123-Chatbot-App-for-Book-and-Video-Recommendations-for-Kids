@@ -44,8 +44,8 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
-import coil.compose.AsyncImage
 import com.google.firebase.auth.FirebaseAuth
+import coil.compose.AsyncImage
 import com.google.firebase.firestore.FirebaseFirestore
 import com.kidsrec.chatbot.R
 import com.kidsrec.chatbot.data.model.ChatMessage
@@ -57,6 +57,7 @@ import com.kidsrec.chatbot.data.repository.GamificationManager
 import com.kidsrec.chatbot.data.repository.LearningProgressManager
 import com.kidsrec.chatbot.ui.favorites.FavoritesViewModel
 import com.kidsrec.chatbot.ui.library.SmartSearchViewModel
+import com.kidsrec.chatbot.ui.notification.NotificationsViewModel
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -67,6 +68,8 @@ fun DinoChatPage(
     viewModel: ChatViewModel,
     favoritesViewModel: FavoritesViewModel,
     searchViewModel: SmartSearchViewModel,
+    notificationsViewModel: NotificationsViewModel,
+    currentUserId: String?= FirebaseAuth.getInstance().currentUser?.uid,
     onOpenRecommendation: (String, String, Boolean, String, String, String) -> Unit
 ) {
     val messages by viewModel.messages.collectAsState()
@@ -82,6 +85,14 @@ fun DinoChatPage(
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
     var showHistorySheet by remember { mutableStateOf(false) }
+
+    fun openHistorySheet() {
+        showHistorySheet = true
+    }
+
+    fun closeHistorySheet() {
+        showHistorySheet = false
+    }
 
     val context = LocalContext.current
     var isListening by remember { mutableStateOf(false) }
@@ -122,7 +133,7 @@ fun DinoChatPage(
                     putExtra(RecognizerIntent.EXTRA_PROMPT, "Tell Little Dino what you want")
                 }
                 speechLauncher.launch(intent)
-            } catch (e: ActivityNotFoundException) {
+            } catch (_: ActivityNotFoundException) {
                 isListening = false
                 Toast.makeText(
                     context,
@@ -156,7 +167,7 @@ fun DinoChatPage(
                         putExtra(RecognizerIntent.EXTRA_PROMPT, "Tell Little Dino what you want")
                     }
                     speechLauncher.launch(intent)
-                } catch (e: ActivityNotFoundException) {
+                } catch (_: ActivityNotFoundException) {
                     isListening = false
                     Toast.makeText(
                         context,
@@ -267,6 +278,33 @@ fun DinoChatPage(
         }
     }
 
+    val popupNotification by notificationsViewModel.popupNotification.collectAsState()
+
+    LaunchedEffect(currentUserId) {
+        if (!currentUserId.isNullOrBlank()) {
+            notificationsViewModel.startListening(currentUserId)
+        }
+    }
+
+    popupNotification?.let { notification ->
+        AlertDialog(
+            onDismissRequest = {
+                notificationsViewModel.dismissPopup(currentUserId!!, notification.id)
+            },
+            title = { Text(notification.title) },
+            text = { Text(notification.body) },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        notificationsViewModel.dismissPopup(currentUserId!!, notification.id)
+                    }
+                ) {
+                    Text("OK")
+                }
+            }
+        )
+    }
+
     val ghostTextTransformation = remember(autocompleteSuggestion) {
         VisualTransformation { text ->
             if (autocompleteSuggestion != null) {
@@ -299,16 +337,16 @@ fun DinoChatPage(
     }
 
     if (showHistorySheet) {
-        ModalBottomSheet(onDismissRequest = { showHistorySheet = false }) {
+        ModalBottomSheet(onDismissRequest = { closeHistorySheet() }) {
             ChatHistorySheet(
                 conversations = conversations,
                 onSelectConversation = { conversationId ->
                     viewModel.loadConversation(conversationId)
-                    showHistorySheet = false
+                    closeHistorySheet()
                 },
                 onNewChat = {
                     viewModel.startNewConversation()
-                    showHistorySheet = false
+                    closeHistorySheet()
                 }
             )
         }
@@ -343,7 +381,7 @@ fun DinoChatPage(
                         color = Color.White.copy(alpha = 0.8f)
                     )
                 }
-                IconButton(onClick = { showHistorySheet = true }) {
+                IconButton(onClick = { openHistorySheet() }) {
                     Icon(
                         Icons.Default.History,
                         contentDescription = "Chat History",

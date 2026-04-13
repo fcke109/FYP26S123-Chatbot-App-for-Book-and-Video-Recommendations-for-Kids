@@ -1,7 +1,6 @@
 package com.kidsrec.chatbot.data.model
 
 import androidx.annotation.Keep
-import com.google.firebase.Timestamp
 
 @Keep
 data class UserNotification(
@@ -11,7 +10,7 @@ data class UserNotification(
     val type: String = "",
     val read: Boolean = false,
     val category: String = "",
-    val createdAt: Long = 0L
-) {
-    constructor() : this("")
-}
+    val createdAt: Long = 0L,
+    val popupOnLogin: Boolean = true,
+    val popupShown: Boolean = false
+)

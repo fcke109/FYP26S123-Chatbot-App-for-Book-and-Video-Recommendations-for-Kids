@@ -14,14 +14,17 @@ import com.kidsrec.chatbot.data.model.ReadingHistory
 import com.kidsrec.chatbot.data.model.SuspiciousActivity
 import com.kidsrec.chatbot.data.model.User
 import com.kidsrec.chatbot.data.model.UserStatus
+import com.kidsrec.chatbot.data.model.Feedback
 import com.kidsrec.chatbot.data.repository.AccountManager
 import com.kidsrec.chatbot.data.repository.AnalyticsRepository
 import com.kidsrec.chatbot.data.repository.BookDataManager
+import com.kidsrec.chatbot.data.repository.FeedbackManager
 import com.kidsrec.chatbot.data.remote.OpenLibraryService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import java.util.Locale
 import javax.inject.Inject
 
 @HiltViewModel
@@ -32,7 +35,8 @@ class AdminViewModel @Inject constructor(
     private val firestore: FirebaseFirestore,
     private val functions: FirebaseFunctions,
     private val adminUpgradeRepository: AdminUpgradeRepository,
-    private val analyticsRepository: AnalyticsRepository
+    private val analyticsRepository: AnalyticsRepository,
+    private val feedbackManager: FeedbackManager
 ) : ViewModel() {
 
     private val _users = MutableStateFlow<List<User>>(emptyList())
@@ -83,10 +87,36 @@ class AdminViewModel @Inject constructor(
     private val _topDropOffs = MutableStateFlow<List<com.kidsrec.chatbot.data.model.TopDropOff>>(emptyList())
     val topDropOffs: StateFlow<List<com.kidsrec.chatbot.data.model.TopDropOff>> = _topDropOffs.asStateFlow()
 
+    private val _feedbackList = MutableStateFlow<List<Feedback>>(emptyList())
+    val feedbackList: StateFlow<List<Feedback>> = _feedbackList.asStateFlow()
+
     init {
         loadCuratedBooks()
         refreshAdminStats()
         loadAnalytics()
+        startWatchingFeedback()
+    }
+
+    private fun startWatchingFeedback() {
+        viewModelScope.launch {
+            feedbackManager.getFeedbackFlow().collect { items ->
+                _feedbackList.value = items
+            }
+        }
+    }
+
+    fun updateFeedbackStatus(
+        feedbackId: String,
+        status: String,
+        adminNote: String? = null
+    ) {
+        viewModelScope.launch {
+            feedbackManager.updateFeedbackStatus(
+                feedbackId = feedbackId,
+                status = status,
+                adminNote = adminNote
+            )
+        }
     }
 
     fun getCurrentUserId(): String? = accountManager.getCurrentUserId()
@@ -95,7 +125,10 @@ class AdminViewModel @Inject constructor(
         viewModelScope.launch {
             accountManager.getAllUsersFlow()
                 .catch { e -> Log.e("AdminVM", "Permission denied for users list", e) }
-                .collect { userList -> _users.value = userList }
+                .collect { userList ->
+                    _users.value = userList
+                    refreshAdminStats()
+                }
         }
     }
 
@@ -111,46 +144,46 @@ class AdminViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoadingAdminStats.value = true
             try {
-                // Get total users count
-                val totalUsers = firestore.collection("users").get().await().size().toLong()
+                val usersRef = firestore.collection("users")
 
-                // Calculate DAU based on successful login attempts in last 24 hours
+                // Total users
+                val totalUsers = usersRef
+                    .get()
+                    .await()
+                    .size()
+                    .toLong()
+
+                // Thresholds
                 val twentyFourHoursAgo = Timestamp(Date(System.currentTimeMillis() - 24 * 60 * 60 * 1000))
+                val thirtyDaysAgo = Timestamp(Date(System.currentTimeMillis() - 30L * 24 * 60 * 60 * 1000))
+
+                // DAU based on users.lastLoggedInAt in the last 24 hours
                 val dailyActiveUsers = try {
-                    firestore.collection("loginAttempts")
-                        .whereEqualTo("success", true)
-                        .whereGreaterThan("timestamp", twentyFourHoursAgo)
+                    usersRef
+                        .whereGreaterThanOrEqualTo("lastLoggedInAt", twentyFourHoursAgo)
                         .get()
                         .await()
-                        .documents
-                        .mapNotNull { it.getString("userId") }
-                        .distinct()
-                        .size
+                        .size()
                         .toLong()
                 } catch (e: Exception) {
-                    Log.w("AdminVM", "Failed to query login attempts for DAU", e)
+                    Log.w("AdminVM", "Failed to query users.lastLoggedInAt for DAU", e)
                     0L
                 }
 
-                // Calculate MAU based on successful login attempts in last 30 days
-                val thirtyDaysAgo = Timestamp(Date(System.currentTimeMillis() - 30 * 24 * 60 * 60 * 1000))
+                // MAU based on users.lastLoggedInAt in the last 30 days
                 val monthlyActiveUsers = try {
-                    firestore.collection("loginAttempts")
-                        .whereEqualTo("success", true)
-                        .whereGreaterThan("timestamp", thirtyDaysAgo)
+                    usersRef
+                        .whereGreaterThanOrEqualTo("lastLoggedInAt", thirtyDaysAgo)
                         .get()
                         .await()
-                        .documents
-                        .mapNotNull { it.getString("userId") }
-                        .distinct()
-                        .size
+                        .size()
                         .toLong()
                 } catch (e: Exception) {
-                    Log.w("AdminVM", "Failed to query login attempts for MAU", e)
+                    Log.w("AdminVM", "Failed to query users.lastLoggedInAt for MAU", e)
                     0L
                 }
 
-                // Get chatbot usage count from chat messages in last 24 hours
+                // Chatbot usage count from chat messages in last 24 hours
                 val dailyChatbotUsageCount = try {
                     firestore.collectionGroup("messages")
                         .whereGreaterThan("timestamp", twentyFourHoursAgo)
@@ -164,7 +197,6 @@ class AdminViewModel @Inject constructor(
                     0L
                 }
 
-                // Update stats
                 _adminStats.value = AdminStats(
                     totalUsers = totalUsers,
                     dailyActiveUsers = dailyActiveUsers,
@@ -271,7 +303,7 @@ class AdminViewModel @Inject constructor(
         viewModelScope.launch {
             val currentBooks = _curatedBooks.value.toList()
             currentBooks.forEachIndexed { index, book ->
-                val newId = String.format("%03d", index + 1)
+                val newId = String.format(Locale.US,"%03d", index + 1)
                 if (book.id != newId) {
                     // Delete the old record
                     bookDataManager.deleteBook(book.id)

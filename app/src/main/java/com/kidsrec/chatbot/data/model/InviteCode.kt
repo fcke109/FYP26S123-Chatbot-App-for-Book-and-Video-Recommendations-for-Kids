@@ -10,8 +10,7 @@ data class InviteCode(
     val parentName: String = "",
     val createdAt: Timestamp = Timestamp.now(),
     val expiresAt: Timestamp = Timestamp.now(),
-    val used: Boolean = false
-) {
-    // No-arg constructor for Firestore
-    constructor() : this("", "", "", Timestamp.now(), Timestamp.now(), false)
-}
+    val used: Boolean = false,
+    val childInterests: List<String> = emptyList(),
+    val starterBooks: List<StarterBookSeed> = emptyList()
+)
