@@ -32,7 +32,6 @@ import com.kidsrec.chatbot.ui.parental.ChildSafetyLockGate
 import com.kidsrec.chatbot.ui.parental.ChildSettingsEntry
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
-@Suppress("UNUSED_VALUE", "DEPRECATION")
 @Composable
 fun ProfileScreen(
     authViewModel: AuthViewModel,
@@ -53,6 +52,15 @@ fun ProfileScreen(
 
     var showEditLockGate by remember { mutableStateOf(false) }
     var isParentalUnlocked by remember { mutableStateOf(false) }
+
+    fun requestEditAccess() {
+        showEditLockGate = true
+    }
+
+    fun grantEditAccess() {
+        showEditLockGate = false
+        isEditing = true
+    }
 
     val interests = listOf(
         "Reading", "Science", "Animals", "Adventure",
@@ -84,13 +92,11 @@ fun ProfileScreen(
         ChildSafetyLockGate(
             isLocked = user?.parentalPin?.isNotEmpty() == true,
             onAccessGranted = {
-                showEditLockGate = false
-                isEditing = true
+                grantEditAccess()
             },
             content = {
                 LaunchedEffect(Unit) {
-                    showEditLockGate = false
-                    isEditing = true
+                    grantEditAccess()
                 }
             }
         )
@@ -102,7 +108,7 @@ fun ProfileScreen(
                 title = { Text("Profile") },
                 actions = {
                     if (!isEditing && user?.isGuest != true) {
-                        IconButton(onClick = { showEditLockGate = true }) {
+                        IconButton(onClick = { requestEditAccess() }) {
                             Icon(Icons.Default.Edit, contentDescription = "Edit Profile")
                         }
                     }

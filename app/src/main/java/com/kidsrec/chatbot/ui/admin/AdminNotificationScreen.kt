@@ -27,12 +27,7 @@ fun AdminNotificationScreen(
             style = MaterialTheme.typography.headlineSmall
         )
 
-        Text(
-            text = "Sent notifications will appear as a pop-up to users the next time they log in.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
+        // Notification Type Selector
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             NotificationType.entries.forEach { type ->
                 FilterChip(

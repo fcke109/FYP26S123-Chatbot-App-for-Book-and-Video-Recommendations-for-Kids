@@ -10,7 +10,5 @@ data class UserNotification(
     val type: String = "",
     val read: Boolean = false,
     val category: String = "",
-    val createdAt: Long = 0L,
-    val popupOnLogin: Boolean = true,
-    val popupShown: Boolean = false
+    val createdAt: Long = 0L
 )

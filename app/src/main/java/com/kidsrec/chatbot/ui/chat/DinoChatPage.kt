@@ -44,8 +44,8 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
-import com.google.firebase.auth.FirebaseAuth
 import coil.compose.AsyncImage
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.kidsrec.chatbot.R
 import com.kidsrec.chatbot.data.model.ChatMessage
@@ -57,7 +57,6 @@ import com.kidsrec.chatbot.data.repository.GamificationManager
 import com.kidsrec.chatbot.data.repository.LearningProgressManager
 import com.kidsrec.chatbot.ui.favorites.FavoritesViewModel
 import com.kidsrec.chatbot.ui.library.SmartSearchViewModel
-import com.kidsrec.chatbot.ui.notification.NotificationsViewModel
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -68,8 +67,6 @@ fun DinoChatPage(
     viewModel: ChatViewModel,
     favoritesViewModel: FavoritesViewModel,
     searchViewModel: SmartSearchViewModel,
-    notificationsViewModel: NotificationsViewModel,
-    currentUserId: String?= FirebaseAuth.getInstance().currentUser?.uid,
     onOpenRecommendation: (String, String, Boolean, String, String, String) -> Unit
 ) {
     val messages by viewModel.messages.collectAsState()
@@ -276,33 +273,6 @@ fun DinoChatPage(
                 if (remaining.isNotEmpty()) remaining else null
             } else null
         }
-    }
-
-    val popupNotification by notificationsViewModel.popupNotification.collectAsState()
-
-    LaunchedEffect(currentUserId) {
-        if (!currentUserId.isNullOrBlank()) {
-            notificationsViewModel.startListening(currentUserId)
-        }
-    }
-
-    popupNotification?.let { notification ->
-        AlertDialog(
-            onDismissRequest = {
-                notificationsViewModel.dismissPopup(currentUserId!!, notification.id)
-            },
-            title = { Text(notification.title) },
-            text = { Text(notification.body) },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        notificationsViewModel.dismissPopup(currentUserId!!, notification.id)
-                    }
-                ) {
-                    Text("OK")
-                }
-            }
-        )
     }
 
     val ghostTextTransformation = remember(autocompleteSuggestion) {
