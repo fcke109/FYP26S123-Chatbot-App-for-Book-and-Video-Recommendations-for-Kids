@@ -126,12 +126,25 @@ class AdminViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoadingAdminStats.value = true
             try {
-                // Get total users count
-                val totalUsers = firestore.collection("users").get().await().size().toLong()
+                val nowMillis = System.currentTimeMillis()
+                val twentyFourHoursAgo = Timestamp(Date(nowMillis - 24 * 60 * 60 * 1000))
+                val thirtyDaysAgo = Timestamp(Date(nowMillis - 30L * 24 * 60 * 60 * 1000))
 
-                // Calculate DAU based on successful login attempts in last 24 hours
-                val twentyFourHoursAgo = Timestamp(Date(System.currentTimeMillis() - 24 * 60 * 60 * 1000))
+                val totalUsers = firestore.collection("users")
+                    .get()
+                    .await()
+                    .size()
+                    .toLong()
+
                 val dailyActiveUsers = try {
+                    firestore.collection("users")
+                        .whereGreaterThan("lastLoggedInAt", twentyFourHoursAgo)
+                        .get()
+                        .await()
+                        .size()
+                        .toLong()
+                } catch (e: Exception) {
+                    Log.w("AdminVM", "Failed to query users.lastLoggedInAt for DAU, falling back to loginAttempts", e)
                     firestore.collection("loginAttempts")
                         .whereEqualTo("success", true)
                         .whereGreaterThan("timestamp", twentyFourHoursAgo)
@@ -142,14 +155,17 @@ class AdminViewModel @Inject constructor(
                         .distinct()
                         .size
                         .toLong()
-                } catch (e: Exception) {
-                    Log.w("AdminVM", "Failed to query login attempts for DAU", e)
-                    0L
                 }
 
-                // Calculate MAU based on successful login attempts in last 30 days
-                val thirtyDaysAgo = Timestamp(Date(System.currentTimeMillis() - 30 * 24 * 60 * 60 * 1000))
                 val monthlyActiveUsers = try {
+                    firestore.collection("users")
+                        .whereGreaterThan("lastLoggedInAt", thirtyDaysAgo)
+                        .get()
+                        .await()
+                        .size()
+                        .toLong()
+                } catch (e: Exception) {
+                    Log.w("AdminVM", "Failed to query users.lastLoggedInAt for MAU, falling back to loginAttempts", e)
                     firestore.collection("loginAttempts")
                         .whereEqualTo("success", true)
                         .whereGreaterThan("timestamp", thirtyDaysAgo)
@@ -160,35 +176,61 @@ class AdminViewModel @Inject constructor(
                         .distinct()
                         .size
                         .toLong()
-                } catch (e: Exception) {
-                    Log.w("AdminVM", "Failed to query login attempts for MAU", e)
-                    0L
                 }
 
-                // Get chatbot usage count from chat messages in last 24 hours
-                val dailyChatbotUsageCount = try {
+                // Count all stored chatbot messages so existing Firestore history appears in the dashboard.
+                val chatbotUsageCount = try {
                     firestore.collectionGroup("messages")
-                        .whereGreaterThan("timestamp", twentyFourHoursAgo)
                         .get()
                         .await()
                         .documents
                         .size
                         .toLong()
                 } catch (e: Exception) {
-                    Log.w("AdminVM", "Failed to query chat messages for usage count", e)
-                    0L
+                    Log.w("AdminVM", "Failed to query collectionGroup(messages) for chatbot usage, falling back to nested traversal", e)
+                    try {
+                        firestore.collection("chatHistory")
+                            .get()
+                            .await()
+                            .documents
+                            .sumOf { userDoc ->
+                                try {
+                                    userDoc.reference
+                                        .collection("conversations")
+                                        .get()
+                                        .await()
+                                        .documents
+                                        .sumOf { convoDoc ->
+                                            try {
+                                                convoDoc.reference
+                                                    .collection("messages")
+                                                    .get()
+                                                    .await()
+                                                    .size()
+                                                    .toLong()
+                                            } catch (inner: Exception) {
+                                                0L
+                                            }
+                                        }
+                                } catch (inner: Exception) {
+                                    0L
+                                }
+                            }
+                    } catch (inner: Exception) {
+                        Log.w("AdminVM", "Fallback nested traversal also failed for chatbot usage", inner)
+                        0L
+                    }
                 }
 
-                // Update stats
                 _adminStats.value = AdminStats(
                     totalUsers = totalUsers,
                     dailyActiveUsers = dailyActiveUsers,
                     monthlyActiveUsers = monthlyActiveUsers,
-                    chatbotUsageCount = dailyChatbotUsageCount
+                    chatbotUsageCount = chatbotUsageCount
                 )
-
             } catch (e: Exception) {
                 Log.e("AdminVM", "Failed to load admin stats", e)
+                _adminStats.value = AdminStats()
             } finally {
                 _isLoadingAdminStats.value = false
             }

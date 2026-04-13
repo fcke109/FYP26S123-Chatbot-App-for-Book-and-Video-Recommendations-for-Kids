@@ -30,7 +30,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.google.firebase.auth.FirebaseAuth
 import com.kidsrec.chatbot.data.model.Book
 import com.kidsrec.chatbot.data.model.LoginAttempt
 import com.kidsrec.chatbot.data.model.MessageRole
@@ -46,12 +45,6 @@ import com.kidsrec.chatbot.data.model.UserStatus
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
-private const val ADMIN_EMAIL = "admin@littledino.com"
-
-private fun isAdminEmail(email: String?): Boolean {
-    return email.equals(ADMIN_EMAIL, ignoreCase = true)
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdminScreen(
@@ -59,24 +52,6 @@ fun AdminScreen(
     onLogout: () -> Unit,
     onViewBook: (String, String, Boolean) -> Unit
 ) {
-    val firebaseUser = FirebaseAuth.getInstance().currentUser
-    val isAdmin = remember(firebaseUser?.email) { isAdminEmail(firebaseUser?.email) }
-
-    if (!isAdmin) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "Access Denied 🚫\nYou are not an admin.",
-                textAlign = TextAlign.Center,
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.error
-            )
-        }
-        return
-    }
-
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var selectedTabIndex by remember { mutableIntStateOf(0) }
@@ -179,7 +154,7 @@ fun DashboardTab(users: List<User>, books: List<Book>, stats: AdminStats, isLoad
 
     val freeUsers = users.count { it.planType == PlanType.FREE }
     val premiumUsers = users.count { it.planType == PlanType.PREMIUM }
-    val adminUsers = users.count { isAdminEmail(it.email) }
+    val adminUsers = users.count { it.planType == PlanType.ADMIN }
 
     val totalBooks = books.size
     val avgAge = if (users.isNotEmpty()) users.map { it.age }.average().toInt() else 0
@@ -212,7 +187,6 @@ fun DashboardTab(users: List<User>, books: List<Book>, stats: AdminStats, isLoad
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                         StatCard("Free", freeUsers.toString(), Color.Gray)
                         StatCard("Premium", premiumUsers.toString(), Color(0xFFFFA000))
-                        StatCard("Admin", adminUsers.toString(), Color(0xFF9C27B0))
                     }
                 }
             }
@@ -696,7 +670,7 @@ fun UserManagementTab(
             val matchesAccountType = appliedAccountType == "ALL" || user.accountType.name == appliedAccountType
             matchesSearch && matchesPlan && matchesStatus && matchesAge && matchesAccountType
         }.sortedWith(compareBy<User> { user ->
-            !isAdminEmail(user.email)
+            user.planType != PlanType.ADMIN
         }.thenBy { it.name })
     }
 
@@ -945,7 +919,7 @@ fun UserManagementTab(
         } else {
             LazyColumn(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(filteredUsers) { user ->
-                    val isAdminUser = isAdminEmail(user.email)
+                    val isAdminUser = user.email.lowercase() == "admin@littledino.com" || user.planType == PlanType.ADMIN
 
                     Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))) {
                         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
