@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -21,12 +22,21 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.MenuAnchorType
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -395,21 +405,73 @@ fun ParentInviteSetupScreen(
                 fontWeight = FontWeight.SemiBold
             )
 
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                interests.forEach { interest ->
-                    val selected = uiState.selectedInterests.contains(interest)
-                    val canSelect = selected || uiState.selectedInterests.size < 5
+            var interestsExpanded by remember { mutableStateOf(false) }
 
-                    FilterChip(
-                        selected = selected,
-                        onClick = { onToggleInterest(interest) },
-                        enabled = canSelect,
-                        label = { Text(interest) }
-                    )
+            ExposedDropdownMenuBox(
+                expanded = interestsExpanded,
+                onExpandedChange = { interestsExpanded = !interestsExpanded }
+            ) {
+                OutlinedTextField(
+                    value = if (uiState.selectedInterests.isEmpty()) {
+                        "Select interests"
+                    } else {
+                        uiState.selectedInterests.take(2).joinToString(", ") +
+                                if (uiState.selectedInterests.size > 2) " +${uiState.selectedInterests.size - 2} more" else ""
+                    },
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Child interests") },
+                    placeholder = { Text("Choose up to 5 interests") },
+                    supportingText = {
+                        Text("Up to 5 interests.")
+                    },
+                    trailingIcon = {
+                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = interestsExpanded)
+                    },
+                    modifier = Modifier
+                        .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                        .fillMaxWidth(),
+                    singleLine = true,
+                    maxLines = 1
+                )
+
+                DropdownMenu(
+                    expanded = interestsExpanded,
+                    onDismissRequest = { interestsExpanded = false },
+                    modifier = Modifier
+                        .fillMaxWidth(0.72f)
+                        .heightIn(max = 280.dp)
+                ) {
+                    interests.forEach { interest ->
+                        val selected = uiState.selectedInterests.contains(interest)
+                        val canSelect = selected || uiState.selectedInterests.size < 5
+
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = interest,
+                                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
+                                )
+                            },
+                            onClick = {
+                                if (canSelect) {
+                                    onToggleInterest(interest)
+                                }
+                            },
+                            enabled = canSelect,
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = if (selected) Icons.Default.Check else Icons.Default.Add,
+                                    contentDescription = null,
+                                    tint = if (selected) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    }
+                                )
+                            }
+                        )
+                    }
                 }
             }
 

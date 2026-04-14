@@ -222,7 +222,7 @@ private fun ParentHomeView(
                     } else {
                         Icon(Icons.Default.Add, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Generate Invite Code")
+                        Text("Add Child Account")
                     }
                 }
             }
