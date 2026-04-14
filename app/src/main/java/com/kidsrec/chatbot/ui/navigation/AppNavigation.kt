@@ -59,6 +59,7 @@ import com.kidsrec.chatbot.ui.library.LibraryViewModel
 import com.kidsrec.chatbot.ui.library.SmartSearchViewModel
 import com.kidsrec.chatbot.ui.library.UserLibraryScreen
 import com.kidsrec.chatbot.ui.parent.ParentDashboardScreen
+import com.kidsrec.chatbot.ui.parent.ParentInviteSetupRoute
 import com.kidsrec.chatbot.ui.parent.ParentDashboardViewModel
 import com.kidsrec.chatbot.ui.parent.ParentProgressViewModel
 import com.kidsrec.chatbot.ui.profile.ProfileScreen
@@ -92,6 +93,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
     object Admin : Screen("admin", "Admin", Icons.Default.Shield)
     object AdminUpgrade : Screen("admin_upgrade", "Admin CMS Upgrade")
     object ParentDashboard : Screen("parent_dashboard", "Dashboard", Icons.Default.Person)
+    object ParentInterestSelection : Screen("parent_interest_selection", "Set Child Interests")
     object ParentalControls : Screen("parental_controls", "Parental Controls")
     object Reader : Screen("reader/{url}", "Reader")
     object SafeWebView : Screen(
@@ -298,7 +300,12 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
     // Check for unread announcements on login
     val currentUser by authViewModel.currentUser.collectAsState()
     val notifications by notificationsViewModel.uiState.collectAsState()
-    val unreadAnnouncements = notifications.filter { !it.read && it.type == "announcement" }
+    val unreadAnnouncements = notifications.filter {
+        !it.read && (
+                it.type.equals("announcement", ignoreCase = true) ||
+                        it.type.equals("personalized", ignoreCase = true)
+                )
+    }
 
     // Start notifications listener when user is available
     LaunchedEffect(currentUser?.id) {
@@ -539,8 +546,23 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
                         viewModel = parentDashboardViewModel,
                         parentProgressViewModel = parentProgressViewModel,
                         onLogout = { authViewModel.signOut() },
-                        onUpgradePremium = { navController.navigate(Screen.PremiumUpgrade.route) }
+                        onUpgradePremium = { navController.navigate(Screen.PremiumUpgrade.route) },
+                        onGenerateCode = { navController.navigate(Screen.ParentInterestSelection.route) }
                     )
+                }
+
+                composable(Screen.ParentInterestSelection.route) {
+                    val parentUser = currentUser
+
+                    if (parentUser == null || parentUser.accountType != AccountType.PARENT) {
+                        LaunchedEffect(Unit) { navController.popBackStack() }
+                    } else {
+                        ParentInviteSetupRoute(
+                            parentId = parentUser.id,
+                            parentName = parentUser.name,
+                            onBack = { navController.popBackStack() }
+                        )
+                    }
                 }
 
                 composable(Screen.ParentalControls.route) {
@@ -769,7 +791,7 @@ fun AnnouncementDialog(
         },
         title = {
             Text(
-                "New Announcements",
+                "New Notifications",
                 style = MaterialTheme.typography.headlineSmall
             )
         },

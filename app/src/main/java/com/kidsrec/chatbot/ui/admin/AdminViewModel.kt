@@ -26,6 +26,28 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
+private const val ADMIN_NOTIFICATION_EMAIL = "admin@littledino.com"
+
+private fun isEligibleNotificationRecipient(
+    doc: com.google.firebase.firestore.DocumentSnapshot
+): Boolean {
+    val email = doc.getString("email")
+    if (email.equals(ADMIN_NOTIFICATION_EMAIL, ignoreCase = true)) return false
+
+    val status = doc.getString("status")?.trim()?.uppercase()
+    return status.isNullOrBlank() || status == "ACTIVE"
+}
+
+private fun extractNormalizedInterests(
+    doc: com.google.firebase.firestore.DocumentSnapshot
+): Set<String> {
+    return (doc.get("interests") as? List<*>)
+        ?.mapNotNull { (it as? String)?.trim()?.lowercase() }
+        ?.filter { it.isNotBlank() }
+        ?.toSet()
+        ?: emptySet()
+}
+
 @HiltViewModel
 class AdminViewModel @Inject constructor(
     private val accountManager: AccountManager,
@@ -591,15 +613,18 @@ class AdminViewModel @Inject constructor(
     }
 
     private suspend fun sendAnnouncementToAllUsers(title: String, body: String) {
-        // Get all active users
-        val activeUsers = firestore.collection("users")
-            .whereEqualTo("status", "ACTIVE")
+        val recipientIds = firestore.collection("users")
             .get()
             .await()
             .documents
-            .mapNotNull { it.id }
+            .filter { doc -> isEligibleNotificationRecipient(doc) }
+            .map { it.id }
 
-        // Create notification document for each user
+        if (recipientIds.isEmpty()) {
+            Log.w("AdminVM", "Announcement not sent because no eligible recipients were found")
+            return
+        }
+
         val batch = firestore.batch()
         val notificationData = mapOf(
             "title" to title,
@@ -609,7 +634,7 @@ class AdminViewModel @Inject constructor(
             "createdAt" to System.currentTimeMillis()
         )
 
-        activeUsers.forEach { userId ->
+        recipientIds.forEach { userId ->
             val notificationRef = firestore.collection("userNotifications")
                 .document(userId)
                 .collection("items")
@@ -618,25 +643,27 @@ class AdminViewModel @Inject constructor(
         }
 
         batch.commit().await()
-        Log.d("AdminVM", "Announcement sent to ${activeUsers.size} users")
+        Log.d("AdminVM", "Announcement sent to ${recipientIds.size} users")
     }
 
     private suspend fun sendPersonalizedAlert(title: String, body: String, interestCategory: String) {
-        // Find users interested in the specified category
+        val normalizedCategory = interestCategory.trim().lowercase()
+
         val interestedUsers = firestore.collection("users")
-            .whereEqualTo("status", "ACTIVE")
-            .whereArrayContains("interests", interestCategory.lowercase())
             .get()
             .await()
             .documents
-            .mapNotNull { it.id }
+            .filter { doc ->
+                isEligibleNotificationRecipient(doc) &&
+                        extractNormalizedInterests(doc).contains(normalizedCategory)
+            }
+            .map { it.id }
 
         if (interestedUsers.isEmpty()) {
-            Log.w("AdminVM", "No users found with interest: $interestCategory")
+            Log.w("AdminVM", "No eligible users found with interest: $interestCategory")
             return
         }
 
-        // Create notification document for each interested user
         val batch = firestore.batch()
         val notificationData = mapOf(
             "title" to title,
