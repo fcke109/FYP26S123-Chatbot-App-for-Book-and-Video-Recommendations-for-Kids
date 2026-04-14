@@ -5,19 +5,50 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <title>Little Dino | Safe Book & Video Recommendations for Kids</title>
-  <meta name="description" content="Little Dino is a child-friendly app that helps kids discover age-appropriate books and videos through a safe and playful chatbot experience." />
+  <meta
+    name="description"
+    content="Little Dino is a child-friendly app that helps kids discover age-appropriate books and videos through a safe and playful chatbot experience."
+  />
 
   <link rel="icon" type="image/png" href="/images/little_dino_icon_512.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet"
+  />
 
   <link rel="stylesheet" href="/css/styles.css" />
+
   <style>
-    .nav-auth { display: flex; align-items: center; gap: 0.7rem; }
-    .nav-auth .nav-user { font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; }
-    .nav-auth .nav-logout-btn { background: none; border: 1px solid var(--primary); color: var(--primary-dark); padding: 0.5rem 1rem; border-radius: 999px; font-weight: 700; font-size: 0.88rem; cursor: pointer; font-family: inherit; }
-    .nav-auth .nav-logout-btn:hover { background: var(--primary); color: white; }
+    .nav-auth {
+      display: flex;
+      align-items: center;
+      gap: 0.7rem;
+    }
+
+    .nav-auth .nav-user {
+      font-weight: 700;
+      color: var(--primary-dark);
+      font-size: 0.9rem;
+    }
+
+    .nav-auth .nav-logout-btn {
+      background: none;
+      border: 1px solid var(--primary);
+      color: var(--primary-dark);
+      padding: 0.5rem 1rem;
+      border-radius: 999px;
+      font-weight: 700;
+      font-size: 0.88rem;
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    .nav-auth .nav-logout-btn:hover {
+      background: var(--primary);
+      color: white;
+    }
   </style>
 </head>
 <body>
@@ -41,20 +72,32 @@
   <header class="site-header">
     <div class="container nav">
       <a href="#home" class="brand">
-        <img src="/images/little_dino_icon_512.png" alt="Little Dino logo" class="brand-logo" />
+        <img
+          src="/images/little_dino_icon_512.png"
+          alt="Little Dino logo"
+          class="brand-logo"
+        />
         <div class="brand-text">
           <span class="brand-title">Little Dino</span>
           <span class="brand-subtitle">Safe Kids Book & Video Discovery</span>
         </div>
       </a>
 
-      <button class="menu-toggle" id="menuToggle" aria-label="Toggle navigation menu" aria-expanded="false">
+      <button
+        class="menu-toggle"
+        id="menuToggle"
+        aria-label="Toggle navigation menu"
+        aria-expanded="false"
+        aria-controls="navLinks"
+      >
         <span class="menu-bar"></span>
         <span class="menu-bar"></span>
         <span class="menu-bar"></span>
       </button>
 
-      <nav class="nav-links" id="navLinks">
+      <div class="menu-overlay" id="menuOverlay"></div>
+
+      <nav class="nav-links drawer" id="navLinks">
         <a href="#home">Home</a>
         <a href="#features">Features</a>
         <a href="#app-preview">Inside the App</a>
@@ -62,13 +105,19 @@
         <a href="#safety">Safety</a>
         <a href="#plans">Plans</a>
         <a href="#testimonials">Testimonials</a>
+        <a href="#analytics">Analytics</a>
+        <a href="#about">About</a>
+        <a href="#contact">Contact</a>
         <a href="/catalog.html">Book Catalog</a>
         <a href="/feedback.html">Feedback</a>
         <a href="/privacy.html">Privacy Policy</a>
+
         <div class="nav-auth">
           <a href="/login.html" id="nav-login-link" class="nav-cta">Login</a>
           <span id="nav-user-name" class="nav-user" style="display:none;"></span>
-          <button id="nav-logout-btn" class="nav-logout-btn" style="display:none;">Logout</button>
+          <button id="nav-logout-btn" class="nav-logout-btn" style="display:none;">
+            Logout
+          </button>
         </div>
       </nav>
     </div>
@@ -87,7 +136,14 @@
           </p>
 
           <div class="hero-actions">
-            <a href="https://play.google.com/store/apps/details?id=com.kidsrec.chatbot" class="btn btn-primary" target="_blank">Download on Google Play</a>
+            <a
+              href="https://play.google.com/store/apps/details?id=com.kidsrec.chatbot"
+              class="btn btn-primary"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Download on Google Play
+            </a>
             <a href="#app-preview" class="btn btn-secondary">See App Preview</a>
           </div>
 
@@ -109,7 +165,11 @@
 
         <div class="hero-visual">
           <div class="hero-image-card glass-card floating-card dino-logo-wrap">
-            <img src="/images/little_dino_icon_512.png" alt="Little Dino mascot" class="hero-mascot moving-dino-logo" />
+            <img
+              src="/images/little_dino_icon_512.png"
+              alt="Little Dino mascot"
+              class="hero-mascot moving-dino-logo"
+            />
           </div>
 
           <div class="floating-pill floating-pill-1">📚 Books</div>
@@ -124,44 +184,65 @@
         <div class="section-heading">
           <span class="tag">Features</span>
           <h2>What makes Little Dino special?</h2>
-          <p>The platform is designed to help children find content in a simple, safe, engaging, and guided way while giving parents more confidence.</p>
+          <p>
+            The platform is designed to help children find content in a simple,
+            safe, engaging, and guided way while giving parents more confidence.
+          </p>
         </div>
 
         <div class="cards-grid">
           <article class="feature-card glass-card">
             <div class="feature-icon">💬</div>
             <h3>Chatbot Recommendations</h3>
-            <p>Children can describe what they want in simple words and receive helpful book and video suggestions.</p>
+            <p>
+              Children can describe what they want in simple words and receive
+              helpful book and video suggestions.
+            </p>
           </article>
 
           <article class="feature-card glass-card">
             <div class="feature-icon">📚</div>
             <h3>Curated Book Library</h3>
-            <p>Books are presented with title, summary, image, and age suitability for easier selection.</p>
+            <p>
+              Books are presented with title, summary, image, and age suitability
+              for easier selection.
+            </p>
           </article>
 
           <article class="feature-card glass-card">
             <div class="feature-icon">🎥</div>
             <h3>Video Discovery</h3>
-            <p>Kids can also receive educational video recommendations based on their interests.</p>
+            <p>
+              Kids can also receive educational video recommendations based on
+              their interests.
+            </p>
           </article>
 
           <article class="feature-card glass-card">
             <div class="feature-icon">⭐</div>
             <h3>Personalised Picks</h3>
-            <p>Recommendations can be influenced by age, reading level, interests, favourites, and previous activity.</p>
+            <p>
+              Recommendations can be influenced by age, reading level, interests,
+              favourites, and previous activity.
+            </p>
           </article>
 
           <article class="feature-card glass-card">
             <div class="feature-icon">👨‍👩‍👧</div>
             <h3>Parent-Focused Design</h3>
-            <p>The platform is designed to support parent-friendly controls like age suitability, guided access, and safer exploration.</p>
+            <p>
+              The platform is designed to support parent-friendly controls like
+              age suitability, guided access, and safer exploration.
+            </p>
           </article>
 
           <article class="feature-card glass-card">
             <div class="feature-icon">📱</div>
             <h3>Mobile Friendly</h3>
-            <p>Little Dino is designed as a simple mobile-first experience that is easy for children to navigate.</p>
+            <p>
+              Little Dino is designed as a simple mobile-first experience that is
+              easy for children to navigate.
+            </p>
           </article>
         </div>
       </div>
@@ -172,14 +253,21 @@
         <div class="section-heading">
           <span class="tag">Inside the App</span>
           <h2>A closer look at the Little Dino experience</h2>
-          <p>Tap a topic, then press send once. After that, Little Dino replies automatically with a matching book and video.</p>
+          <p>
+            Tap a topic, then press send once. After that, Little Dino replies
+            automatically with a matching book and video.
+          </p>
         </div>
 
         <div class="app-showcase">
           <div class="app-phone glass-card">
             <div class="app-phone-top">
               <div class="app-branding">
-                <img src="/images/little_dino_icon_512.png" alt="Little Dino app icon" class="app-avatar" />
+                <img
+                  src="/images/little_dino_icon_512.png"
+                  alt="Little Dino app icon"
+                  class="app-avatar"
+                />
                 <div>
                   <h3>Little Dino</h3>
                   <p id="demoStatusText">Online • Ready to help</p>
@@ -211,20 +299,34 @@
               <div class="demo-recommendation-row" id="demoRecommendationRow">
                 <div class="recommendation-card book-card demo-card">
                   <div class="recommendation-badge">BOOK</div>
-                  <img src="/images/sharks-book.jpg" alt="Book recommendation" class="recommendation-image" id="demoBookImage" />
+                  <img
+                    src="/images/sharks-book.jpg"
+                    alt="Book recommendation"
+                    class="recommendation-image"
+                    id="demoBookImage"
+                  />
                   <div class="recommendation-content">
                     <h4 id="demoBookTitle">Shark Adventure</h4>
-                    <p id="demoBookDesc">A child-friendly book recommendation will appear here.</p>
+                    <p id="demoBookDesc">
+                      A child-friendly book recommendation will appear here.
+                    </p>
                     <a href="/catalog.html" class="mini-action">Read</a>
                   </div>
                 </div>
 
                 <div class="recommendation-card video-card demo-card">
                   <div class="recommendation-badge video-badge">VIDEO</div>
-                  <img src="/images/sharks-video.jpg" alt="Video recommendation" class="recommendation-image" id="demoVideoImage" />
+                  <img
+                    src="/images/sharks-video.jpg"
+                    alt="Video recommendation"
+                    class="recommendation-image"
+                    id="demoVideoImage"
+                  />
                   <div class="recommendation-content">
                     <h4 id="demoVideoTitle">Ocean Animals</h4>
-                    <p id="demoVideoDesc">A matching educational video will appear here.</p>
+                    <p id="demoVideoDesc">
+                      A matching educational video will appear here.
+                    </p>
                     <a href="/catalog.html" class="mini-action">Watch</a>
                   </div>
                 </div>
@@ -247,22 +349,34 @@
           <div class="app-side-info">
             <div class="about-panel glass-card">
               <h3>Interactive demo</h3>
-              <p>Visitors can click different interests and instantly see how the chatbot responds inside the app.</p>
+              <p>
+                Visitors can click different interests and instantly see how the
+                chatbot responds inside the app.
+              </p>
             </div>
 
             <div class="about-panel glass-card">
               <h3>Book and video pairing</h3>
-              <p>Each topic updates both a book recommendation and a matching video suggestion.</p>
+              <p>
+                Each topic updates both a book recommendation and a matching
+                video suggestion.
+              </p>
             </div>
 
             <div class="about-panel glass-card">
               <h3>Feels like a real chat</h3>
-              <p>Typing indicators, animated bubbles, and changing input text make the demo feel closer to a real mobile chatbot.</p>
+              <p>
+                Typing indicators, animated bubbles, and changing input text make
+                the demo feel closer to a real mobile chatbot.
+              </p>
             </div>
 
             <div class="about-panel glass-card">
               <h3>Privacy & trust</h3>
-              <p>Families can also review your privacy policy page directly from the menu and footer for added trust.</p>
+              <p>
+                Families can also review your privacy policy page directly from
+                the menu and footer for added trust.
+              </p>
             </div>
           </div>
         </div>
@@ -274,26 +388,38 @@
         <div class="section-heading">
           <span class="tag">How It Works</span>
           <h2>A simple journey for young users</h2>
-          <p>The experience is designed to reduce confusion and make content discovery simple, friendly, and fun.</p>
+          <p>
+            The experience is designed to reduce confusion and make content
+            discovery simple, friendly, and fun.
+          </p>
         </div>
 
         <div class="steps-grid">
           <div class="step-card glass-card">
             <div class="step-number">1</div>
             <h3>Ask the chatbot</h3>
-            <p>A child enters a simple prompt, such as a topic, genre, or type of story they want.</p>
+            <p>
+              A child enters a simple prompt, such as a topic, genre, or type of
+              story they want.
+            </p>
           </div>
 
           <div class="step-card glass-card">
             <div class="step-number">2</div>
             <h3>Get recommendations</h3>
-            <p>The app suggests age-appropriate books and videos based on the request and profile details.</p>
+            <p>
+              The app suggests age-appropriate books and videos based on the
+              request and profile details.
+            </p>
           </div>
 
           <div class="step-card glass-card">
             <div class="step-number">3</div>
             <h3>Explore safely</h3>
-            <p>Users can read, save favourites, and continue discovering content in a guided environment.</p>
+            <p>
+              Users can read, save favourites, and continue discovering content in
+              a guided environment.
+            </p>
           </div>
         </div>
       </div>
@@ -304,7 +430,11 @@
         <div class="section-heading">
           <span class="tag">Safety</span>
           <h2>A safer digital experience for children</h2>
-          <p>Little Dino is designed to support safe, guided, and educational discovery so children can explore with more confidence and parents can feel more reassured.</p>
+          <p>
+            Little Dino is designed to support safe, guided, and educational
+            discovery so children can explore with more confidence and parents can
+            feel more reassured.
+          </p>
         </div>
 
         <div class="safety-modern-grid">
@@ -313,7 +443,10 @@
               <div class="safety-icon-wrap">🛡️</div>
               <div>
                 <h3>Why Little Dino feels safer</h3>
-                <p>Instead of open browsing, children interact with a guided chatbot that helps them discover more suitable books and videos.</p>
+                <p>
+                  Instead of open browsing, children interact with a guided chatbot
+                  that helps them discover more suitable books and videos.
+                </p>
               </div>
             </div>
 
@@ -322,7 +455,10 @@
                 <span class="safety-feature-icon">📚</span>
                 <div>
                   <h4>Curated content</h4>
-                  <p>Books and videos are selected to support child-appropriate discovery.</p>
+                  <p>
+                    Books and videos are selected to support child-appropriate
+                    discovery.
+                  </p>
                 </div>
               </div>
 
@@ -330,7 +466,9 @@
                 <span class="safety-feature-icon">🎯</span>
                 <div>
                   <h4>Age-appropriate suggestions</h4>
-                  <p>Recommendations can be aligned to age group and reading level.</p>
+                  <p>
+                    Recommendations can be aligned to age group and reading level.
+                  </p>
                 </div>
               </div>
 
@@ -338,7 +476,10 @@
                 <span class="safety-feature-icon">🧭</span>
                 <div>
                   <h4>Guided exploration</h4>
-                  <p>The chatbot reduces random searching and points children toward relevant options.</p>
+                  <p>
+                    The chatbot reduces random searching and points children
+                    toward relevant options.
+                  </p>
                 </div>
               </div>
 
@@ -346,7 +487,10 @@
                 <span class="safety-feature-icon">👨‍👩‍👧</span>
                 <div>
                   <h4>Parent-ready controls</h4>
-                  <p>The design supports safer boundaries, filters, and future parent settings.</p>
+                  <p>
+                    The design supports safer boundaries, filters, and future
+                    parent settings.
+                  </p>
                 </div>
               </div>
             </div>
@@ -355,17 +499,26 @@
           <div class="safety-side-column">
             <div class="safety-side-card glass-card">
               <h3>Educational-first approach</h3>
-              <p>The platform prioritises meaningful, child-friendly content that encourages reading, learning, and curiosity.</p>
+              <p>
+                The platform prioritises meaningful, child-friendly content that
+                encourages reading, learning, and curiosity.
+              </p>
             </div>
 
             <div class="safety-side-card glass-card">
               <h3>Structured content management</h3>
-              <p>Admin-managed content helps maintain consistency, suitability, and quality across the app experience.</p>
+              <p>
+                Admin-managed content helps maintain consistency, suitability, and
+                quality across the app experience.
+              </p>
             </div>
 
             <div class="safety-side-card glass-card">
               <h3>Designed for trust</h3>
-              <p>Little Dino aims to balance child independence with a more guided and reassuring experience for families.</p>
+              <p>
+                Little Dino aims to balance child independence with a more guided
+                and reassuring experience for families.
+              </p>
             </div>
           </div>
         </div>
@@ -377,7 +530,10 @@
         <div class="section-heading">
           <span class="tag">Subscription Plans</span>
           <h2>Simple plans for Little Dino</h2>
-          <p>Start with the free experience or upgrade to Premium for more advanced personalised features.</p>
+          <p>
+            Start with the free experience or upgrade to Premium for more advanced
+            personalised features.
+          </p>
         </div>
 
         <div class="plans-grid plans-grid-two">
@@ -393,7 +549,14 @@
               <li>Limited favorites</li>
               <li>Safe video viewing</li>
             </ul>
-            <a href="https://play.google.com/store/apps/details?id=com.kidsrec.chatbot" class="btn btn-secondary" target="_blank">Download Free</a>
+            <a
+              href="https://play.google.com/store/apps/details?id=com.kidsrec.chatbot"
+              class="btn btn-secondary"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Download Free
+            </a>
           </div>
 
           <div class="plan-card featured-plan glass-card">
@@ -410,7 +573,14 @@
               <li>Safe video viewing</li>
               <li>Access to curated book library</li>
             </ul>
-            <a href="https://play.google.com/store/apps/details?id=com.kidsrec.chatbot" class="btn btn-primary" target="_blank">Get Premium</a>
+            <a
+              href="https://play.google.com/store/apps/details?id=com.kidsrec.chatbot"
+              class="btn btn-primary"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Get Premium
+            </a>
           </div>
         </div>
       </div>
@@ -421,19 +591,31 @@
         <div class="section-heading">
           <span class="tag">Live Feedback</span>
           <h2>What kids think of their recommendations</h2>
-          <p>Real-time feedback from children using Little Dino. <span class="live-badge"><span class="live-dot"></span>Live</span></p>
+          <p>
+            Real-time feedback from children using Little Dino.
+            <span class="live-badge"><span class="live-dot"></span>Live</span>
+          </p>
         </div>
 
         <div id="live-feedback-stats" class="live-stats-row" style="display:none;">
-          <div class="live-stat glass-card"><span id="live-total" class="live-stat-value">0</span><span class="live-stat-label">Total</span></div>
-          <div class="live-stat glass-card"><span id="live-positive" class="live-stat-value">0</span><span class="live-stat-label">Liked</span></div>
-          <div class="live-stat glass-card"><span id="live-pct" class="live-stat-value">0%</span><span class="live-stat-label">Positive</span></div>
+          <div class="live-stat glass-card">
+            <span id="live-total" class="live-stat-value">0</span>
+            <span class="live-stat-label">Total</span>
+          </div>
+          <div class="live-stat glass-card">
+            <span id="live-positive" class="live-stat-value">0</span>
+            <span class="live-stat-label">Liked</span>
+          </div>
+          <div class="live-stat glass-card">
+            <span id="live-pct" class="live-stat-value">0%</span>
+            <span class="live-stat-label">Positive</span>
+          </div>
         </div>
 
         <div class="testimonial-slider-wrapper">
           <div class="testimonial-slider-track" id="live-feedback-track">
             <div class="testimonial-card glass-card" style="min-width:280px;text-align:center;padding:2rem;">
-              <p style="color:var(--muted);">Loading live feedback...</p>
+              <p style="color:var(--muted);">Loading live feedback.</p>
             </div>
           </div>
         </div>
@@ -445,25 +627,34 @@
         <div class="section-heading">
           <span class="tag">Analytics</span>
           <h2>Track Little Dino growth at a glance</h2>
-          <p>This section can be used to present platform progress clearly for users, assessors, or future stakeholders.</p>
+          <p>
+            This section can be used to present platform progress clearly for users,
+            assessors, or future stakeholders.
+          </p>
         </div>
 
         <div class="analytics-grid">
           <div class="analytics-card glass-card">
             <h3>Registration Rate</h3>
-            <div class="analytics-value"><span class="count-up" data-target="78">0</span>%</div>
+            <div class="analytics-value">
+              <span class="count-up" data-target="78">0</span>%
+            </div>
             <p>Visitors who proceed to register or create an account.</p>
           </div>
 
           <div class="analytics-card glass-card">
             <h3>Active Users</h3>
-            <div class="analytics-value"><span class="count-up" data-target="1240">0</span>+</div>
+            <div class="analytics-value">
+              <span class="count-up" data-target="1240">0</span>+
+            </div>
             <p>Monthly active users engaging with Little Dino features.</p>
           </div>
 
           <div class="analytics-card glass-card">
             <h3>Books Available</h3>
-            <div class="analytics-value"><span class="count-up" data-target="420">0</span>+</div>
+            <div class="analytics-value">
+              <span class="count-up" data-target="420">0</span>+
+            </div>
             <p>Books currently available for safe and guided discovery.</p>
           </div>
         </div>
@@ -476,46 +667,57 @@
           <span class="tag">About</span>
           <h2>About the Little Dino project</h2>
           <p class="section-copy">
-            Little Dino is a chatbot-based platform designed to help children discover books and educational videos
-            in a safer and more guided way.
+            Little Dino is a chatbot-based platform designed to help children
+            discover books and educational videos in a safer and more guided way.
           </p>
           <p class="section-copy">
-            This website connects to the same Firebase backend as the Android app, letting you browse the book catalog
-            and manage your account right from the browser.
+            This website connects to the same Firebase backend as the Android app,
+            letting you browse the book catalog and manage your account right from
+            the browser.
           </p>
         </div>
 
         <div class="about-panel glass-card">
-          <h3>Web Features</h3>
+          <h3>Designed for families</h3>
+          <p>
+            Little Dino combines child-friendly design, guided recommendations,
+            and future-ready parent features to create a more reassuring digital
+            experience.
+          </p>
           <ul>
-            <li>Browse the curated book catalog</li>
-            <li>Login / Register with Firebase Auth</li>
-            <li>Download the app from Google Play</li>
-            <li>Privacy policy & terms of service</li>
-            <li>Interactive chatbot demo</li>
+            <li>Chatbot-based discovery</li>
+            <li>Books and videos in one place</li>
+            <li>Safer, guided exploration</li>
+            <li>Firebase-connected web experience</li>
           </ul>
-        </div>
-      </div>
-    </section>
-
-    <section class="section cta-section">
-      <div class="container">
-        <div class="cta-box glass-card">
-          <div>
-            <span class="tag">Download</span>
-            <h2>Ready to start with Little Dino?</h2>
-            <p>Download the app from Google Play or browse the book catalog right here on the web.</p>
-          </div>
-          <div style="display:flex;gap:1rem;flex-wrap:wrap;">
-            <a href="https://play.google.com/store/apps/details?id=com.kidsrec.chatbot" class="btn btn-primary" target="_blank">Google Play</a>
-            <a href="/catalog.html" class="btn btn-secondary">Book Catalog</a>
-          </div>
         </div>
       </div>
     </section>
 
     <section class="section" id="contact">
       <div class="container">
+        <div class="cta-box glass-card" style="margin-bottom:2rem;">
+          <div>
+            <span class="tag">Get Started</span>
+            <h2>Ready to explore Little Dino?</h2>
+            <p>
+              Download the app, explore the catalog, and discover how Little Dino
+              helps children learn through safe book and video discovery.
+            </p>
+          </div>
+          <div style="display:flex;gap:1rem;flex-wrap:wrap;">
+            <a
+              href="https://play.google.com/store/apps/details?id=com.kidsrec.chatbot"
+              class="btn btn-primary"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Google Play
+            </a>
+            <a href="/catalog.html" class="btn btn-secondary">Book Catalog</a>
+          </div>
+        </div>
+
         <div class="section-heading">
           <span class="tag">Contact</span>
           <h2>Get in touch</h2>
@@ -542,7 +744,11 @@
   <footer class="site-footer">
     <div class="container footer-content">
       <div class="footer-brand">
-        <img src="/images/little_dino_icon_512.png" alt="Little Dino footer logo" class="footer-logo" />
+        <img
+          src="/images/little_dino_icon_512.png"
+          alt="Little Dino footer logo"
+          class="footer-logo"
+        />
         <div>
           <strong>Little Dino</strong>
           <p>Chatbot App for Book and Video Recommendations for Kids</p>
@@ -558,107 +764,139 @@
   </footer>
 
   <script src="/js/script.js"></script>
-  <script type="module">
-    import { auth, db, initAuthUI, onAuthStateChanged, signOut, collection, query, orderBy, limit, onSnapshot } from '/js/firebase-config.js';
 
-    // Live feedback loader
-    (function loadLiveFeedback() {
-      const feedbackQuery = query(collection(db, 'feedback'), orderBy('timestamp', 'desc'), limit(50));
-      onSnapshot(feedbackQuery, (snapshot) => {
-        const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        renderLiveFeedback(items);
-      }, (err) => {
-        console.warn('Live feedback listener error:', err.message);
-        renderLiveFeedback([]);
+  <script type="module">
+    import {
+      auth,
+      db,
+      initAuthUI,
+      onAuthStateChanged,
+      signOut,
+      collection,
+      query,
+      orderBy,
+      limit,
+      onSnapshot
+    } from '/js/firebase-config.js';
+
+    initAuthUI?.();
+
+    const navLoginLink = document.getElementById('nav-login-link');
+    const navUserName = document.getElementById('nav-user-name');
+    const navLogoutBtn = document.getElementById('nav-logout-btn');
+
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        if (navLoginLink) navLoginLink.style.display = 'none';
+        if (navUserName) {
+          navUserName.style.display = 'inline-block';
+          navUserName.textContent = user.displayName || user.email || 'Logged in';
+        }
+        if (navLogoutBtn) navLogoutBtn.style.display = 'inline-block';
+      } else {
+        if (navLoginLink) navLoginLink.style.display = 'inline-flex';
+        if (navUserName) navUserName.style.display = 'none';
+        if (navLogoutBtn) navLogoutBtn.style.display = 'none';
+      }
+    });
+
+    if (navLogoutBtn) {
+      navLogoutBtn.addEventListener('click', async () => {
+        try {
+          await signOut(auth);
+          window.location.href = '/';
+        } catch (error) {
+          console.warn('Logout failed:', error?.message || error);
+        }
       });
-    })();
+    }
 
     function renderLiveFeedback(items) {
       const track = document.getElementById('live-feedback-track');
       const statsRow = document.getElementById('live-feedback-stats');
+      const totalEl = document.getElementById('live-total');
+      const positiveEl = document.getElementById('live-positive');
+      const pctEl = document.getElementById('live-pct');
+
       if (!track) return;
 
-      if (items.length === 0) {
-        track.innerHTML = '<div class="no-feedback-msg glass-card">No feedback yet. Be the first to rate a recommendation in the app!</div>';
+      if (!Array.isArray(items) || items.length === 0) {
+        track.innerHTML =
+          '<div class="no-feedback-msg glass-card">No feedback yet. Be the first to rate a recommendation in the app!</div>';
         if (statsRow) statsRow.style.display = 'none';
         track.style.animation = 'none';
         return;
       }
 
-      // Helper: handle both "isPositive" and "positive" Firestore field names
-      function isPos(f) {
-        if (typeof f.isPositive === 'boolean') return f.isPositive;
-        if (typeof f.positive === 'boolean') return f.positive;
+      const isPositive = (item) => {
+        if (typeof item.isPositive === 'boolean') return item.isPositive;
+        if (typeof item.positive === 'boolean') return item.positive;
         return false;
-      }
-
-      // Stats
-      const total = items.length;
-      const positive = items.filter(f => isPos(f)).length;
-      const pct = Math.round((positive / total) * 100);
-      document.getElementById('live-total').textContent = total;
-      document.getElementById('live-positive').textContent = positive;
-      document.getElementById('live-pct').textContent = pct + '%';
-      if (statsRow) statsRow.style.display = 'flex';
-
-      // Build cards (duplicate for infinite scroll)
-      const positiveItems = items.filter(f => isPos(f));
-      const displayItems = positiveItems.length > 0 ? positiveItems : items;
-
-      let html = '';
-      const buildCard = (f) => {
-        const type = f.recommendationType || 'BOOK';
-        const liked = isPos(f);
-        const icon = liked ? '\u{1F44D}' : '\u{1F44E}';
-        const title = esc(f.recommendationTitle || 'Unknown');
-        return `<div class="feedback-card glass-card">
-          <div class="feedback-card-header">
-            <span class="feedback-card-icon">${icon}</span>
-            <span class="feedback-card-type ${type === 'VIDEO' ? 'video' : 'book'}">${type}</span>
-          </div>
-          <h4>${title}</h4>
-          <p>${liked ? 'Loved this recommendation!' : 'Not a fan of this one'}</p>
-        </div>`;
       };
 
-      displayItems.forEach(f => { html += buildCard(f); });
-      // Duplicate for seamless scroll
-      displayItems.forEach(f => { html += buildCard(f); });
+      const total = items.length;
+      const positive = items.filter(isPositive).length;
+      const pct = Math.round((positive / total) * 100);
 
-      track.innerHTML = html;
+      if (statsRow) statsRow.style.display = 'flex';
+      if (totalEl) totalEl.textContent = total;
+      if (positiveEl) positiveEl.textContent = positive;
+      if (pctEl) pctEl.textContent = `${pct}%`;
 
-      // Adjust scroll speed based on item count
-      const duration = Math.max(12, displayItems.length * 4);
-      track.style.animation = `scrollTestimonials ${duration}s linear infinite`;
-    }
+      const cards = items.map((item) => {
+        const liked = isPositive(item);
+        const type = (item.contentType || item.type || 'book').toString().toLowerCase();
+        const title = item.title || item.contentTitle || 'Recommended item';
+        const text = item.comment || item.feedback || (liked ? 'I liked this recommendation.' : 'This recommendation was okay.');
+        const emoji = liked ? '😍' : '🙂';
 
-    function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
-
-    const loginLink = document.getElementById('nav-login-link');
-    const userName = document.getElementById('nav-user-name');
-    const logoutBtn = document.getElementById('nav-logout-btn');
-
-    onAuthStateChanged(auth, (user) => {
-      if (user) {
-        if (loginLink) loginLink.style.display = 'none';
-        if (userName) {
-          userName.textContent = user.displayName || user.email.split('@')[0];
-          userName.style.display = 'inline';
-        }
-        if (logoutBtn) logoutBtn.style.display = 'inline-block';
-      } else {
-        if (loginLink) loginLink.style.display = 'inline-flex';
-        if (userName) userName.style.display = 'none';
-        if (logoutBtn) logoutBtn.style.display = 'none';
-      }
-    });
-
-    if (logoutBtn) {
-      logoutBtn.addEventListener('click', async () => {
-        await signOut(auth);
-        window.location.reload();
+        return `
+          <div class="feedback-card glass-card">
+            <div class="feedback-card-header">
+              <span class="feedback-card-icon">${emoji}</span>
+              <span class="feedback-card-type ${type === 'video' ? 'video' : 'book'}">
+                ${type === 'video' ? 'VIDEO' : 'BOOK'}
+              </span>
+            </div>
+            <h4>${title}</h4>
+            <p>${text}</p>
+          </div>
+        `;
       });
+
+      track.innerHTML = cards.concat(cards).join('');
+      track.style.animation = '';
     }
+
+    (function loadLiveFeedback() {
+      try {
+        const feedbackQuery = query(
+          collection(db, 'feedback'),
+          orderBy('timestamp', 'desc'),
+          limit(50)
+        );
+
+        onSnapshot(
+          feedbackQuery,
+          (snapshot) => {
+            const items = snapshot.docs.map((doc) => ({
+              id: doc.id,
+              ...doc.data()
+            }));
+            renderLiveFeedback(items);
+          },
+          (err) => {
+            console.warn('Live feedback listener error:', err.message);
+            renderLiveFeedback([]);
+          }
+        );
+      } catch (error) {
+        console.warn('Live feedback init failed:', error?.message || error);
+        renderLiveFeedback([]);
+      }
+    })();
+
+    window.renderLiveFeedback = renderLiveFeedback;
   </script>
 </body>
 </html>
