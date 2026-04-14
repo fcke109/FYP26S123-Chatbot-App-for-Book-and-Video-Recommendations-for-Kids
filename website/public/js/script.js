@@ -1,32 +1,60 @@
 const menuToggle = document.getElementById("menuToggle");
 const navLinks = document.getElementById("navLinks");
+const menuOverlay = document.getElementById("menuOverlay");
+
+function openMenu() {
+  if (!menuToggle || !navLinks) return;
+  navLinks.classList.add("show");
+  menuToggle.classList.add("active");
+  menuToggle.setAttribute("aria-expanded", "true");
+  if (menuOverlay) {
+    menuOverlay.classList.add("active");
+  }
+  document.body.style.overflow = window.innerWidth <= 768 ? "hidden" : "";
+}
+
+function closeMenu() {
+  if (!menuToggle || !navLinks) return;
+  navLinks.classList.remove("show");
+  menuToggle.classList.remove("active");
+  menuToggle.setAttribute("aria-expanded", "false");
+  if (menuOverlay) {
+    menuOverlay.classList.remove("active");
+  }
+  document.body.style.overflow = "";
+}
 
 if (menuToggle && navLinks) {
   menuToggle.addEventListener("click", () => {
-    navLinks.classList.toggle("show");
-    menuToggle.classList.toggle("active");
-    menuToggle.setAttribute(
-      "aria-expanded",
-      navLinks.classList.contains("show") ? "true" : "false"
-    );
+    const isOpen = navLinks.classList.contains("show");
+    if (isOpen) {
+      closeMenu();
+    } else {
+      openMenu();
+    }
   });
 
   navLinks.querySelectorAll("a").forEach((link) => {
     link.addEventListener("click", () => {
-      navLinks.classList.remove("show");
-      menuToggle.classList.remove("active");
-      menuToggle.setAttribute("aria-expanded", "false");
+      if (window.innerWidth <= 768) {
+        closeMenu();
+      }
     });
   });
 
-  document.addEventListener("click", (event) => {
-    const clickedInsideMenu = navLinks.contains(event.target);
-    const clickedToggle = menuToggle.contains(event.target);
+  if (menuOverlay) {
+    menuOverlay.addEventListener("click", closeMenu);
+  }
 
-    if (!clickedInsideMenu && !clickedToggle) {
-      navLinks.classList.remove("show");
-      menuToggle.classList.remove("active");
-      menuToggle.setAttribute("aria-expanded", "false");
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      closeMenu();
+    }
+  });
+
+  window.addEventListener("resize", () => {
+    if (window.innerWidth > 768) {
+      closeMenu();
     }
   });
 }
@@ -125,7 +153,7 @@ if (sparklesContainer) {
 }
 
 const revealItems = document.querySelectorAll(
-  ".feature-card, .step-card, .about-panel, .safety-main-card, .safety-side-card, .plan-card, .testimonial-card, .analytics-card, .contact-card, .app-phone, .privacy-card"
+  ".feature-card, .step-card, .about-panel, .safety-main-card, .safety-side-card, .plan-card, .testimonial-card, .analytics-card, .contact-card, .app-phone, .privacy-card, .feedback-card"
 );
 
 if ("IntersectionObserver" in window) {
@@ -271,13 +299,23 @@ function resetDemoChat() {
     </div>
   `;
 
-  demoRecommendationRow.classList.remove("active");
-  demoInputText.textContent = "Ask Little Dino for a story...";
-  demoStatusText.textContent = "Online • Ready to help";
-  demoStatusText.className = "demo-status-ready";
+  if (demoRecommendationRow) {
+    demoRecommendationRow.classList.remove("active");
+  }
+
+  if (demoInputText) {
+    demoInputText.textContent = "Ask Little Dino for a story...";
+  }
+
+  if (demoStatusText) {
+    demoStatusText.textContent = "Online • Ready to help";
+    demoStatusText.className = "demo-status-ready";
+  }
 }
 
 async function typeIntoDemoInput(text) {
+  if (!demoInputText) return;
+
   demoInputText.innerHTML = `<span class="demo-cursor">|</span>`;
 
   for (let i = 1; i <= text.length; i += 1) {
@@ -290,6 +328,8 @@ async function typeIntoDemoInput(text) {
 }
 
 async function showBotTypingThenMessage(text) {
+  if (!demoStatusText || !demoChatWindow) return;
+
   demoStatusText.textContent = "Little Dino is typing...";
   demoStatusText.className = "demo-status-thinking";
 
@@ -308,15 +348,18 @@ async function showBotTypingThenMessage(text) {
 }
 
 function updateDemoCards(scenario) {
-  demoBookTitle.textContent = scenario.bookTitle;
-  demoBookDesc.textContent = scenario.bookDesc;
-  demoVideoTitle.textContent = scenario.videoTitle;
-  demoVideoDesc.textContent = scenario.videoDesc;
+  if (!scenario) return;
 
-  demoBookImage.src = scenario.bookImage;
-  demoVideoImage.src = scenario.videoImage;
+  if (demoBookTitle) demoBookTitle.textContent = scenario.bookTitle;
+  if (demoBookDesc) demoBookDesc.textContent = scenario.bookDesc;
+  if (demoVideoTitle) demoVideoTitle.textContent = scenario.videoTitle;
+  if (demoVideoDesc) demoVideoDesc.textContent = scenario.videoDesc;
+  if (demoBookImage) demoBookImage.src = scenario.bookImage;
+  if (demoVideoImage) demoVideoImage.src = scenario.videoImage;
 
-  demoRecommendationRow.classList.add("active");
+  if (demoRecommendationRow) {
+    demoRecommendationRow.classList.add("active");
+  }
 }
 
 async function selectScenario(key) {
@@ -341,48 +384,33 @@ async function sendSelectedScenario() {
     return;
   }
 
+  if (!demoChatWindow) return;
+
   demoBusy = true;
+
   const scenario = demoScenarios[selectedScenarioKey];
-
-  demoSendBtn.style.transform = "scale(0.9)";
-  setTimeout(() => {
-    demoSendBtn.style.transform = "";
-  }, 180);
-
   demoChatWindow.appendChild(createDemoMessage(scenario.user, "app-message-user"));
   scrollDemoToBottom();
 
-  if (demoHelperText) {
-    demoHelperText.textContent = "Little Dino is replying automatically...";
-  }
-
-  await demoWait(450);
-
-  for (const msg of scenario.botMessages) {
-    await showBotTypingThenMessage(msg);
-    await demoWait(300);
+  for (const message of scenario.botMessages) {
+    await showBotTypingThenMessage(message);
   }
 
   updateDemoCards(scenario);
-  scrollDemoToBottom();
 
   if (demoHelperText) {
-    demoHelperText.textContent = "Choose another topic above to try a different demo.";
+    demoHelperText.textContent = "Tap another topic to try a different recommendation.";
   }
 
   demoBusy = false;
 }
 
-if (demoChips.length) {
-  demoChips.forEach((chip) => {
-    chip.addEventListener("click", () => {
-      selectScenario(chip.dataset.demo);
-    });
+demoChips.forEach((chip) => {
+  chip.addEventListener("click", () => {
+    selectScenario(chip.dataset.demo);
   });
-}
+});
 
 if (demoSendBtn) {
-  demoSendBtn.addEventListener("click", () => {
-    sendSelectedScenario();
-  });
+  demoSendBtn.addEventListener("click", sendSelectedScenario);
 }
