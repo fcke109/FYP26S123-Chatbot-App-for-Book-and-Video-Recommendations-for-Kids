@@ -475,10 +475,11 @@ main,
   box-shadow: var(--shadow-strong);
 }
 
+/* ALWAYS SHOW HAMBURGER BUTTON */
 .menu-toggle {
-  display: none;
-  width: 52px;
-  height: 52px;
+  display: flex;
+  width: 50px;
+  height: 50px;
   border: none;
   border-radius: 16px;
   background: linear-gradient(135deg, rgba(139, 92, 246, 0.18), rgba(164, 111, 255, 0.24));
@@ -490,6 +491,7 @@ main,
   cursor: pointer;
   transition: transform 0.22s ease, box-shadow 0.22s ease, background 0.22s ease;
   z-index: 1301;
+  flex-shrink: 0;
 }
 
 .menu-toggle:hover {
@@ -498,15 +500,15 @@ main,
 }
 
 .menu-bar {
-  width: 22px;
-  height: 2.5px;
+  width: 24px;
+  height: 3px;
   border-radius: 999px;
   background: #4a2fd0;
   transition: transform 0.25s ease, opacity 0.25s ease;
 }
 
 .menu-toggle.active .menu-bar:nth-child(1) {
-  transform: translateY(7px) rotate(45deg);
+  transform: translateY(8px) rotate(45deg);
 }
 
 .menu-toggle.active .menu-bar:nth-child(2) {
@@ -514,13 +516,13 @@ main,
 }
 
 .menu-toggle.active .menu-bar:nth-child(3) {
-  transform: translateY(-7px) rotate(-45deg);
+  transform: translateY(-8px) rotate(-45deg);
 }
 
 .menu-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(25, 16, 48, 0.38);
+  background: rgba(0, 0, 0, 0.45);
   backdrop-filter: blur(3px);
   -webkit-backdrop-filter: blur(3px);
   opacity: 0;
@@ -534,6 +536,58 @@ main,
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
+}
+
+/* FORCE DRAWER MENU ON ALL SCREEN SIZES */
+.drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: min(290px, 84vw);
+  height: 100vh;
+  background: linear-gradient(180deg, #1f1a3a 0%, #2c2360 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.3rem;
+  padding: 6rem 1rem 1.2rem;
+  box-shadow: 18px 0 40px rgba(20, 12, 42, 0.28);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  border-top-right-radius: 22px;
+  border-bottom-right-radius: 22px;
+  transform: translateX(-100%);
+  transition: transform 0.35s ease;
+  z-index: 1200;
+  overflow-y: auto;
+  will-change: transform;
+}
+
+.drawer.show {
+  transform: translateX(0);
+}
+
+.drawer a {
+  width: 100%;
+  color: #ffffff !important;
+  padding: 1rem 1.2rem;
+  border-radius: 14px;
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0.15rem 0;
+  transition: all 0.25s ease;
+}
+
+.drawer a:first-child {
+  margin-top: 0.6rem;
+}
+
+.drawer a:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: translateX(6px);
+}
+
+.drawer a:active {
+  background: rgba(255, 255, 255, 0.25);
 }
 
 .hero {
@@ -1623,86 +1677,7 @@ main,
   }
 }
 
-@media (min-width: 769px) {
-  .drawer {
-    position: static !important;
-    transform: none !important;
-    opacity: 1 !important;
-    visibility: visible !important;
-    pointer-events: auto !important;
-    background: none !important;
-    box-shadow: none !important;
-    border: none !important;
-    width: auto !important;
-    height: auto !important;
-    padding: 0 !important;
-    flex-direction: row !important;
-  }
-
-  .drawer a {
-    width: auto !important;
-    padding: 0 !important;
-    background: none !important;
-    color: #5b5670 !important;
-  }
-
-  .drawer a:hover {
-    color: var(--primary-dark) !important;
-  }
-
-  .menu-overlay {
-    display: none !important;
-  }
-}
-
 @media (max-width: 768px) {
-  .menu-toggle {
-    display: flex;
-    flex-shrink: 0;
-  }
-
-  .drawer {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: min(310px, 82vw);
-    height: 100vh;
-    background: linear-gradient(180deg, #2b224d 0%, #3b2f72 100%);
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0.3rem;
-    padding: 6rem 1rem 1.2rem;
-    box-shadow: 18px 0 40px rgba(20, 12, 42, 0.28);
-    border-right: 1px solid rgba(255, 255, 255, 0.08);
-    transform: translateX(-100%);
-    transition: transform 0.28s ease;
-    z-index: 1200;
-    overflow-y: auto;
-  }
-
-  .drawer.show {
-    transform: translateX(0);
-  }
-
-  .drawer a {
-    width: 100%;
-    color: #ffffff !important;
-    padding: 0.9rem 1rem;
-    border-radius: 16px;
-    font-size: 0.96rem;
-  }
-
-  .drawer a:hover {
-    background: rgba(255, 255, 255, 0.1);
-  }
-
-  .nav-cta {
-    width: 100%;
-    text-align: center;
-    justify-content: center;
-  }
-
   .brand-subtitle {
     display: none;
   }
@@ -1774,6 +1749,35 @@ main,
   }
 }
 
+/* ALSO MAKE AUTH AREA LOOK GOOD ON DESKTOP DRAWER */
+.nav-auth {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.6rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.nav-auth .nav-user {
+  width: 100%;
+  color: #ffffff !important;
+  padding: 0.4rem 0.8rem;
+}
+
+.nav-auth .nav-logout-btn {
+  width: 100%;
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.24);
+  text-align: center;
+}
+
+.nav-auth .nav-logout-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
 @media (max-width: 560px) {
   .container {
     width: min(var(--container), calc(100% - 1.2rem));
@@ -1832,5 +1836,15 @@ main,
 
   .live-stat {
     width: 100%;
+  }
+
+  .drawer {
+    width: min(270px, 88vw);
+    padding-top: 5.5rem;
+  }
+
+  .menu-toggle {
+    width: 46px;
+    height: 46px;
   }
 }
