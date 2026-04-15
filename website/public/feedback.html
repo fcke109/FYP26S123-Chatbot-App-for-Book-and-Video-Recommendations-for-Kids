@@ -3,74 +3,327 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Feedback Dashboard | Little Dino</title>
+
+  <title>Little Dino | Feedback</title>
+  <meta
+    name="description"
+    content="Share your feedback about Little Dino recommendations."
+  />
 
   <link rel="icon" type="image/png" href="/images/little_dino_icon_512.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-
+  <link
+    href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet"
+  />
   <link rel="stylesheet" href="/css/styles.css" />
+
   <style>
-    .feedback-section { padding: 3rem 0 5rem; }
-    .feedback-header h1 { font-family: 'Baloo 2', sans-serif; font-size: clamp(1.8rem, 3vw, 2.4rem); margin-bottom: 0.3rem; }
-    .feedback-header p { color: var(--muted); margin-bottom: 1.5rem; }
-    .live-badge { display: inline-flex; align-items: center; gap: 0.4rem; background: #e8f5e9; color: #2e7d32; padding: 0.3rem 0.8rem; border-radius: 999px; font-size: 0.8rem; font-weight: 700; }
-    .live-dot { width: 8px; height: 8px; border-radius: 50%; background: #4caf50; animation: pulse 1.5s infinite; }
-    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
-
-    .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2.5rem; }
-    .stat-card {
-      background: rgba(255,255,255,0.72); backdrop-filter: blur(14px);
-      border: 1px solid rgba(139, 92, 246, 0.08); box-shadow: var(--shadow);
-      border-radius: var(--radius-xl); padding: 1.5rem; text-align: center;
-    }
-    .stat-card .stat-value { font-family: 'Baloo 2', sans-serif; font-size: 2rem; color: var(--primary-dark); }
-    .stat-card .stat-label { color: var(--muted); font-size: 0.85rem; font-weight: 600; }
-
-    .top-items-section h2, .recent-section h2 { font-family: 'Baloo 2', sans-serif; font-size: 1.3rem; margin-bottom: 1rem; }
-    .top-items-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2.5rem; }
-    .top-item-card {
-      background: rgba(255,255,255,0.72); backdrop-filter: blur(14px);
-      border: 1px solid rgba(139, 92, 246, 0.08); box-shadow: var(--shadow);
-      border-radius: var(--radius-xl); padding: 1rem;
-    }
-    .top-item-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
-    .top-item-card h4 { font-size: 0.95rem; margin: 0.3rem 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .top-item-votes { display: flex; gap: 1rem; font-size: 0.85rem; color: var(--muted); }
-    .top-item-score { font-weight: 800; font-size: 0.9rem; }
-    .score-positive { color: #2e7d32; }
-    .score-negative { color: #c62828; }
-
-    .badge { padding: 0.2rem 0.6rem; border-radius: 999px; font-size: 0.7rem; font-weight: 800; color: white; }
-    .badge-book { background: var(--primary); }
-    .badge-video { background: #f44336; }
-
-    .feedback-table { width: 100%; border-collapse: collapse; }
-    .feedback-table th {
-      text-align: left; padding: 0.8rem 1rem; background: rgba(139, 92, 246, 0.06);
-      font-size: 0.85rem; font-weight: 700; color: var(--primary-dark);
-    }
-    .feedback-table td { padding: 0.7rem 1rem; border-bottom: 1px solid rgba(0,0,0,0.06); font-size: 0.9rem; }
-    .feedback-positive { color: #2e7d32; font-size: 1.2rem; }
-    .feedback-negative { color: #c62828; font-size: 1.2rem; }
-
-    .table-card {
-      background: rgba(255,255,255,0.72); backdrop-filter: blur(14px);
-      border: 1px solid rgba(139, 92, 246, 0.08); box-shadow: var(--shadow);
-      border-radius: var(--radius-xl); overflow: hidden;
+    .nav-auth {
+      display: flex;
+      align-items: center;
+      gap: 0.7rem;
     }
 
-    .login-prompt-card { max-width: 500px; margin: 5rem auto; text-align: center; padding: 2.5rem; border-radius: var(--radius-xl); border: 1px solid rgba(139, 92, 246, 0.08); box-shadow: var(--shadow); }
-    .login-prompt-card h2 { font-family: 'Baloo 2', sans-serif; margin-bottom: 0.5rem; }
-    .login-prompt-card p { color: var(--muted); margin-bottom: 1.5rem; }
+    .nav-auth .nav-user {
+      font-weight: 700;
+      color: var(--primary-dark);
+      font-size: 0.9rem;
+    }
 
-    .spinner-wrap { display: flex; justify-content: center; padding: 3rem; }
-    .spinner { width: 36px; height: 36px; border: 4px solid rgba(139,92,246,0.15); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
-    @keyframes spin { to { transform: rotate(360deg); } }
+    .nav-auth .nav-logout-btn {
+      background: none;
+      border: 1px solid var(--primary);
+      color: var(--primary-dark);
+      padding: 0.5rem 1rem;
+      border-radius: 999px;
+      font-weight: 700;
+      font-size: 0.88rem;
+      cursor: pointer;
+      font-family: inherit;
+    }
 
-    @media (max-width: 980px) { .stats-grid, .top-items-grid { grid-template-columns: repeat(2, 1fr); } }
-    @media (max-width: 480px) { .stats-grid, .top-items-grid { grid-template-columns: 1fr; } }
+    .nav-auth .nav-logout-btn:hover {
+      background: var(--primary);
+      color: white;
+    }
+
+    .feedback-page {
+      padding: 5rem 0 4rem;
+    }
+
+    .feedback-shell {
+      max-width: 920px;
+      margin: 0 auto;
+    }
+
+    .feedback-hero {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    .feedback-hero h1 {
+      font-family: "Baloo 2", sans-serif;
+      font-size: clamp(2.3rem, 4vw, 3.7rem);
+      margin: 0.8rem 0;
+      line-height: 1.05;
+    }
+
+    .feedback-hero p {
+      color: var(--muted);
+      line-height: 1.8;
+      font-size: 1.02rem;
+      max-width: 700px;
+      margin: 0 auto;
+    }
+
+    .feedback-form-card {
+      border-radius: var(--radius-xl);
+      padding: 2rem;
+      border: 1px solid rgba(139, 92, 246, 0.08);
+      box-shadow: var(--shadow);
+      margin-bottom: 1.4rem;
+    }
+
+    .feedback-form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+
+    .feedback-field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .feedback-field.full {
+      grid-column: 1 / -1;
+    }
+
+    .feedback-label {
+      font-weight: 700;
+      color: var(--text);
+      font-size: 0.95rem;
+    }
+
+    .feedback-input,
+    .feedback-select,
+    .feedback-textarea {
+      width: 100%;
+      border: 1px solid rgba(139, 92, 246, 0.14);
+      border-radius: 18px;
+      padding: 0.95rem 1rem;
+      font: inherit;
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.92);
+      outline: none;
+      transition: border-color 0.22s ease, box-shadow 0.22s ease;
+    }
+
+    .feedback-input:focus,
+    .feedback-select:focus,
+    .feedback-textarea:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.10);
+    }
+
+    .feedback-textarea {
+      min-height: 140px;
+      resize: vertical;
+      line-height: 1.7;
+    }
+
+    .rating-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+
+    .star-rating {
+      display: inline-flex;
+      flex-direction: row-reverse;
+      justify-content: flex-end;
+      gap: 0.35rem;
+    }
+
+    .star-rating input {
+      display: none;
+    }
+
+    .star-rating label {
+      font-size: 2rem;
+      cursor: pointer;
+      color: #d6cfe8;
+      transition: transform 0.18s ease, color 0.18s ease;
+    }
+
+    .star-rating label:hover {
+      transform: scale(1.08);
+    }
+
+    .star-rating input:checked ~ label,
+    .star-rating label:hover,
+    .star-rating label:hover ~ label {
+      color: #ffbf47;
+    }
+
+    .rating-help {
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.6;
+      display: flex;
+      align-items: center;
+    }
+
+    .feedback-mood-wrap {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.8rem;
+    }
+
+    .feedback-mood-option {
+      flex: 1 1 220px;
+      position: relative;
+    }
+
+    .feedback-mood-option input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .feedback-mood-card {
+      border: 1px solid rgba(139, 92, 246, 0.14);
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 20px;
+      padding: 1rem;
+      cursor: pointer;
+      transition: 0.22s ease;
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      min-height: 76px;
+    }
+
+    .feedback-mood-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-soft);
+    }
+
+    .feedback-mood-option input:checked + .feedback-mood-card {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.10);
+      background: linear-gradient(135deg, rgba(245, 238, 255, 0.95), rgba(255, 248, 232, 0.96));
+    }
+
+    .feedback-mood-emoji {
+      font-size: 1.6rem;
+      flex-shrink: 0;
+    }
+
+    .feedback-mood-text strong {
+      display: block;
+      font-size: 0.98rem;
+      margin-bottom: 0.18rem;
+    }
+
+    .feedback-mood-text span {
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+
+    .feedback-actions {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-top: 1.4rem;
+      flex-wrap: wrap;
+    }
+
+    .feedback-status {
+      min-height: 24px;
+      font-weight: 600;
+      color: var(--primary-dark);
+    }
+
+    .feedback-extra-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+    }
+
+    .feedback-extra-card {
+      border-radius: 22px;
+      padding: 1rem;
+      border: 1px solid rgba(139, 92, 246, 0.08);
+      box-shadow: var(--shadow);
+    }
+
+    .feedback-extra-card h3 {
+      margin: 0 0 0.5rem;
+      font-family: "Baloo 2", sans-serif;
+      font-size: 1.2rem;
+    }
+
+    .feedback-extra-card p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.7;
+      font-size: 0.95rem;
+    }
+
+    .login-required-card {
+      max-width: 760px;
+      margin: 0 auto;
+      text-align: center;
+      border-radius: var(--radius-xl);
+      padding: 2rem;
+      border: 1px solid rgba(139, 92, 246, 0.08);
+      box-shadow: var(--shadow);
+    }
+
+    .login-required-card h2 {
+      margin: 0.8rem 0 0.7rem;
+      font-family: "Baloo 2", sans-serif;
+      font-size: clamp(2rem, 4vw, 3rem);
+      line-height: 1.05;
+    }
+
+    .login-required-card p {
+      color: var(--muted);
+      line-height: 1.8;
+      max-width: 560px;
+      margin: 0 auto 1.5rem;
+    }
+
+    .login-required-actions {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    @media (max-width: 900px) {
+      .feedback-form-grid,
+      .feedback-extra-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .feedback-form-card,
+      .login-required-card {
+        padding: 1.25rem;
+        border-radius: 22px;
+      }
+
+      .star-rating label {
+        font-size: 1.8rem;
+      }
+    }
   </style>
 </head>
 <body>
@@ -78,107 +331,392 @@
   <div class="bg-orb orb-2"></div>
   <div class="bg-orb orb-3"></div>
   <div class="bg-grid"></div>
+  <div class="sparkles" id="sparkles"></div>
+
+  <div class="floating-background" id="floatingBackground">
+    <span class="floating-shape shape-book">📚</span>
+    <span class="floating-shape shape-star">⭐</span>
+    <span class="floating-shape shape-heart">💜</span>
+    <span class="floating-shape shape-video">🎥</span>
+    <span class="floating-shape shape-dino">🦕</span>
+    <span class="floating-shape shape-spark">✨</span>
+    <span class="floating-shape shape-moon">🌙</span>
+    <span class="floating-shape shape-rainbow">🌈</span>
+  </div>
 
   <header class="site-header">
     <div class="container nav">
-      <a href="/" class="brand">
-        <img src="/images/little_dino_icon_512.png" alt="Little Dino logo" class="brand-logo" />
+      <a href="/index.html#home" class="brand">
+        <img
+          src="/images/little_dino_icon_512.png"
+          alt="Little Dino logo"
+          class="brand-logo"
+        />
         <div class="brand-text">
           <span class="brand-title">Little Dino</span>
           <span class="brand-subtitle">Safe Kids Book & Video Discovery</span>
         </div>
       </a>
 
-      <button class="menu-toggle" id="menuToggle" aria-label="Toggle navigation menu" aria-expanded="false">
+      <button
+        class="menu-toggle"
+        id="menuToggle"
+        aria-label="Toggle navigation menu"
+        aria-expanded="false"
+        aria-controls="navLinks"
+        type="button"
+      >
         <span class="menu-bar"></span>
         <span class="menu-bar"></span>
         <span class="menu-bar"></span>
       </button>
 
-      <nav class="nav-links" id="navLinks">
-        <a href="/">Home</a>
+      <div class="menu-overlay" id="menuOverlay"></div>
+
+      <nav class="nav-links drawer" id="navLinks">
+        <a href="/index.html#home">Home</a>
+        <a href="/index.html#features">Features</a>
+        <a href="/index.html#app-preview">Inside the App</a>
+        <a href="/index.html#how-it-works">How It Works</a>
+        <a href="/index.html#safety">Safety</a>
+        <a href="/index.html#plans">Plans</a>
+        <a href="/index.html#testimonials">Testimonials</a>
+        <a href="/index.html#analytics">Analytics</a>
+        <a href="/index.html#about">About</a>
+        <a href="/index.html#contact">Contact</a>
         <a href="/catalog.html">Book Catalog</a>
-        <a href="/feedback.html" style="color:var(--primary-dark);">Feedback</a>
-        <a href="/login.html" id="nav-login-link" class="nav-cta">Login</a>
-        <span id="nav-user-name" style="display:none;font-weight:700;color:var(--primary-dark);"></span>
-        <button id="nav-logout-btn" style="display:none;background:none;border:1px solid var(--primary);color:var(--primary-dark);padding:0.5rem 1rem;border-radius:999px;font-weight:700;font-size:0.88rem;cursor:pointer;font-family:inherit;">Logout</button>
+        <a href="/feedback.html">Feedback</a>
+        <a href="/privacy.html">Privacy Policy</a>
+
+        <div class="nav-auth">
+          <a href="/login.html" id="nav-login-link" class="nav-cta">Login</a>
+          <span id="nav-user-name" class="nav-user" style="display:none;"></span>
+          <button id="nav-logout-btn" class="nav-logout-btn" style="display:none;" type="button">
+            Logout
+          </button>
+        </div>
       </nav>
     </div>
   </header>
 
-  <main>
-    <div id="login-prompt" class="login-prompt-card glass-card" style="display:none;">
-      <h2>Login Required</h2>
-      <p>Sign in to view the feedback dashboard.</p>
-      <a href="/login.html" class="btn btn-primary">Login / Register</a>
-    </div>
+  <main class="feedback-page">
+    <div class="container">
+      <div id="feedbackLoginRequired" class="login-required-card glass-card" style="display:none;">
+        <span class="tag">Login Required</span>
+        <h2>Please log in to submit feedback</h2>
+        <p>
+          You need to be signed in before sharing feedback about a book or video recommendation.
+        </p>
+        <div class="login-required-actions">
+          <a href="/login.html" class="btn btn-primary">Login</a>
+          <a href="/index.html" class="btn btn-secondary">Back to Home</a>
+        </div>
+      </div>
 
-    <section id="feedback-dashboard" class="feedback-section" style="display:none;">
-      <div class="container">
-        <div class="feedback-header">
-          <h1>Feedback Dashboard</h1>
-          <p>Real-time feedback from kids on book and video recommendations <span class="live-badge"><span class="live-dot"></span>Live</span></p>
+      <div id="feedbackContent" class="feedback-shell" style="display:none;">
+        <div class="feedback-hero">
+          <span class="tag">Share Your Feedback</span>
+          <h1>Help Little Dino improve</h1>
+          <p>
+            Rate a book or video recommendation and tell us what you liked.
+            Your feedback can appear in the live homepage section after submission.
+          </p>
         </div>
 
-        <div id="feedback-loading" class="spinner-wrap">
-          <div class="spinner"></div>
+        <div class="feedback-form-card glass-card">
+          <form id="feedbackForm">
+            <div class="feedback-form-grid">
+              <div class="feedback-field">
+                <label class="feedback-label" for="feedbackTitle">Book or Video Title</label>
+                <input
+                  class="feedback-input"
+                  id="feedbackTitle"
+                  type="text"
+                  placeholder="Example: Shark Adventure"
+                  maxlength="120"
+                />
+              </div>
+
+              <div class="feedback-field">
+                <label class="feedback-label" for="feedbackType">Content Type</label>
+                <select class="feedback-select" id="feedbackType">
+                  <option value="">Select content type</option>
+                  <option value="book">Book</option>
+                  <option value="video">Video</option>
+                </select>
+              </div>
+
+              <div class="feedback-field full">
+                <label class="feedback-label">Star Rating</label>
+                <div class="rating-row">
+                  <div class="star-rating">
+                    <input type="radio" id="star5" name="feedbackRating" value="5" />
+                    <label for="star5">★</label>
+
+                    <input type="radio" id="star4" name="feedbackRating" value="4" />
+                    <label for="star4">★</label>
+
+                    <input type="radio" id="star3" name="feedbackRating" value="3" checked />
+                    <label for="star3">★</label>
+
+                    <input type="radio" id="star2" name="feedbackRating" value="2" />
+                    <label for="star2">★</label>
+
+                    <input type="radio" id="star1" name="feedbackRating" value="1" />
+                    <label for="star1">★</label>
+                  </div>
+
+                  <div class="rating-help">
+                    Choose from 1 to 5 stars.
+                  </div>
+                </div>
+              </div>
+
+              <div class="feedback-field full">
+                <label class="feedback-label">How did you feel about it?</label>
+                <div class="feedback-mood-wrap">
+                  <label class="feedback-mood-option">
+                    <input type="radio" name="feedbackMood" value="true" checked />
+                    <span class="feedback-mood-card">
+                      <span class="feedback-mood-emoji">😍</span>
+                      <span class="feedback-mood-text">
+                        <strong>I liked it</strong>
+                        <span>The recommendation was fun, useful, or interesting.</span>
+                      </span>
+                    </span>
+                  </label>
+
+                  <label class="feedback-mood-option">
+                    <input type="radio" name="feedbackMood" value="false" />
+                    <span class="feedback-mood-card">
+                      <span class="feedback-mood-emoji">🙂</span>
+                      <span class="feedback-mood-text">
+                        <strong>It was okay</strong>
+                        <span>It was decent, but could still be improved.</span>
+                      </span>
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="feedback-field full">
+                <label class="feedback-label" for="feedbackComment">Your Feedback</label>
+                <textarea
+                  class="feedback-textarea"
+                  id="feedbackComment"
+                  placeholder="Tell us what you liked or what could be better..."
+                  maxlength="400"
+                ></textarea>
+              </div>
+            </div>
+
+            <div class="feedback-actions">
+              <button class="btn btn-primary" type="submit" id="feedbackSubmitBtn">
+                Submit Feedback
+              </button>
+              <span class="feedback-status" id="feedbackStatus"></span>
+            </div>
+          </form>
         </div>
 
-        <!-- Summary Stats -->
-        <div class="stats-grid">
-          <div class="stat-card">
-            <div class="stat-value" id="stat-total">0</div>
-            <div class="stat-label">Total Feedback</div>
+        <div class="feedback-extra-grid">
+          <div class="feedback-extra-card glass-card">
+            <h3>Books and videos</h3>
+            <p>Rate both book and video recommendations in one simple form.</p>
           </div>
-          <div class="stat-card">
-            <div class="stat-value" id="stat-positive">0</div>
-            <div class="stat-label">Thumbs Up</div>
+          <div class="feedback-extra-card glass-card">
+            <h3>Live homepage section</h3>
+            <p>Your submitted feedback can appear in the homepage live feedback carousel.</p>
           </div>
-          <div class="stat-card">
-            <div class="stat-value" id="stat-negative">0</div>
-            <div class="stat-label">Thumbs Down</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-value" id="stat-pct">0%</div>
-            <div class="stat-label">Positive Rate</div>
-          </div>
-        </div>
-
-        <!-- Top Rated Items -->
-        <div class="top-items-section">
-          <h2>Top Rated Recommendations</h2>
-          <div class="top-items-grid" id="top-items"></div>
-        </div>
-
-        <!-- Recent Feedback -->
-        <div class="recent-section">
-          <h2>Recent Feedback</h2>
-          <div class="table-card">
-            <table class="feedback-table">
-              <thead>
-                <tr>
-                  <th>Title</th>
-                  <th>Type</th>
-                  <th>Feedback</th>
-                  <th>Time</th>
-                </tr>
-              </thead>
-              <tbody id="feedback-tbody">
-                <tr><td colspan="4" style="text-align:center;color:var(--muted);">Loading...</td></tr>
-              </tbody>
-            </table>
+          <div class="feedback-extra-card glass-card">
+            <h3>Helps improvement</h3>
+            <p>Feedback helps improve future recommendations for children and parents.</p>
           </div>
         </div>
       </div>
-    </section>
+    </div>
   </main>
 
+  <footer class="site-footer">
+    <div class="container footer-content">
+      <div class="footer-brand">
+        <img
+          src="/images/little_dino_icon_512.png"
+          alt="Little Dino footer logo"
+          class="footer-logo"
+        />
+        <div>
+          <strong>Little Dino</strong>
+          <p>Chatbot App for Book and Video Recommendations for Kids</p>
+        </div>
+      </div>
+
+      <div class="footer-links">
+        <a href="/privacy.html">Privacy Policy</a>
+        <a href="/terms.html">Terms of Service</a>
+        <a href="/catalog.html">Book Catalog</a>
+      </div>
+    </div>
+  </footer>
+
   <script src="/js/script.js"></script>
+
   <script type="module">
-    import { initAuthUI } from './js/firebase-config.js';
-    import { initFeedbackDashboard } from './js/feedback.js';
-    initAuthUI();
-    initFeedbackDashboard();
+    import {
+      auth,
+      db,
+      initAuthUI,
+      onAuthStateChanged,
+      signOut,
+      collection,
+      doc,
+      setDoc,
+      getDoc,
+      serverTimestamp
+    } from '/js/firebase-config.js';
+
+    initAuthUI?.();
+
+    const navLoginLink = document.getElementById('nav-login-link');
+    const navUserName = document.getElementById('nav-user-name');
+    const navLogoutBtn = document.getElementById('nav-logout-btn');
+
+    const feedbackContent = document.getElementById('feedbackContent');
+    const feedbackLoginRequired = document.getElementById('feedbackLoginRequired');
+
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        if (navLoginLink) navLoginLink.style.display = 'none';
+        if (navUserName) {
+          navUserName.style.display = 'inline-block';
+          navUserName.textContent = user.displayName || user.email || 'Logged in';
+        }
+        if (navLogoutBtn) navLogoutBtn.style.display = 'inline-block';
+
+        if (feedbackLoginRequired) feedbackLoginRequired.style.display = 'none';
+        if (feedbackContent) feedbackContent.style.display = 'block';
+      } else {
+        if (navLoginLink) navLoginLink.style.display = 'inline-flex';
+        if (navUserName) navUserName.style.display = 'none';
+        if (navLogoutBtn) navLogoutBtn.style.display = 'none';
+
+        if (feedbackContent) feedbackContent.style.display = 'none';
+        if (feedbackLoginRequired) feedbackLoginRequired.style.display = 'block';
+      }
+    });
+
+    if (navLogoutBtn) {
+      navLogoutBtn.addEventListener('click', async () => {
+        try {
+          await signOut(auth);
+          window.location.href = '/';
+        } catch (error) {
+          console.warn('Logout failed:', error?.message || error);
+        }
+      });
+    }
+
+    const feedbackForm = document.getElementById('feedbackForm');
+    const feedbackStatus = document.getElementById('feedbackStatus');
+    const feedbackSubmitBtn = document.getElementById('feedbackSubmitBtn');
+
+    async function resolveUserName(user) {
+      if (!user) return 'Anonymous User';
+
+      if (user.displayName && user.displayName.trim()) {
+        return user.displayName.trim();
+      }
+
+      try {
+        const userDocRef = doc(db, 'users', user.uid);
+        const userDoc = await getDoc(userDocRef);
+
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          if (data?.name && String(data.name).trim()) return String(data.name).trim();
+          if (data?.username && String(data.username).trim()) return String(data.username).trim();
+          if (data?.fullName && String(data.fullName).trim()) return String(data.fullName).trim();
+        }
+      } catch (error) {
+        console.warn('Could not resolve user name from Firestore:', error?.message || error);
+      }
+
+      return user.email?.split('@')[0] || 'Anonymous User';
+    }
+
+    feedbackForm?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const user = auth.currentUser;
+
+      if (!user) {
+        feedbackStatus.textContent = 'Please log in first before submitting feedback.';
+        return;
+      }
+
+      const title = document.getElementById('feedbackTitle')?.value.trim();
+      const contentType = document.getElementById('feedbackType')?.value;
+      const comment = document.getElementById('feedbackComment')?.value.trim();
+      const moodValue = document.querySelector('input[name="feedbackMood"]:checked')?.value;
+      const ratingValue = document.querySelector('input[name="feedbackRating"]:checked')?.value;
+
+      const isPositive = moodValue === 'true';
+      const rating = Number(ratingValue);
+
+      if (!title || !contentType || !comment || !rating) {
+        feedbackStatus.textContent = 'Please complete all fields before submitting.';
+        return;
+      }
+
+      feedbackStatus.textContent = 'Submitting...';
+      if (feedbackSubmitBtn) feedbackSubmitBtn.disabled = true;
+
+      try {
+        const feedbackRef = doc(collection(db, 'feedback'));
+        const userName = await resolveUserName(user);
+
+        await setDoc(feedbackRef, {
+  userId: user.uid,
+  userName: user.displayName || "",
+  userEmail: user.email || "",
+
+  title,
+  contentTitle: title,
+  contentType,
+  type: contentType,
+
+  comment,
+  feedback: comment,
+
+  isPositive,
+  positive: isPositive,
+  rating,
+
+  source: 'web',
+
+  createdAt: serverTimestamp(),
+  updatedAt: serverTimestamp(),
+  timestamp: serverTimestamp(),
+
+  status: 'published'
+});
+
+        feedbackForm.reset();
+
+        const defaultMood = document.querySelector('input[name="feedbackMood"][value="true"]');
+        if (defaultMood) defaultMood.checked = true;
+
+        const defaultStar = document.querySelector('input[name="feedbackRating"][value="3"]');
+        if (defaultStar) defaultStar.checked = true;
+
+        feedbackStatus.textContent = 'Thank you! Your feedback was submitted successfully.';
+      } catch (error) {
+        console.error('Feedback submission failed:', error);
+        feedbackStatus.textContent = 'Submission failed. Please try again.';
+      } finally {
+        if (feedbackSubmitBtn) feedbackSubmitBtn.disabled = false;
+      }
+    });
   </script>
 </body>
 </html>
