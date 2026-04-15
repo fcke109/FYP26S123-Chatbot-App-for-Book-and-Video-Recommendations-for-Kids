@@ -1,6 +1,30 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
-import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
-import { getFirestore, collection, query, where, orderBy, limit, startAfter, getDocs, doc, setDoc, serverTimestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
+import {
+  getAuth,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  sendPasswordResetEmail,
+  updateProfile
+} from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
+
+import {
+  getFirestore,
+  collection,
+  query,
+  where,
+  orderBy,
+  limit,
+  startAfter,
+  getDocs,
+  getDoc,
+  doc,
+  setDoc,
+  deleteDoc,
+  serverTimestamp,
+  onSnapshot
+} from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAsZfL8NaSDAPuO2JgC5q1ogJcTbZge0xk",
@@ -17,10 +41,25 @@ export const auth = getAuth(app);
 export const db = getFirestore(app);
 
 export {
-  onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword,
-  signOut, sendPasswordResetEmail,
-  collection, query, where, orderBy, limit, startAfter, getDocs,
-  doc, setDoc, serverTimestamp, onSnapshot
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  sendPasswordResetEmail,
+  updateProfile,
+  collection,
+  query,
+  where,
+  orderBy,
+  limit,
+  startAfter,
+  getDocs,
+  getDoc,
+  doc,
+  setDoc,
+  deleteDoc,
+  serverTimestamp,
+  onSnapshot
 };
 
 // Shared auth state UI updater
@@ -34,7 +73,7 @@ export function initAuthUI() {
       if (loginLink) loginLink.style.display = "none";
       if (logoutLink) logoutLink.style.display = "inline-block";
       if (userName) {
-        userName.textContent = user.displayName || user.email.split("@")[0];
+        userName.textContent = user.displayName || user.email?.split("@")[0] || "User";
         userName.style.display = "inline-block";
       }
     } else {
