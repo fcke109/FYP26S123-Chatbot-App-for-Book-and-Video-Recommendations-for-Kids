@@ -1836,4 +1836,110 @@ main,
   0% { transform: translateX(0); }
   100% { transform: translateX(-50%); }
 }
+.top-auth .top-user-name {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 1rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(139, 92, 246, 0.12);
+  color: var(--primary-dark);
+  font-weight: 800;
+  font-size: 0.9rem;
+  box-shadow: var(--shadow-soft);
+}
+
+.top-auth .top-logout-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 1rem;
+  border-radius: 999px;
+  border: none;
+  background: linear-gradient(135deg, #f3ebff, #eadcff);
+  color: var(--primary-dark);
+  font-weight: 800;
+  font-size: 0.88rem;
+  cursor: pointer;
+  box-shadow: var(--shadow-soft);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.top-auth .top-logout-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow);
+  background: linear-gradient(135deg, #eadcff, #e2d0ff);
+}
+
+.feedback-card-user {
+  margin: 0 0 0.7rem;
+  font-size: 0.84rem;
+  font-weight: 800;
+  color: var(--primary-dark);
+  background: rgba(241, 232, 255, 0.85);
+  display: inline-flex;
+  padding: 0.38rem 0.75rem;
+  border-radius: 999px;
+}
+
+.feedback-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: none;
+  min-height: 34px;
+  padding: 0 0.95rem;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ffe9ef, #ffd9e5);
+  color: #c53b68;
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 8px 18px rgba(229, 82, 125, 0.12);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+}
+
+.feedback-delete-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 22px rgba(229, 82, 125, 0.18);
+  filter: saturate(1.05);
+}
+
+.feedback-delete-btn .delete-icon {
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
+.testimonial-slider-track,
+.feedback-track,
+#live-feedback-track {
+  display: flex;
+  gap: 1rem;
+  width: max-content;
+  animation: scrollTestimonials 42s linear infinite;
+}
+
+.bg-orb {
+  animation: floatOrb 32s ease-in-out infinite;
+}
+
+.shape-book { animation: driftOne 34s infinite; }
+.shape-star { animation: driftTwo 40s infinite; }
+.shape-heart { animation: driftThree 36s infinite; }
+.shape-video { animation: driftFour 42s infinite; }
+.shape-dino { animation: driftFive 38s infinite; }
+.shape-spark { animation: driftSix 37s infinite; }
+.shape-moon { animation: driftTwo 44s infinite; }
+.shape-rainbow { animation: driftThree 39s infinite; }
+
+.floating-card {
+  animation: cardFloat 14s ease-in-out infinite;
+}
+
+.moving-dino-logo {
+  animation: dinoFloatAround 20s ease-in-out infinite;
+}
 }
