@@ -50,6 +50,13 @@ a {
   text-decoration: none;
 }
 
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
 .site-header,
 main,
 .site-footer {
@@ -399,16 +406,15 @@ main,
   z-index: 1000;
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  background: rgba(255, 255, 255, 0.62);
+  background: rgba(255, 255, 255, 0.72);
   border-bottom: 1px solid rgba(139, 92, 246, 0.08);
 }
 
 .nav {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  min-height: 82px;
   gap: 1rem;
+  min-height: 86px;
   position: relative;
 }
 
@@ -417,6 +423,7 @@ main,
   align-items: center;
   gap: 0.9rem;
   z-index: 1301;
+  flex: 0 1 auto;
 }
 
 .brand-logo {
@@ -482,8 +489,8 @@ main,
   height: 50px;
   border: none;
   border-radius: 16px;
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.18), rgba(164, 111, 255, 0.24));
-  box-shadow: 0 12px 25px rgba(139, 92, 246, 0.18);
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.14), rgba(164, 111, 255, 0.2));
+  box-shadow: 0 12px 24px rgba(139, 92, 246, 0.14);
   align-items: center;
   justify-content: center;
   flex-direction: column;
@@ -496,7 +503,7 @@ main,
 
 .menu-toggle:hover {
   transform: translateY(-1px);
-  box-shadow: 0 16px 30px rgba(139, 92, 246, 0.24);
+  box-shadow: 0 16px 28px rgba(139, 92, 246, 0.2);
 }
 
 .menu-bar {
@@ -522,7 +529,7 @@ main,
 .menu-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.45);
+  background: rgba(25, 16, 48, 0.38);
   backdrop-filter: blur(3px);
   -webkit-backdrop-filter: blur(3px);
   opacity: 0;
@@ -536,58 +543,6 @@ main,
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
-}
-
-/* FORCE DRAWER MENU ON ALL SCREEN SIZES */
-.drawer {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: min(290px, 84vw);
-  height: 100vh;
-  background: linear-gradient(180deg, #1f1a3a 0%, #2c2360 100%);
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 0.3rem;
-  padding: 6rem 1rem 1.2rem;
-  box-shadow: 18px 0 40px rgba(20, 12, 42, 0.28);
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
-  border-top-right-radius: 22px;
-  border-bottom-right-radius: 22px;
-  transform: translateX(-100%);
-  transition: transform 0.35s ease;
-  z-index: 1200;
-  overflow-y: auto;
-  will-change: transform;
-}
-
-.drawer.show {
-  transform: translateX(0);
-}
-
-.drawer a {
-  width: 100%;
-  color: #ffffff !important;
-  padding: 1rem 1.2rem;
-  border-radius: 14px;
-  font-size: 1rem;
-  font-weight: 600;
-  margin: 0.15rem 0;
-  transition: all 0.25s ease;
-}
-
-.drawer a:first-child {
-  margin-top: 0.6rem;
-}
-
-.drawer a:hover {
-  background: rgba(255, 255, 255, 0.15);
-  transform: translateX(6px);
-}
-
-.drawer a:active {
-  background: rgba(255, 255, 255, 0.25);
 }
 
 .hero {
@@ -1600,24 +1555,6 @@ main,
   color: var(--primary-dark);
 }
 
-.privacy-hero {
-  padding-top: 5rem;
-}
-
-.privacy-card {
-  max-width: 900px;
-  margin: 0 auto;
-}
-
-.privacy-card h3 {
-  font-size: 1.5rem;
-  margin-top: 1.8rem;
-}
-
-.privacy-actions {
-  margin-top: 2rem;
-}
-
 .reveal {
   opacity: 0;
   transform: translateY(24px);
@@ -1677,11 +1614,92 @@ main,
   }
 }
 
+@media (min-width: 769px) {
+  .drawer {
+    position: static !important;
+    transform: none !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    background: none !important;
+    box-shadow: none !important;
+    border: none !important;
+    width: auto !important;
+    height: auto !important;
+    padding: 0 !important;
+    flex-direction: row !important;
+  }
+
+  .drawer a {
+    width: auto !important;
+    padding: 0 !important;
+    background: none !important;
+    color: #5b5670 !important;
+  }
+
+  .drawer a:hover {
+    color: var(--primary-dark) !important;
+  }
+
+  .menu-overlay {
+    display: none !important;
+  }
+}
+
 @media (max-width: 768px) {
+  .menu-toggle {
+    display: flex;
+    flex-shrink: 0;
+  }
+
+  .drawer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: min(310px, 82vw);
+    height: 100vh;
+    background: linear-gradient(180deg, #2b224d 0%, #3b2f72 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.3rem;
+    padding: 6rem 1rem 1.2rem;
+    box-shadow: 18px 0 40px rgba(20, 12, 42, 0.28);
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+    transform: translateX(-100%);
+    transition: transform 0.28s ease;
+    z-index: 1200;
+    overflow-y: auto;
+  }
+
+  .drawer.show {
+    transform: translateX(0);
+  }
+
+  .drawer a {
+    width: 100%;
+    color: #ffffff !important;
+    padding: 0.9rem 1rem;
+    border-radius: 16px;
+    font-size: 0.96rem;
+  }
+
+  .drawer a:hover {
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  .nav-cta {
+    width: 100%;
+    text-align: center;
+    justify-content: center;
+  }
+
   .brand-subtitle {
     display: none;
   }
+}
 
+@media (max-width: 768px) {
   .hero {
     padding: 4rem 0 3rem;
   }
@@ -1719,33 +1737,25 @@ main,
     flex-direction: column;
     align-items: flex-start;
   }
+}
 
-  .nav-auth {
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: stretch !important;
-    gap: 0.6rem !important;
-    margin-top: 1rem;
-    padding-top: 1rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.14);
+@media (max-width: 640px) {
+  .brand-text {
+    display: none;
   }
 
-  .nav-auth .nav-user {
-    width: 100%;
-    color: #ffffff !important;
-    padding: 0.4rem 0.8rem;
+  .nav {
+    min-height: 76px;
   }
 
-  .nav-auth .nav-logout-btn {
-    width: 100%;
-    color: #ffffff;
-    border-color: rgba(255, 255, 255, 0.24);
-    text-align: center;
+  .menu-toggle {
+    width: 46px;
+    height: 46px;
+    border-radius: 14px;
   }
 
-  .nav-auth .nav-logout-btn:hover {
-    background: rgba(255, 255, 255, 0.12);
+  .drawer {
+    width: min(300px, 90vw);
   }
 }
 
@@ -1786,10 +1796,6 @@ main,
   .brand-logo {
     width: 50px;
     height: 50px;
-  }
-
-  .brand-title {
-    font-size: 1.45rem;
   }
 
   .section {
@@ -1836,15 +1842,5 @@ main,
 
   .live-stat {
     width: 100%;
-  }
-
-  .drawer {
-    width: min(270px, 88vw);
-    padding-top: 5.5rem;
-  }
-
-  .menu-toggle {
-    width: 46px;
-    height: 46px;
   }
 }
