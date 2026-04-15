@@ -987,112 +987,277 @@
   <script src="/js/script.js"></script>
 
   <script type="module">
-import {
-  auth,
-  db,
-  initAuthUI,
-  onAuthStateChanged,
-  signOut,
-  collection,
-  query,
-  where,
-  onSnapshot,
-  doc,
-  deleteDoc
-} from '/js/firebase-config.js';
+  import {
+    auth,
+    db,
+    initAuthUI,
+    onAuthStateChanged,
+    signOut,
+    collection,
+    query,
+    where,
+    onSnapshot,
+    doc,
+    deleteDoc
+  } from '/js/firebase-config.js';
 
-initAuthUI?.();
+  initAuthUI?.();
 
-let currentUser = null;
+  const topLoginLink = document.getElementById('top-login-link');
+  const topSignupLink = document.getElementById('top-signup-link');
+  const topUserName = document.getElementById('top-user-name');
+  const topLogoutBtn = document.getElementById('top-logout-btn');
 
-onAuthStateChanged(auth, (user) => {
-  currentUser = user;
-});
+  const navUserName = document.getElementById('nav-user-name');
+  const navLogoutBtn = document.getElementById('nav-logout-btn');
+  const drawerBottomAuth = document.getElementById('drawerBottomAuth');
 
-function getUserName(item) {
-  return (
-    item.userName ||
-    item.userDisplayName ||
-    item.name ||
-    (item.userEmail ? item.userEmail.split('@')[0] : null) ||
-    "Little Dino User"
-  );
-}
+  let currentUser = null;
 
-function buildStars(rating) {
-  let stars = "";
-  for (let i = 1; i <= 5; i++) {
-    stars += `<span class="star ${i <= rating ? 'filled' : ''}">★</span>`;
+  onAuthStateChanged(auth, (user) => {
+    currentUser = user;
+
+    if (user) {
+      const displayName =
+        user.displayName ||
+        (user.email ? user.email.split('@')[0] : 'Little Dino User');
+
+      if (topLoginLink) topLoginLink.style.display = 'none';
+      if (topSignupLink) topSignupLink.style.display = 'none';
+
+      if (topUserName) {
+        topUserName.style.display = 'inline-flex';
+        topUserName.textContent = `Hi, ${displayName}`;
+      }
+
+      if (topLogoutBtn) {
+        topLogoutBtn.style.display = 'inline-flex';
+      }
+
+      if (drawerBottomAuth) drawerBottomAuth.style.display = 'flex';
+
+      if (navUserName) {
+        navUserName.style.display = 'inline-block';
+        navUserName.textContent = displayName;
+      }
+
+      if (navLogoutBtn) {
+        navLogoutBtn.style.display = 'inline-block';
+      }
+    } else {
+      if (topLoginLink) topLoginLink.style.display = 'inline-flex';
+      if (topSignupLink) topSignupLink.style.display = 'inline-flex';
+      if (topUserName) topUserName.style.display = 'none';
+      if (topLogoutBtn) topLogoutBtn.style.display = 'none';
+
+      if (drawerBottomAuth) drawerBottomAuth.style.display = 'none';
+      if (navUserName) navUserName.style.display = 'none';
+      if (navLogoutBtn) navLogoutBtn.style.display = 'none';
+    }
+  });
+
+  async function handleLogout() {
+    try {
+      await signOut(auth);
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Logout failed:', error);
+      alert('Could not log out. Please try again.');
+    }
   }
-  return stars;
-}
 
-async function deleteFeedback(id) {
-  if (!currentUser) return;
-
-  if (!confirm("Delete this feedback?")) return;
-
-  await deleteDoc(doc(db, "feedback", id));
-}
-
-function renderFeedback(items) {
-  const container = document.getElementById("live-feedback-track");
-
-  if (!container) return;
-
-  if (items.length === 0) {
-    container.innerHTML = "<p>No feedback yet</p>";
-    return;
+  if (topLogoutBtn) {
+    topLogoutBtn.addEventListener('click', handleLogout);
   }
 
-  container.innerHTML = items.map(item => {
-    const name =
-      item.userName ||
-      item.userDisplayName ||
-      item.name ||
-      (item.userEmail ? item.userEmail.split('@')[0] : null) ||
-      "Little Dino User";
+  if (navLogoutBtn) {
+    navLogoutBtn.addEventListener('click', handleLogout);
+  }
 
-    const rating = item.rating || 5;
+  function buildStarRow(rating) {
+    const safeRating = Math.max(1, Math.min(5, Number(rating) || 0));
+    let stars = '';
+
+    for (let i = 1; i <= 5; i += 1) {
+      stars += `<span class="feedback-star ${i <= safeRating ? 'filled' : ''}">★</span>`;
+    }
+
+    return stars;
+  }
+
+  function getDateValue(item) {
+    const raw = item.createdAt || item.timestamp || item.updatedAt || null;
+
+    if (!raw) return 0;
+    if (typeof raw.toMillis === 'function') return raw.toMillis();
+    if (typeof raw.seconds === 'number') return raw.seconds * 1000;
+
+    const parsed = new Date(raw).getTime();
+    return Number.isNaN(parsed) ? 0 : parsed;
+  }
+
+  function isPositive(item) {
+    if (typeof item.isPositive === 'boolean') return item.isPositive;
+    if (typeof item.positive === 'boolean') return item.positive;
+
+    const rating = Number(item.rating);
+    if (!Number.isNaN(rating)) return rating >= 4;
+
+    return false;
+  }
+
+  function getFeedbackUserName(item) {
+    if (item.userName) return item.userName;
+    if (item.userDisplayName) return item.userDisplayName;
+    if (item.displayName) return item.displayName;
+    if (item.name) return item.name;
+    if (item.userEmail && item.userEmail.includes('@')) {
+      return item.userEmail.split('@')[0];
+    }
+    return 'Little Dino User';
+  }
+
+  async function handleDeleteFeedback(feedbackId) {
+    if (!currentUser) return;
+
+    const confirmed = window.confirm('Delete this feedback?');
+    if (!confirmed) return;
+
+    try {
+      await deleteDoc(doc(db, 'feedback', feedbackId));
+    } catch (error) {
+      console.error('Delete feedback failed:', error);
+      alert('Could not delete feedback. Please try again.');
+    }
+  }
+
+  function attachDeleteHandlers() {
+    const buttons = document.querySelectorAll('.feedback-delete-btn');
+
+    buttons.forEach((button) => {
+      button.addEventListener('click', () => {
+        const feedbackId = button.getAttribute('data-feedback-id');
+        if (feedbackId) handleDeleteFeedback(feedbackId);
+      });
+    });
+  }
+
+  function renderLiveFeedback(items) {
+    const track = document.getElementById('live-feedback-track');
+    const statsRow = document.getElementById('live-feedback-stats');
+    const totalEl = document.getElementById('live-total');
+    const positiveEl = document.getElementById('live-positive');
+    const pctEl = document.getElementById('live-pct');
+
+    if (!track) return;
+
+    const visibleItems = Array.isArray(items)
+      ? items.sort((a, b) => getDateValue(b) - getDateValue(a))
+      : [];
+
+    if (visibleItems.length === 0) {
+      track.innerHTML =
+        '<div class="no-feedback-msg glass-card">No feedback yet. Be the first to rate a recommendation in the app!</div>';
+      if (statsRow) statsRow.style.display = 'none';
+      track.style.animation = 'none';
+      return;
+    }
+
+    const total = visibleItems.length;
+    const positive = visibleItems.filter(isPositive).length;
+    const pct = Math.round((positive / total) * 100);
+
+    if (statsRow) statsRow.style.display = 'flex';
+    if (totalEl) totalEl.textContent = total;
+    if (positiveEl) positiveEl.textContent = positive;
+    if (pctEl) pctEl.textContent = `${pct}%`;
 
     const adminEmail = "admin@littledino.com";
     const isAdminUser = currentUser && currentUser.email === adminEmail;
-    const canDelete = currentUser && (item.userId === currentUser.uid || isAdminUser);
 
-    return `
-      <div class="feedback-card">
-        <h4>${item.title || "Recommendation"}</h4>
-        <div class="feedback-user">By ${name}</div>
-        <div class="stars">
-          ${buildStars(rating)}
+    const cards = visibleItems.map((item) => {
+      const liked = isPositive(item);
+      const type = (item.contentType || item.type || item.recommendationType || 'book').toString().toLowerCase();
+      const title = item.title || item.contentTitle || item.recommendationTitle || 'Recommended item';
+      const text =
+        item.comment ||
+        item.feedback ||
+        (liked ? 'I liked this recommendation.' : 'This recommendation was okay.');
+
+      const emoji = liked ? '😍' : '🙂';
+      const rating = Number(item.rating) || (liked ? 5 : 3);
+      const source = (item.source || 'app').toString().toLowerCase();
+      const userName = getFeedbackUserName(item);
+      const canDelete = currentUser && (item.userId === currentUser.uid || isAdminUser);
+
+      return `
+        <div class="feedback-card glass-card">
+          <div class="feedback-card-header">
+            <span class="feedback-card-icon">${emoji}</span>
+            <span class="feedback-card-type ${type === 'video' ? 'video' : 'book'}">
+              ${type === 'video' ? 'VIDEO' : 'BOOK'}
+            </span>
+          </div>
+
+          <h4>${title}</h4>
+
+          <div class="feedback-card-user">By ${userName}</div>
+
+          <div class="feedback-card-rating" aria-label="${rating} star rating">
+            ${buildStarRow(rating)}
+          </div>
+
+          <p>${text}</p>
+
+          <div class="feedback-card-meta">
+            <div class="feedback-meta-left">
+              <span class="feedback-rating-badge">${rating}/5 Stars</span>
+              <span class="feedback-source-badge">${source === 'web' ? 'Web Feedback' : 'App Feedback'}</span>
+            </div>
+            <div class="feedback-meta-right">
+              ${canDelete ? `
+                <button class="feedback-delete-btn" data-feedback-id="${item.id}" type="button">
+                  <span class="delete-icon">🗑</span>
+                  <span>Delete</span>
+                </button>
+              ` : ''}
+            </div>
+          </div>
         </div>
-        <p>${item.comment || "Nice recommendation!"}</p>
-        ${canDelete ? `<button class="delete-btn" data-id="${item.id}">Delete</button>` : ""}
-      </div>
-    `;
-  }).join("");
+      `;
+    });
 
-  document.querySelectorAll(".delete-btn").forEach(btn => {
-    btn.onclick = () => deleteFeedback(btn.dataset.id);
-  });
-}
+    track.innerHTML = cards.concat(cards).join('');
+    track.style.animation = '';
+    attachDeleteHandlers();
+  }
 
-// 🔥 THIS IS THE MAIN FIX
-(function loadFeedback() {
-  const q = query(
-    collection(db, "feedback"),
-    where("status", "==", "published")
-  );
+  (function loadLiveFeedback() {
+    try {
+      const feedbackQuery = query(
+        collection(db, 'feedback'),
+        where('status', '==', 'published')
+      );
 
-  onSnapshot(q, snap => {
-    const items = snap.docs.map(d => ({
-      id: d.id,
-      ...d.data()
-    }));
+      onSnapshot(
+        feedbackQuery,
+        (snapshot) => {
+          const items = snapshot.docs.map((docSnap) => ({
+            id: docSnap.id,
+            ...docSnap.data()
+          }));
 
-    renderFeedback(items);
-  });
-})();
+          renderLiveFeedback(items);
+        },
+        (err) => {
+          console.warn('Live feedback listener error:', err.message);
+          renderLiveFeedback([]);
+        }
+      );
+    } catch (error) {
+      console.warn('Live feedback init failed:', error?.message || error);
+      renderLiveFeedback([]);
+    }
+  })();
 </script>
-</body>
 </html>
