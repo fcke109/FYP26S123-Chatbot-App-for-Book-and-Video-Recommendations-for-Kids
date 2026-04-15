@@ -482,7 +482,6 @@ main,
   box-shadow: var(--shadow-strong);
 }
 
-/* ALWAYS SHOW HAMBURGER BUTTON */
 .menu-toggle {
   display: flex;
   width: 50px;
@@ -507,15 +506,15 @@ main,
 }
 
 .menu-bar {
-  width: 24px;
-  height: 3px;
+  width: 22px;
+  height: 2.5px;
   border-radius: 999px;
   background: #4a2fd0;
   transition: transform 0.25s ease, opacity 0.25s ease;
 }
 
 .menu-toggle.active .menu-bar:nth-child(1) {
-  transform: translateY(8px) rotate(45deg);
+  transform: translateY(7px) rotate(45deg);
 }
 
 .menu-toggle.active .menu-bar:nth-child(2) {
@@ -523,15 +522,15 @@ main,
 }
 
 .menu-toggle.active .menu-bar:nth-child(3) {
-  transform: translateY(-8px) rotate(-45deg);
+  transform: translateY(-7px) rotate(-45deg);
 }
 
 .menu-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(25, 16, 48, 0.38);
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
+  background: rgba(18, 12, 34, 0.38);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
@@ -543,6 +542,47 @@ main,
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
+}
+
+.drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: min(330px, 88vw);
+  height: 100vh;
+  background: linear-gradient(180deg, rgba(35, 27, 67, 0.98) 0%, rgba(52, 39, 101, 0.98) 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.18rem;
+  padding: 1.35rem 1rem 1.2rem;
+  box-shadow: 20px 0 55px rgba(16, 10, 33, 0.28);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  transform: translateX(-100%);
+  transition: transform 0.34s ease;
+  z-index: 1200;
+  overflow-y: auto;
+  will-change: transform;
+}
+
+.drawer.show {
+  transform: translateX(0);
+}
+
+.drawer a {
+  width: 100%;
+  color: #ffffff !important;
+  padding: 0.95rem 1rem;
+  border-radius: 16px;
+  font-size: 0.97rem;
+  font-weight: 650;
+  margin: 0.08rem 0;
+  transition: background 0.22s ease, transform 0.22s ease, color 0.22s ease;
+}
+
+.drawer a:hover {
+  background: rgba(255, 255, 255, 0.1);
+  transform: translateX(4px);
 }
 
 .hero {
@@ -1614,84 +1654,9 @@ main,
   }
 }
 
-@media (min-width: 769px) {
-  .drawer {
-    position: static !important;
-    transform: none !important;
-    opacity: 1 !important;
-    visibility: visible !important;
-    pointer-events: auto !important;
-    background: none !important;
-    box-shadow: none !important;
-    border: none !important;
-    width: auto !important;
-    height: auto !important;
-    padding: 0 !important;
-    flex-direction: row !important;
-  }
-
-  .drawer a {
-    width: auto !important;
-    padding: 0 !important;
-    background: none !important;
-    color: #5b5670 !important;
-  }
-
-  .drawer a:hover {
-    color: var(--primary-dark) !important;
-  }
-
-  .menu-overlay {
-    display: none !important;
-  }
-}
-
-@media (max-width: 768px) {
-  .menu-toggle {
-    display: flex;
-    flex-shrink: 0;
-  }
-
-  .drawer {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: min(310px, 82vw);
-    height: 100vh;
-    background: linear-gradient(180deg, #2b224d 0%, #3b2f72 100%);
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0.3rem;
-    padding: 6rem 1rem 1.2rem;
-    box-shadow: 18px 0 40px rgba(20, 12, 42, 0.28);
-    border-right: 1px solid rgba(255, 255, 255, 0.08);
-    transform: translateX(-100%);
-    transition: transform 0.28s ease;
-    z-index: 1200;
-    overflow-y: auto;
-  }
-
-  .drawer.show {
-    transform: translateX(0);
-  }
-
-  .drawer a {
-    width: 100%;
-    color: #ffffff !important;
-    padding: 0.9rem 1rem;
-    border-radius: 16px;
-    font-size: 0.96rem;
-  }
-
-  .drawer a:hover {
-    background: rgba(255, 255, 255, 0.1);
-  }
-
-  .nav-cta {
-    width: 100%;
-    text-align: center;
-    justify-content: center;
+@media (max-width: 900px) {
+  .nav {
+    gap: 0.75rem;
   }
 
   .brand-subtitle {
@@ -1759,35 +1724,6 @@ main,
   }
 }
 
-/* ALSO MAKE AUTH AREA LOOK GOOD ON DESKTOP DRAWER */
-.nav-auth {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 0.6rem;
-  margin-top: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.14);
-}
-
-.nav-auth .nav-user {
-  width: 100%;
-  color: #ffffff !important;
-  padding: 0.4rem 0.8rem;
-}
-
-.nav-auth .nav-logout-btn {
-  width: 100%;
-  color: #ffffff;
-  border-color: rgba(255, 255, 255, 0.24);
-  text-align: center;
-}
-
-.nav-auth .nav-logout-btn:hover {
-  background: rgba(255, 255, 255, 0.12);
-}
-
 @media (max-width: 560px) {
   .container {
     width: min(var(--container), calc(100% - 1.2rem));
@@ -1843,4 +1779,61 @@ main,
   .live-stat {
     width: 100%;
   }
+  /* ⭐ FEEDBACK CARDS */
+.feedback-card {
+  background: white;
+  padding: 1.2rem;
+  border-radius: 18px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+  min-width: 260px;
+}
+
+.feedback-user {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #6b5cff;
+  margin-bottom: 0.5rem;
+}
+
+.stars {
+  margin-bottom: 0.5rem;
+}
+
+.star {
+  color: #ccc;
+}
+
+.star.filled {
+  color: gold;
+}
+
+/* DELETE BUTTON */
+.delete-btn {
+  margin-top: 0.5rem;
+  border: none;
+  background: #ffe4ea;
+  color: #d14;
+  padding: 6px 12px;
+  border-radius: 20px;
+  cursor: pointer;
+}
+
+.delete-btn:hover {
+  background: #ffd2dc;
+}
+
+/* 🐢 SLOWER ANIMATIONS */
+.floating-shape {
+  animation-duration: 40s !important;
+}
+
+.testimonial-slider-track {
+  animation: scrollTestimonials 40s linear infinite;
+}
+
+/* smoother */
+@keyframes scrollTestimonials {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
 }
