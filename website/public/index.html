@@ -21,33 +21,236 @@
   <link rel="stylesheet" href="/css/styles.css" />
 
   <style>
-    .nav-auth {
+    .top-auth {
       display: flex;
       align-items: center;
-      gap: 0.7rem;
+      gap: 0.75rem;
+      margin-left: auto;
+      z-index: 1301;
     }
 
-    .nav-auth .nav-user {
+    .top-auth .top-login-link,
+    .top-auth .top-signup-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
+      padding: 0 1.15rem;
+      border-radius: 999px;
+      font-weight: 700;
+      font-size: 0.92rem;
+      transition: 0.22s ease;
+      border: 1px solid rgba(139, 92, 246, 0.12);
+      white-space: nowrap;
+    }
+
+    .top-auth .top-login-link {
+      background: rgba(255, 255, 255, 0.92);
+      color: var(--primary-dark);
+    }
+
+    .top-auth .top-login-link:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-soft);
+    }
+
+    .top-auth .top-signup-link {
+      background: linear-gradient(135deg, var(--primary), #a46fff);
+      color: #ffffff;
+      box-shadow: 0 10px 24px rgba(139, 92, 246, 0.22);
+    }
+
+    .top-auth .top-signup-link:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-strong);
+    }
+
+    .top-auth .top-user-name {
+      display: none;
       font-weight: 700;
       color: var(--primary-dark);
-      font-size: 0.9rem;
+      font-size: 0.92rem;
+      max-width: 180px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
-    .nav-auth .nav-logout-btn {
+    .top-auth .top-logout-btn {
+      display: none;
       background: none;
       border: 1px solid var(--primary);
       color: var(--primary-dark);
-      padding: 0.5rem 1rem;
+      padding: 0.6rem 1rem;
       border-radius: 999px;
       font-weight: 700;
       font-size: 0.88rem;
       cursor: pointer;
       font-family: inherit;
+      transition: 0.22s ease;
     }
 
-    .nav-auth .nav-logout-btn:hover {
+    .top-auth .top-logout-btn:hover {
       background: var(--primary);
-      color: white;
+      color: #fff;
+    }
+
+    .drawer-brand {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      padding: 0 0.5rem 1rem;
+      margin-bottom: 0.5rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    .drawer-brand img {
+      width: 42px;
+      height: 42px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.92);
+      padding: 0.18rem;
+    }
+
+    .drawer-brand-text {
+      display: flex;
+      flex-direction: column;
+      gap: 0.05rem;
+    }
+
+    .drawer-brand-text strong {
+      color: #fff;
+      font-size: 1rem;
+      line-height: 1.1;
+      font-family: "Baloo 2", sans-serif;
+      letter-spacing: 0.01em;
+    }
+
+    .drawer-brand-text span {
+      color: rgba(255, 255, 255, 0.75);
+      font-size: 0.8rem;
+      line-height: 1.3;
+    }
+
+    .drawer-section-title {
+      color: rgba(255, 255, 255, 0.55);
+      font-size: 0.74rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.85rem 0.8rem 0.35rem;
+    }
+
+    .drawer-link-icon {
+      margin-right: 0.8rem;
+      display: inline-block;
+      width: 1.25rem;
+      text-align: center;
+    }
+
+    .drawer-bottom-auth {
+      margin-top: 1.25rem;
+      padding-top: 1rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.12);
+      display: none;
+      flex-direction: column;
+      gap: 0.65rem;
+    }
+
+    .drawer-bottom-auth .nav-user {
+      color: #fff;
+      font-weight: 700;
+      padding: 0 0.4rem;
+    }
+
+    .drawer-bottom-auth .nav-logout-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      color: #fff;
+      padding: 0.8rem 1rem;
+      border-radius: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    .drawer-bottom-auth .nav-logout-btn:hover {
+      background: rgba(255, 255, 255, 0.14);
+    }
+
+    .feedback-card-rating {
+      display: flex;
+      align-items: center;
+      gap: 0.22rem;
+      margin: 0 0 0.65rem;
+      font-size: 1rem;
+      line-height: 1;
+    }
+
+    .feedback-star {
+      color: #d9d2ea;
+    }
+
+    .feedback-star.filled {
+      color: #ffbf47;
+    }
+
+    .feedback-card-meta {
+      margin-top: 0.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.6rem;
+      flex-wrap: wrap;
+    }
+
+    .feedback-rating-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 28px;
+      padding: 0 0.7rem;
+      border-radius: 999px;
+      font-size: 0.74rem;
+      font-weight: 800;
+      background: #fff4d6;
+      color: #8a5b00;
+    }
+
+    .feedback-source-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 28px;
+      padding: 0 0.7rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 800;
+      background: #eef5ff;
+      color: #4a63d9;
+    }
+
+    @media (max-width: 700px) {
+      .top-auth {
+        gap: 0.5rem;
+      }
+
+      .top-auth .top-login-link,
+      .top-auth .top-signup-link {
+        min-height: 40px;
+        padding: 0 0.9rem;
+        font-size: 0.84rem;
+      }
+
+      .top-auth .top-user-name {
+        display: none !important;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .top-auth .top-login-link {
+        display: none;
+      }
     }
   </style>
 </head>
@@ -71,6 +274,19 @@
 
   <header class="site-header">
     <div class="container nav">
+      <button
+        class="menu-toggle"
+        id="menuToggle"
+        aria-label="Toggle navigation menu"
+        aria-expanded="false"
+        aria-controls="navLinks"
+        type="button"
+      >
+        <span class="menu-bar"></span>
+        <span class="menu-bar"></span>
+        <span class="menu-bar"></span>
+      </button>
+
       <a href="#home" class="brand">
         <img
           src="/images/little_dino_icon_512.png"
@@ -83,39 +299,44 @@
         </div>
       </a>
 
-      <button
-        class="menu-toggle"
-        id="menuToggle"
-        aria-label="Toggle navigation menu"
-        aria-expanded="false"
-        aria-controls="navLinks"
-      >
-        <span class="menu-bar"></span>
-        <span class="menu-bar"></span>
-        <span class="menu-bar"></span>
-      </button>
+      <div class="top-auth">
+        <a href="/login.html" id="top-login-link" class="top-login-link">Login</a>
+        <a href="/login.html" id="top-signup-link" class="top-signup-link">Sign Up</a>
+        <span id="top-user-name" class="top-user-name"></span>
+        <button id="top-logout-btn" class="top-logout-btn" type="button">Logout</button>
+      </div>
 
       <div class="menu-overlay" id="menuOverlay"></div>
 
       <nav class="nav-links drawer" id="navLinks">
-        <a href="#home">Home</a>
-        <a href="#features">Features</a>
-        <a href="#app-preview">Inside the App</a>
-        <a href="#how-it-works">How It Works</a>
-        <a href="#safety">Safety</a>
-        <a href="#plans">Plans</a>
-        <a href="#testimonials">Testimonials</a>
-        <a href="#analytics">Analytics</a>
-        <a href="#about">About</a>
-        <a href="#contact">Contact</a>
-        <a href="/catalog.html">Book Catalog</a>
-        <a href="/feedback.html">Feedback</a>
-        <a href="/privacy.html">Privacy Policy</a>
+        <div class="drawer-brand">
+          <img src="/images/little_dino_icon_512.png" alt="Little Dino logo" />
+          <div class="drawer-brand-text">
+            <strong>Little Dino</strong>
+            <span>Explore safely with stories and videos</span>
+          </div>
+        </div>
 
-        <div class="nav-auth">
-          <a href="/login.html" id="nav-login-link" class="nav-cta">Login</a>
+        <div class="drawer-section-title">Main Menu</div>
+        <a href="#home"><span class="drawer-link-icon">🏠</span>Home</a>
+        <a href="#features"><span class="drawer-link-icon">✨</span>Features</a>
+        <a href="#app-preview"><span class="drawer-link-icon">📱</span>Inside the App</a>
+        <a href="#how-it-works"><span class="drawer-link-icon">🧭</span>How It Works</a>
+        <a href="#safety"><span class="drawer-link-icon">🛡️</span>Safety</a>
+        <a href="#plans"><span class="drawer-link-icon">💎</span>Plans</a>
+        <a href="#testimonials"><span class="drawer-link-icon">💬</span>Testimonials</a>
+        <a href="#analytics"><span class="drawer-link-icon">📊</span>Analytics</a>
+        <a href="#about"><span class="drawer-link-icon">🦕</span>About</a>
+        <a href="#contact"><span class="drawer-link-icon">📮</span>Contact</a>
+
+        <div class="drawer-section-title">More</div>
+        <a href="/catalog.html"><span class="drawer-link-icon">📚</span>Book Catalog</a>
+        <a href="/feedback.html"><span class="drawer-link-icon">⭐</span>Feedback</a>
+        <a href="/privacy.html"><span class="drawer-link-icon">🔐</span>Privacy Policy</a>
+
+        <div class="drawer-bottom-auth" id="drawerBottomAuth">
           <span id="nav-user-name" class="nav-user" style="display:none;"></span>
-          <button id="nav-logout-btn" class="nav-logout-btn" style="display:none;">
+          <button id="nav-logout-btn" class="nav-logout-btn" style="display:none;" type="button">
             Logout
           </button>
         </div>
@@ -278,10 +499,10 @@
 
             <div class="app-chat-area">
               <div class="demo-quick-prompts">
-                <button class="demo-chip" data-demo="sharks">🦈 sharks</button>
-                <button class="demo-chip" data-demo="space">🚀 space</button>
-                <button class="demo-chip" data-demo="dinosaurs">🦕 dinosaurs</button>
-                <button class="demo-chip" data-demo="bedtime">🌙 bedtime story</button>
+                <button class="demo-chip" data-demo="sharks" type="button">🦈 sharks</button>
+                <button class="demo-chip" data-demo="space" type="button">🚀 space</button>
+                <button class="demo-chip" data-demo="dinosaurs" type="button">🦕 dinosaurs</button>
+                <button class="demo-chip" data-demo="bedtime" type="button">🌙 bedtime story</button>
               </div>
 
               <div class="demo-helper-text" id="demoHelperText">
@@ -766,137 +987,112 @@
   <script src="/js/script.js"></script>
 
   <script type="module">
-    import {
-      auth,
-      db,
-      initAuthUI,
-      onAuthStateChanged,
-      signOut,
-      collection,
-      query,
-      orderBy,
-      limit,
-      onSnapshot
-    } from '/js/firebase-config.js';
+import {
+  auth,
+  db,
+  initAuthUI,
+  onAuthStateChanged,
+  signOut,
+  collection,
+  query,
+  where,
+  onSnapshot,
+  doc,
+  deleteDoc
+} from '/js/firebase-config.js';
 
-    initAuthUI?.();
+initAuthUI?.();
 
-    const navLoginLink = document.getElementById('nav-login-link');
-    const navUserName = document.getElementById('nav-user-name');
-    const navLogoutBtn = document.getElementById('nav-logout-btn');
+let currentUser = null;
 
-    onAuthStateChanged(auth, (user) => {
-      if (user) {
-        if (navLoginLink) navLoginLink.style.display = 'none';
-        if (navUserName) {
-          navUserName.style.display = 'inline-block';
-          navUserName.textContent = user.displayName || user.email || 'Logged in';
-        }
-        if (navLogoutBtn) navLogoutBtn.style.display = 'inline-block';
-      } else {
-        if (navLoginLink) navLoginLink.style.display = 'inline-flex';
-        if (navUserName) navUserName.style.display = 'none';
-        if (navLogoutBtn) navLogoutBtn.style.display = 'none';
-      }
-    });
+onAuthStateChanged(auth, (user) => {
+  currentUser = user;
+});
 
-    if (navLogoutBtn) {
-      navLogoutBtn.addEventListener('click', async () => {
-        try {
-          await signOut(auth);
-          window.location.href = '/';
-        } catch (error) {
-          console.warn('Logout failed:', error?.message || error);
-        }
-      });
-    }
+function getUserName(item) {
+  return (
+    item.userName ||
+    item.userDisplayName ||
+    item.name ||
+    (item.userEmail ? item.userEmail.split('@')[0] : null) ||
+    "Little Dino User"
+  );
+}
 
-    function renderLiveFeedback(items) {
-      const track = document.getElementById('live-feedback-track');
-      const statsRow = document.getElementById('live-feedback-stats');
-      const totalEl = document.getElementById('live-total');
-      const positiveEl = document.getElementById('live-positive');
-      const pctEl = document.getElementById('live-pct');
+function buildStars(rating) {
+  let stars = "";
+  for (let i = 1; i <= 5; i++) {
+    stars += `<span class="star ${i <= rating ? 'filled' : ''}">★</span>`;
+  }
+  return stars;
+}
 
-      if (!track) return;
+async function deleteFeedback(id) {
+  if (!currentUser) return;
 
-      if (!Array.isArray(items) || items.length === 0) {
-        track.innerHTML =
-          '<div class="no-feedback-msg glass-card">No feedback yet. Be the first to rate a recommendation in the app!</div>';
-        if (statsRow) statsRow.style.display = 'none';
-        track.style.animation = 'none';
-        return;
-      }
+  if (!confirm("Delete this feedback?")) return;
 
-      const isPositive = (item) => {
-        if (typeof item.isPositive === 'boolean') return item.isPositive;
-        if (typeof item.positive === 'boolean') return item.positive;
-        return false;
-      };
+  await deleteDoc(doc(db, "feedback", id));
+}
 
-      const total = items.length;
-      const positive = items.filter(isPositive).length;
-      const pct = Math.round((positive / total) * 100);
+function renderFeedback(items) {
+  const container = document.getElementById("live-feedback-track");
 
-      if (statsRow) statsRow.style.display = 'flex';
-      if (totalEl) totalEl.textContent = total;
-      if (positiveEl) positiveEl.textContent = positive;
-      if (pctEl) pctEl.textContent = `${pct}%`;
+  if (!container) return;
 
-      const cards = items.map((item) => {
-        const liked = isPositive(item);
-        const type = (item.contentType || item.type || 'book').toString().toLowerCase();
-        const title = item.title || item.contentTitle || 'Recommended item';
-        const text = item.comment || item.feedback || (liked ? 'I liked this recommendation.' : 'This recommendation was okay.');
-        const emoji = liked ? '😍' : '🙂';
+  if (items.length === 0) {
+    container.innerHTML = "<p>No feedback yet</p>";
+    return;
+  }
 
-        return `
-          <div class="feedback-card glass-card">
-            <div class="feedback-card-header">
-              <span class="feedback-card-icon">${emoji}</span>
-              <span class="feedback-card-type ${type === 'video' ? 'video' : 'book'}">
-                ${type === 'video' ? 'VIDEO' : 'BOOK'}
-              </span>
-            </div>
-            <h4>${title}</h4>
-            <p>${text}</p>
-          </div>
-        `;
-      });
+  container.innerHTML = items.map(item => {
+    const name =
+      item.userName ||
+      item.userDisplayName ||
+      item.name ||
+      (item.userEmail ? item.userEmail.split('@')[0] : null) ||
+      "Little Dino User";
 
-      track.innerHTML = cards.concat(cards).join('');
-      track.style.animation = '';
-    }
+    const rating = item.rating || 5;
 
-    (function loadLiveFeedback() {
-      try {
-        const feedbackQuery = query(
-          collection(db, 'feedback'),
-          orderBy('timestamp', 'desc'),
-          limit(50)
-        );
+    const adminEmail = "admin@littledino.com";
+    const isAdminUser = currentUser && currentUser.email === adminEmail;
+    const canDelete = currentUser && (item.userId === currentUser.uid || isAdminUser);
 
-        onSnapshot(
-          feedbackQuery,
-          (snapshot) => {
-            const items = snapshot.docs.map((doc) => ({
-              id: doc.id,
-              ...doc.data()
-            }));
-            renderLiveFeedback(items);
-          },
-          (err) => {
-            console.warn('Live feedback listener error:', err.message);
-            renderLiveFeedback([]);
-          }
-        );
-      } catch (error) {
-        console.warn('Live feedback init failed:', error?.message || error);
-        renderLiveFeedback([]);
-      }
-    })();
+    return `
+      <div class="feedback-card">
+        <h4>${item.title || "Recommendation"}</h4>
+        <div class="feedback-user">By ${name}</div>
+        <div class="stars">
+          ${buildStars(rating)}
+        </div>
+        <p>${item.comment || "Nice recommendation!"}</p>
+        ${canDelete ? `<button class="delete-btn" data-id="${item.id}">Delete</button>` : ""}
+      </div>
+    `;
+  }).join("");
 
-    window.renderLiveFeedback = renderLiveFeedback;
-  </script>
+  document.querySelectorAll(".delete-btn").forEach(btn => {
+    btn.onclick = () => deleteFeedback(btn.dataset.id);
+  });
+}
+
+// 🔥 THIS IS THE MAIN FIX
+(function loadFeedback() {
+  const q = query(
+    collection(db, "feedback"),
+    where("status", "==", "published")
+  );
+
+  onSnapshot(q, snap => {
+    const items = snap.docs.map(d => ({
+      id: d.id,
+      ...d.data()
+    }));
+
+    renderFeedback(items);
+  });
+})();
+</script>
 </body>
 </html>
