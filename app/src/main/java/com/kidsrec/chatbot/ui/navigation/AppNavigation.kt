@@ -44,34 +44,35 @@ import androidx.navigation.navArgument
 import com.google.firebase.auth.FirebaseAuth
 import com.kidsrec.chatbot.data.model.AccountType
 import com.kidsrec.chatbot.data.model.PlanType
+import com.kidsrec.chatbot.data.model.UserNotification
 import com.kidsrec.chatbot.ui.admin.AdminScreen
+import com.kidsrec.chatbot.ui.admin.AdminUpgradeScreen
 import com.kidsrec.chatbot.ui.admin.AdminViewModel
 import com.kidsrec.chatbot.ui.auth.AuthState
 import com.kidsrec.chatbot.ui.auth.AuthViewModel
 import com.kidsrec.chatbot.ui.auth.EmailVerificationScreen
 import com.kidsrec.chatbot.ui.auth.LoginScreen
 import com.kidsrec.chatbot.ui.auth.RegisterScreen
+import com.kidsrec.chatbot.ui.billing.PremiumUpgradeScreen
 import com.kidsrec.chatbot.ui.chat.ChatViewModel
 import com.kidsrec.chatbot.ui.chat.DinoChatPage
 import com.kidsrec.chatbot.ui.favorites.FavoritesScreen
 import com.kidsrec.chatbot.ui.favorites.FavoritesViewModel
+import com.kidsrec.chatbot.ui.gamification.BadgesRewardsScreen
 import com.kidsrec.chatbot.ui.library.LibraryViewModel
 import com.kidsrec.chatbot.ui.library.SmartSearchViewModel
 import com.kidsrec.chatbot.ui.library.UserLibraryScreen
+import com.kidsrec.chatbot.ui.notification.NotificationsViewModel
 import com.kidsrec.chatbot.ui.parent.ParentDashboardScreen
-import com.kidsrec.chatbot.ui.parent.ParentInviteSetupRoute
 import com.kidsrec.chatbot.ui.parent.ParentDashboardViewModel
+import com.kidsrec.chatbot.ui.parent.ParentInviteSetupRoute
 import com.kidsrec.chatbot.ui.parent.ParentProgressViewModel
+import com.kidsrec.chatbot.ui.parental.ParentalControlsScreen
 import com.kidsrec.chatbot.ui.profile.ProfileScreen
 import com.kidsrec.chatbot.ui.profile.ProfileViewModel
-import com.kidsrec.chatbot.ui.billing.PremiumUpgradeScreen
-import com.kidsrec.chatbot.ui.parental.ParentalControlsScreen
-import com.kidsrec.chatbot.ui.admin.AdminUpgradeScreen
 import com.kidsrec.chatbot.ui.reader.BookReaderScreen
 import com.kidsrec.chatbot.ui.screentime.ScreenTimeWrapper
 import com.kidsrec.chatbot.ui.webview.SafeWebViewScreen
-import com.kidsrec.chatbot.ui.notification.NotificationsViewModel
-import com.kidsrec.chatbot.data.model.UserNotification
 import com.kidsrec.chatbot.ui.webview.YouTubePlayerScreen
 import java.net.URLEncoder
 import java.util.Date
@@ -106,10 +107,6 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
     )
     object PremiumUpgrade : Screen("premium", "Upgrade")
 }
-
-// -----------------------------
-// HELPER FUNCTIONS
-// -----------------------------
 
 private fun normalizeContentUrl(url: String): String {
     return url.trim().replace("http://", "https://")
@@ -178,7 +175,6 @@ private fun buildContentRoute(
     Log.d("KidsRecNav", "Clean URL: $cleanUrl")
     Log.d("KidsRecNav", "Incoming isVideo: $isVideo")
 
-    // Route YouTube videos to in-app player (only if URL is actually YouTube)
     if (isYoutubeLikeUrl(cleanUrl)) {
         val youtubeId = extractYoutubeId(cleanUrl)
         if (youtubeId != null) {
@@ -187,7 +183,6 @@ private fun buildContentRoute(
         }
     }
 
-    // FORCE correct mode from URL when possible
     val finalIsVideo = when {
         cleanUrl.isBlank() -> isVideo
         isKnownBookUrl(cleanUrl) -> false
@@ -245,10 +240,14 @@ fun AppNavigation() {
 
     when (authState) {
         is AuthState.Authenticated -> MainScreen(
-            authViewModel, isAdmin, isParent,
+            authViewModel = authViewModel,
+            isAdmin = isAdmin,
+            isParent = isParent,
             isGuest = currentUser?.isGuest == true
         )
+
         is AuthState.EmailNotVerified -> EmailVerificationScreen(authViewModel)
+
         is AuthState.Initial -> Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
@@ -289,7 +288,12 @@ fun AuthNavigation(authViewModel: AuthViewModel) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean = false, isGuest: Boolean = false) {
+fun MainScreen(
+    authViewModel: AuthViewModel,
+    isAdmin: Boolean,
+    isParent: Boolean = false,
+    isGuest: Boolean = false
+) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
@@ -297,9 +301,9 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
     val favoritesViewModel: FavoritesViewModel = hiltViewModel()
     val notificationsViewModel: NotificationsViewModel = hiltViewModel()
 
-    // Check for unread announcements on login
     val currentUser by authViewModel.currentUser.collectAsState()
     val notifications by notificationsViewModel.uiState.collectAsState()
+
     val unreadAnnouncements = notifications.filter {
         !it.read && (
                 it.type.equals("announcement", ignoreCase = true) ||
@@ -307,19 +311,16 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
                 )
     }
 
-    // Start notifications listener when user is available
     LaunchedEffect(currentUser?.id) {
         currentUser?.id?.let { userId ->
             notificationsViewModel.startListening(userId)
         }
     }
 
-    // Show announcement dialog if there are unread announcements
     if (unreadAnnouncements.isNotEmpty()) {
         AnnouncementDialog(
             announcements = unreadAnnouncements,
             onDismiss = {
-                // Mark all announcements as read
                 currentUser?.id?.let { userId ->
                     unreadAnnouncements.forEach { notification ->
                         notificationsViewModel.markRead(userId, notification.id)
@@ -329,7 +330,6 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
         )
     }
 
-    // Re-trigger favourites loading after auth completes (fixes new account race condition)
     LaunchedEffect(Unit) {
         favoritesViewModel.loadFavorites()
     }
@@ -370,6 +370,9 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
             if (
                 bottomNavItems.isNotEmpty() &&
                 currentDestination?.route?.startsWith("webview") == false &&
+                currentDestination?.route?.startsWith("reader") == false &&
+                currentDestination?.route?.startsWith("youtube_player") == false &&
+                currentDestination?.route != Screen.BadgesRewards.route &&
                 currentDestination?.route in bottomNavItems.map { it.route }
             ) {
                 NavigationBar {
@@ -399,6 +402,7 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
     ) { innerPadding ->
 
         val isChildAccount = !isAdmin && !isParent
+
         val navContent: @Composable () -> Unit = {
             NavHost(
                 navController = navController,
@@ -415,7 +419,12 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
                         favoritesViewModel = favoritesViewModel,
                         searchViewModel = searchViewModel,
                         onOpenRecommendation = { url, title, isVideo, itemId, imageUrl, description ->
-                            profileViewModel.trackReading(title, url, coverUrl = imageUrl, isVideo = isVideo)
+                            profileViewModel.trackReading(
+                                title = title,
+                                url = url,
+                                coverUrl = imageUrl,
+                                isVideo = isVideo
+                            )
                             navController.navigate(
                                 buildContentRoute(
                                     url = url,
@@ -439,7 +448,12 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
                         favoritesViewModel = favoritesViewModel,
                         searchViewModel = searchViewModel,
                         onOpenRecommendation = { url, title, isVideo, itemId, imageUrl, description ->
-                            profileViewModel.trackReading(title, url, coverUrl = imageUrl, isVideo = isVideo)
+                            profileViewModel.trackReading(
+                                title = title,
+                                url = url,
+                                coverUrl = imageUrl,
+                                isVideo = isVideo
+                            )
                             navController.navigate(
                                 buildContentRoute(
                                     url = url,
@@ -458,7 +472,12 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
                     FavoritesScreen(
                         viewModel = favoritesViewModel,
                         onOpenFavorite = { url, title, isVideo, itemId, imageUrl, description ->
-                            profileViewModel.trackReading(title, url, coverUrl = imageUrl, isVideo = isVideo)
+                            profileViewModel.trackReading(
+                                title = title,
+                                url = url,
+                                coverUrl = imageUrl,
+                                isVideo = isVideo
+                            )
                             navController.navigate(
                                 buildContentRoute(
                                     url = url,
@@ -491,6 +510,9 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
                         },
                         onNavigateToParentalControls = {
                             navController.navigate(Screen.ParentalControls.route)
+                        },
+                        onNavigateToBadgesRewards = {
+                            navController.navigate(Screen.BadgesRewards.route)
                         }
                     )
                 }
@@ -499,7 +521,8 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
                     val childUser = currentUser
 
                     if (childUser != null && !childUser.isGuest) {
-                        BadgesRewardsPlaceholderScreen(
+                        BadgesRewardsScreen(
+                            childUserId = childUser.id,
                             childName = childUser.name,
                             onBack = { navController.popBackStack() }
                         )
@@ -509,7 +532,6 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
                         }
                     }
                 }
-
 
                 composable(Screen.Admin.route) {
                     val adminViewModel: AdminViewModel = hiltViewModel()
@@ -555,7 +577,9 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
                     val parentUser = currentUser
 
                     if (parentUser == null || parentUser.accountType != AccountType.PARENT) {
-                        LaunchedEffect(Unit) { navController.popBackStack() }
+                        LaunchedEffect(Unit) {
+                            navController.popBackStack()
+                        }
                     } else {
                         ParentInviteSetupRoute(
                             parentId = parentUser.id,
@@ -573,7 +597,7 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
                 }
 
                 composable(
-                    Screen.SafeWebView.route,
+                    route = Screen.SafeWebView.route,
                     arguments = listOf(
                         navArgument("url") {
                             type = NavType.StringType
@@ -602,13 +626,17 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
                     )
                 ) { bse ->
                     val url = bse.arguments?.getString("url") ?: ""
+
                     if (url.isBlank()) {
-                        LaunchedEffect(Unit) { navController.popBackStack() }
+                        LaunchedEffect(Unit) {
+                            navController.popBackStack()
+                        }
                     } else {
                         val analyticsRepository = EntryPointAccessors.fromApplication(
                             LocalContext.current.applicationContext,
                             AnalyticsEntryPoint::class.java
                         ).analyticsRepository()
+
                         val scope = rememberCoroutineScope()
                         val itemId = bse.arguments?.getString("itemId") ?: ""
                         val title = bse.arguments?.getString("title") ?: ""
@@ -619,8 +647,11 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
                             isVideo = bse.arguments?.getBoolean("isVideo") ?: false,
                             onClose = { durationSeconds ->
                                 val closeTimestamp = com.google.firebase.Timestamp.now()
-                                val openedAt = com.google.firebase.Timestamp(Date(closeTimestamp.toDate().time - durationSeconds * 1000))
+                                val openedAt = com.google.firebase.Timestamp(
+                                    Date(closeTimestamp.toDate().time - durationSeconds * 1000)
+                                )
                                 val userId = currentUser?.id ?: "unknown"
+
                                 scope.launch {
                                     analyticsRepository.trackDropOffPoint(
                                         itemId = itemId,
@@ -631,6 +662,7 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
                                         durationSeconds = durationSeconds
                                     )
                                 }
+
                                 navController.popBackStack()
                             }
                         )
@@ -638,7 +670,7 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
                 }
 
                 composable(
-                    Screen.YouTubePlayer.route,
+                    route = Screen.YouTubePlayer.route,
                     arguments = listOf(
                         navArgument("videoId") {
                             type = NavType.StringType
@@ -651,22 +683,30 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
                     )
                 ) { bse ->
                     val videoId = bse.arguments?.getString("videoId") ?: ""
+
                     if (videoId.isBlank()) {
-                        LaunchedEffect(Unit) { navController.popBackStack() }
+                        LaunchedEffect(Unit) {
+                            navController.popBackStack()
+                        }
                     } else {
                         val analyticsRepository = EntryPointAccessors.fromApplication(
                             LocalContext.current.applicationContext,
                             AnalyticsEntryPoint::class.java
                         ).analyticsRepository()
+
                         val scope = rememberCoroutineScope()
                         val title = bse.arguments?.getString("title") ?: ""
+
                         YouTubePlayerScreen(
                             videoId = videoId,
                             title = title,
                             onBack = { durationSeconds ->
                                 val closeTimestamp = com.google.firebase.Timestamp.now()
-                                val openedAt = com.google.firebase.Timestamp(Date(closeTimestamp.toDate().time - durationSeconds * 1000))
+                                val openedAt = com.google.firebase.Timestamp(
+                                    Date(closeTimestamp.toDate().time - durationSeconds * 1000)
+                                )
                                 val userId = currentUser?.id ?: "unknown"
+
                                 scope.launch {
                                     analyticsRepository.trackDropOffPoint(
                                         itemId = videoId,
@@ -677,6 +717,7 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
                                         durationSeconds = durationSeconds
                                     )
                                 }
+
                                 navController.popBackStack()
                             }
                         )
@@ -684,26 +725,36 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
                 }
 
                 composable(
-                    Screen.Reader.route,
+                    route = Screen.Reader.route,
                     arguments = listOf(
-                        navArgument("url") { type = NavType.StringType }
+                        navArgument("url") {
+                            type = NavType.StringType
+                        }
                     )
                 ) { bse ->
                     val url = bse.arguments?.getString("url") ?: ""
+
                     if (url.isBlank()) {
-                        LaunchedEffect(Unit) { navController.popBackStack() }
+                        LaunchedEffect(Unit) {
+                            navController.popBackStack()
+                        }
                     } else {
                         val analyticsRepository = EntryPointAccessors.fromApplication(
                             LocalContext.current.applicationContext,
                             AnalyticsEntryPoint::class.java
                         ).analyticsRepository()
+
                         val scope = rememberCoroutineScope()
+
                         BookReaderScreen(
                             url = url,
                             onBack = { durationSeconds ->
                                 val closeTimestamp = com.google.firebase.Timestamp.now()
-                                val openedAt = com.google.firebase.Timestamp(Date(closeTimestamp.toDate().time - durationSeconds * 1000))
+                                val openedAt = com.google.firebase.Timestamp(
+                                    Date(closeTimestamp.toDate().time - durationSeconds * 1000)
+                                )
                                 val userId = currentUser?.id ?: "unknown"
+
                                 scope.launch {
                                     analyticsRepository.trackDropOffPoint(
                                         itemId = url,
@@ -714,6 +765,7 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
                                         durationSeconds = durationSeconds
                                     )
                                 }
+
                                 navController.popBackStack()
                             }
                         )
@@ -728,7 +780,6 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
             }
         }
 
-        // Wrap child accounts with screen time tracking
         if (isChildAccount) {
             ScreenTimeWrapper { navContent() }
         } else {
@@ -736,44 +787,6 @@ fun MainScreen(authViewModel: AuthViewModel, isAdmin: Boolean, isParent: Boolean
         }
     }
 }
-
-@Composable
-private fun BadgesRewardsPlaceholderScreen(
-    childName: String,
-    onBack: () -> Unit
-) {
-    Scaffold { innerPadding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(24.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Card {
-                Column(
-                    modifier = Modifier.padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = "Badges & Rewards",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "Rewards page for $childName is not connected in the current profile screen version yet.",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    TextButton(onClick = onBack) {
-                        Text("Back")
-                    }
-                }
-            }
-        }
-    }
-}
-
 
 @Composable
 fun AnnouncementDialog(

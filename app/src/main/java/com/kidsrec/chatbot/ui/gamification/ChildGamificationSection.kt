@@ -27,7 +27,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Celebration
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.TrendingUp
@@ -58,7 +57,8 @@ import kotlinx.coroutines.delay
 @Composable
 fun ChildGamificationSection(
     viewModel: GamificationViewModel,
-    childUserId: String
+    childUserId: String,
+    onOpenFullPage: (() -> Unit)? = null
 ) {
     LaunchedEffect(childUserId) {
         viewModel.observeChildGamification(childUserId)
@@ -114,16 +114,22 @@ fun ChildGamificationSection(
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
-                        text = "Unlocked Badges",
+                        text = "Latest Badges",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
 
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        items(badges) { badge ->
+                        items(badges.take(5)) { badge ->
                             BadgeCard(badge = badge)
                         }
                     }
+                }
+            }
+
+            if (onOpenFullPage != null) {
+                TextButton(onClick = onOpenFullPage) {
+                    Text("Open Full Rewards Page")
                 }
             }
         }
@@ -461,7 +467,7 @@ private fun RewardPopup(
 }
 
 @Composable
-private fun RewardConfettiOverlay() {
+fun RewardConfettiOverlay() {
     val infinite = rememberInfiniteTransition(label = "confetti")
 
     val fall1 by infinite.animateFloat(

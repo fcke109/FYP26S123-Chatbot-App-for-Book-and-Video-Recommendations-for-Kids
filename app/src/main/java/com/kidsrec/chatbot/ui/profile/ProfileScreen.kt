@@ -16,18 +16,16 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.kidsrec.chatbot.data.model.ReadingHistory
 import com.kidsrec.chatbot.ui.auth.AuthViewModel
-import com.kidsrec.chatbot.ui.gamification.ChildGamificationSection
-import com.kidsrec.chatbot.ui.gamification.GamificationViewModel
 import com.kidsrec.chatbot.ui.parental.ChildSafetyLockGate
 import com.kidsrec.chatbot.ui.parental.ChildSettingsEntry
 
@@ -37,12 +35,12 @@ fun ProfileScreen(
     authViewModel: AuthViewModel,
     profileViewModel: ProfileViewModel,
     onItemClick: (url: String, title: String, isVideo: Boolean) -> Unit = { _, _, _ -> },
-    onNavigateToParentalControls: () -> Unit = {}
+    onNavigateToParentalControls: () -> Unit = {},
+    onNavigateToBadgesRewards: () -> Unit = {}
 ) {
     val user by authViewModel.currentUser.collectAsState()
     val updateSuccess by profileViewModel.updateSuccess.collectAsState()
     val readingHistory by profileViewModel.readingHistory.collectAsState()
-    val gamificationViewModel: GamificationViewModel = hiltViewModel()
 
     var isEditing by remember { mutableStateOf(false) }
     var name by remember { mutableStateOf("") }
@@ -370,9 +368,10 @@ fun ProfileScreen(
 
                                 Spacer(modifier = Modifier.height(8.dp))
 
-                                Row(
+                                FlowRow(
                                     modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     currentUser.interests.forEach { interest ->
                                         AssistChip(
@@ -386,9 +385,8 @@ fun ProfileScreen(
 
                         Spacer(modifier = Modifier.height(24.dp))
 
-                        ChildGamificationSection(
-                            viewModel = gamificationViewModel,
-                            childUserId = currentUser.id
+                        BadgesRewardsEntryCard(
+                            onClick = onNavigateToBadgesRewards
                         )
 
                         Spacer(modifier = Modifier.height(24.dp))
@@ -416,6 +414,86 @@ fun ProfileScreen(
                             RecentlyReadSection(readingHistory, onItemClick)
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BadgesRewardsEntryCard(
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(24.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    brush = Brush.linearGradient(
+                        colors = listOf(
+                            Color(0xFFE8F5FF),
+                            Color(0xFFFCE4FF),
+                            Color(0xFFFFF5D9)
+                        )
+                    )
+                )
+                .padding(20.dp)
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        color = Color.White.copy(alpha = 0.9f),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.EmojiEvents,
+                            contentDescription = null,
+                            tint = Color(0xFFFF9800),
+                            modifier = Modifier.padding(12.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Badges & Rewards",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "See your badges, points, levels, and reward progress on a full page.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    Icon(
+                        imageVector = Icons.Default.ChevronRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Button(
+                    onClick = onClick,
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Icon(Icons.Default.Star, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Open Rewards Page")
                 }
             }
         }
