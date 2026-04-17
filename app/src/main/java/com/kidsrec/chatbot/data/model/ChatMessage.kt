@@ -14,7 +14,6 @@ data class ChatMessage(
     @set:PropertyName("recommendations")
     var recommendations: List<Recommendation> = emptyList()
 ) {
-    // No-arg constructor for Firestore
     constructor() : this("", MessageRole.USER, "", Timestamp.now(), emptyList())
 }
 
@@ -33,7 +32,6 @@ data class Conversation(
     val createdAt: Timestamp = Timestamp.now(),
     val lastUpdated: Timestamp = Timestamp.now()
 ) {
-    // No-arg constructor for Firestore
     constructor() : this("", "", emptyList(), "", Timestamp.now(), Timestamp.now())
 }
 
@@ -51,7 +49,6 @@ data class Recommendation(
     val url: String = "",
     val isCurated: Boolean = true
 ) {
-    // No-arg constructor for Firestore
     constructor() : this("", RecommendationType.BOOK, "", "", "", "", 0.0, "", true)
 }
 

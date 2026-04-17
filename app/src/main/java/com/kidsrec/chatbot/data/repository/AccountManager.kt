@@ -11,7 +11,6 @@ import com.kidsrec.chatbot.data.model.Favorite
 import com.kidsrec.chatbot.data.model.InviteCode
 import com.kidsrec.chatbot.data.model.LoginAttempt
 import com.kidsrec.chatbot.data.model.ReadingHistory
-import com.kidsrec.chatbot.data.model.RecommendationType
 import com.kidsrec.chatbot.data.model.StarterBookSeed
 import com.kidsrec.chatbot.data.model.User
 import kotlinx.coroutines.channels.awaitClose
@@ -22,6 +21,8 @@ import java.util.Calendar
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.kidsrec.chatbot.data.model.Recommendation
+import com.kidsrec.chatbot.data.model.RecommendationType
 
 /**
  * AccountManager: Handles all user login, registration, and profile data.

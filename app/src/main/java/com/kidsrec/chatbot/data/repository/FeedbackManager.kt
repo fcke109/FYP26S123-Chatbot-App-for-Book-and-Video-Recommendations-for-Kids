@@ -4,13 +4,14 @@ import android.util.Log
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import com.kidsrec.chatbot.data.model.Feedback
-import com.kidsrec.chatbot.data.model.RecommendationType
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.kidsrec.chatbot.data.model.Recommendation
+import com.kidsrec.chatbot.data.model.RecommendationType
 
 @Singleton
 class FeedbackManager @Inject constructor(

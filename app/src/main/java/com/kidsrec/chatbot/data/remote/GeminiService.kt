@@ -22,7 +22,11 @@ class GeminiService @Inject constructor() {
         )
     }
 
-    suspend fun chat(systemPrompt: String, conversationHistory: List<OpenAIMessage>, userMessage: String): String {
+    suspend fun chat(
+        systemPrompt: String,
+        conversationHistory: List<OpenAIMessage>,
+        userMessage: String
+    ): String {
         return try {
             val history = conversationHistory.map { msg ->
                 content(role = if (msg.role == "user") "user" else "model") {
@@ -32,7 +36,6 @@ class GeminiService @Inject constructor() {
 
             val chat = model.startChat(history)
 
-            // Prepend system prompt to user message for context
             val fullMessage = if (conversationHistory.isEmpty()) {
                 "$systemPrompt\n\nUser message: $userMessage"
             } else {

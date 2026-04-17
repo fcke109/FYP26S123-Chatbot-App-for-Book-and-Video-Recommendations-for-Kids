@@ -51,8 +51,6 @@ import com.kidsrec.chatbot.R
 import com.kidsrec.chatbot.data.model.ChatMessage
 import com.kidsrec.chatbot.data.model.Conversation
 import com.kidsrec.chatbot.data.model.MessageRole
-import com.kidsrec.chatbot.data.model.Recommendation
-import com.kidsrec.chatbot.data.model.RecommendationType
 import com.kidsrec.chatbot.data.repository.GamificationManager
 import com.kidsrec.chatbot.data.repository.LearningProgressManager
 import com.kidsrec.chatbot.ui.favorites.FavoritesViewModel
@@ -60,6 +58,8 @@ import com.kidsrec.chatbot.ui.library.SmartSearchViewModel
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Locale
+import com.kidsrec.chatbot.data.model.Recommendation
+import com.kidsrec.chatbot.data.model.RecommendationType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

@@ -28,8 +28,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.kidsrec.chatbot.data.model.Favorite
-import com.kidsrec.chatbot.data.model.RecommendationType
 import java.net.URLEncoder
+import com.kidsrec.chatbot.data.model.Recommendation
+import com.kidsrec.chatbot.data.model.RecommendationType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

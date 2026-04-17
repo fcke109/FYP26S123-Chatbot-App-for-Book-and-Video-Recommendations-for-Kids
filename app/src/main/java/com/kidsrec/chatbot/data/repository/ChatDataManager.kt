@@ -8,8 +8,6 @@ import com.kidsrec.chatbot.data.model.Book
 import com.kidsrec.chatbot.data.model.ChatMessage
 import com.kidsrec.chatbot.data.model.Conversation
 import com.kidsrec.chatbot.data.model.MessageRole
-import com.kidsrec.chatbot.data.model.Recommendation
-import com.kidsrec.chatbot.data.model.RecommendationType
 import com.kidsrec.chatbot.data.model.User
 import com.kidsrec.chatbot.data.remote.GeminiService
 import com.kidsrec.chatbot.data.remote.OpenAIMessage
@@ -23,9 +21,12 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
+import kotlin.math.sqrt
 import org.json.JSONArray
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.kidsrec.chatbot.data.model.Recommendation
+import com.kidsrec.chatbot.data.model.RecommendationType
 
 @Singleton
 class ChatDataManager @Inject constructor(
@@ -812,8 +813,13 @@ RULES FOR JSON:
                 approvedVideos = approvedVideos
             )
 
+            val collaborativelyRanked = applyCollaborativeFilteringRanking(
+                userId = userId,
+                recommendations = ensuredMix
+            )
+
             val recommendations = scoreWithANN(
-                recommendations = ensuredMix,
+                recommendations = collaborativelyRanked,
                 curatedBooks = curatedBooks,
                 userId = userId
             )
@@ -1182,6 +1188,288 @@ RULES FOR JSON:
             .trim()
     }
 
+
+    private data class UserItemInteraction(
+        val userId: String,
+        val itemKey: String,
+        val weight: Double
+    )
+
+    private suspend fun applyCollaborativeFilteringRanking(
+        userId: String,
+        recommendations: List<Recommendation>
+    ): List<Recommendation> {
+        return try {
+            if (recommendations.isEmpty()) return recommendations
+
+            val allInteractions = loadAllUserItemInteractions()
+            Log.d("CF_TEST", "Interactions size = ${allInteractions.size}")
+            if (allInteractions.isEmpty()) return recommendations
+
+            val userItemMatrix = buildUserItemMatrix(allInteractions)
+            val targetUserVector = userItemMatrix[userId].orEmpty()
+            Log.d("CF_TEST", "Target user vector size = ${targetUserVector.size}")
+
+            if (targetUserVector.isEmpty()) return recommendations
+
+            val candidateKeys = recommendations.associateBy { recommendationKey(it) }.keys
+
+            val userBasedScores = computeUserBasedScores(
+                targetUserId = userId,
+                userItemMatrix = userItemMatrix,
+                candidateKeys = candidateKeys
+            )
+
+            val itemBasedScores = computeItemBasedScores(
+                targetUserId = userId,
+                userItemMatrix = userItemMatrix,
+                candidateKeys = candidateKeys
+            )
+            Log.d("CF_TEST", "User-based scores = $userBasedScores")
+            Log.d("CF_TEST", "Item-based scores = $itemBasedScores")
+
+            recommendations
+                .map { rec ->
+                    val key = recommendationKey(rec)
+                    val userScore = userBasedScores[key] ?: 0.0
+                    val itemScore = itemBasedScores[key] ?: 0.0
+
+                    // Give slightly more weight to user-based similarity for a clearer demo effect.
+                    val collaborativeScore = (0.6 * userScore) + (0.4 * itemScore)
+
+                    val cfReason = when {
+                        userScore > 0.0 && itemScore > 0.0 ->
+                            "Recommended because similar users liked it and it matches content you explored."
+                        userScore > 0.0 ->
+                            "Recommended because children with similar interests liked it."
+                        itemScore > 0.0 ->
+                            "Recommended because it is similar to content you already liked."
+                        else -> rec.reason
+                    }
+
+                    rec.copy(
+                        relevanceScore = collaborativeScore,
+                        reason = if (rec.reason.isBlank()) cfReason else rec.reason
+                    )
+                }
+                .sortedByDescending { it.relevanceScore }
+        } catch (e: Exception) {
+            Log.e("ChatDataManager", "Collaborative filtering ranking failed: ${e.message}", e)
+            recommendations
+        }
+    }
+
+    private suspend fun loadAllUserItemInteractions(): List<UserItemInteraction> {
+        val interactions = mutableListOf<UserItemInteraction>()
+
+        try {
+            val favoriteItems = firestore.collectionGroup("items").get().await()
+            Log.d("CF_TEST", "Favorites collectionGroup raw count = ${favoriteItems.size()}")
+
+            for (doc in favoriteItems.documents) {
+                val path = doc.reference.path
+                val segments = path.split("/")
+
+                // Only use favorites/{userId}/items/{itemId}
+                if (!(segments.size >= 4 && segments[0] == "favorites" && segments[2] == "items")) {
+                    continue
+                }
+
+                Log.d("CF_TEST", "Favorite doc path = $path")
+
+                val userId = segments[1]
+                val title = doc.getString("title")
+                    ?: doc.getString("name")
+                    ?: doc.getString("bookTitle")
+                    ?: doc.getString("videoTitle")
+                    ?: doc.id
+
+                val key = normalizeTitle(title)
+                if (key.isNotBlank()) {
+                    interactions.add(
+                        UserItemInteraction(
+                            userId = userId,
+                            itemKey = key,
+                            weight = 3.0
+                        )
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("CF_TEST", "Could not load favorites interactions: ${e.message}", e)
+        }
+
+        try {
+            val historySessions = firestore.collectionGroup("sessions").get().await()
+            Log.d("CF_TEST", "Reading history collectionGroup raw count = ${historySessions.size()}")
+
+            for (doc in historySessions.documents) {
+                val path = doc.reference.path
+                val segments = path.split("/")
+
+                // Only use readingHistory/{userId}/sessions/{sessionId}
+                if (!(segments.size >= 4 && segments[0] == "readingHistory" && segments[2] == "sessions")) {
+                    continue
+                }
+
+                Log.d("CF_TEST", "History doc path = $path")
+
+                val userId = segments[1]
+                val title = doc.getString("title")
+                    ?: doc.getString("name")
+                    ?: doc.getString("bookTitle")
+                    ?: doc.getString("videoTitle")
+                    ?: doc.id
+
+                val completed = doc.getBoolean("completed") ?: false
+                val weight = if (completed) 2.5 else 1.5
+
+                val key = normalizeTitle(title)
+                if (key.isNotBlank()) {
+                    interactions.add(
+                        UserItemInteraction(
+                            userId = userId,
+                            itemKey = key,
+                            weight = weight
+                        )
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("CF_TEST", "Could not load reading history interactions: ${e.message}", e)
+        }
+
+        val merged = mergeDuplicateInteractions(interactions)
+        Log.d("CF_TEST", "Total interactions loaded = ${merged.size}")
+        return merged
+    }
+
+    private fun mergeDuplicateInteractions(
+        interactions: List<UserItemInteraction>
+    ): List<UserItemInteraction> {
+        return interactions
+            .groupBy { "${it.userId}::${it.itemKey}" }
+            .map { (_, grouped) ->
+                UserItemInteraction(
+                    userId = grouped.first().userId,
+                    itemKey = grouped.first().itemKey,
+                    weight = grouped.sumOf { it.weight }
+                )
+            }
+    }
+
+    private fun buildUserItemMatrix(
+        interactions: List<UserItemInteraction>
+    ): Map<String, Map<String, Double>> {
+        return interactions
+            .groupBy { it.userId }
+            .mapValues { (_, values) ->
+                values.associate { it.itemKey to it.weight }
+            }
+    }
+
+    private fun computeUserBasedScores(
+        targetUserId: String,
+        userItemMatrix: Map<String, Map<String, Double>>,
+        candidateKeys: Set<String>
+    ): Map<String, Double> {
+        val targetVector = userItemMatrix[targetUserId].orEmpty()
+        if (targetVector.isEmpty()) return emptyMap()
+
+        val weightedScores = mutableMapOf<String, Double>()
+        val similaritySums = mutableMapOf<String, Double>()
+
+        for ((otherUserId, otherVector) in userItemMatrix) {
+            if (otherUserId == targetUserId) continue
+
+            val similarity = cosineSimilarity(targetVector, otherVector)
+            if (similarity <= 0.0) continue
+
+            for ((itemKey, weight) in otherVector) {
+                if (itemKey !in candidateKeys) continue
+                if (itemKey in targetVector.keys) continue
+
+                weightedScores[itemKey] = (weightedScores[itemKey] ?: 0.0) + (similarity * weight)
+                similaritySums[itemKey] = (similaritySums[itemKey] ?: 0.0) + similarity
+            }
+        }
+
+        return weightedScores.mapValues { (itemKey, score) ->
+            val denom = similaritySums[itemKey] ?: 1.0
+            if (denom == 0.0) 0.0 else score / denom
+        }
+    }
+
+    private fun computeItemBasedScores(
+        targetUserId: String,
+        userItemMatrix: Map<String, Map<String, Double>>,
+        candidateKeys: Set<String>
+    ): Map<String, Double> {
+        val targetVector = userItemMatrix[targetUserId].orEmpty()
+        if (targetVector.isEmpty()) return emptyMap()
+
+        val itemUserMatrix = buildItemUserMatrix(userItemMatrix)
+        val scores = mutableMapOf<String, Double>()
+        val similaritySums = mutableMapOf<String, Double>()
+
+        for (candidateKey in candidateKeys) {
+            val candidateVector = itemUserMatrix[candidateKey] ?: continue
+
+            for ((seenItemKey, seenWeight) in targetVector) {
+                val seenVector = itemUserMatrix[seenItemKey] ?: continue
+
+                val similarity = cosineSimilarity(candidateVector, seenVector)
+                if (similarity <= 0.0) continue
+
+                scores[candidateKey] = (scores[candidateKey] ?: 0.0) + (similarity * seenWeight)
+                similaritySums[candidateKey] = (similaritySums[candidateKey] ?: 0.0) + similarity
+            }
+        }
+
+        return scores.mapValues { (itemKey, score) ->
+            val denom = similaritySums[itemKey] ?: 1.0
+            if (denom == 0.0) 0.0 else score / denom
+        }
+    }
+
+    private fun buildItemUserMatrix(
+        userItemMatrix: Map<String, Map<String, Double>>
+    ): Map<String, Map<String, Double>> {
+        val itemUserMatrix = mutableMapOf<String, MutableMap<String, Double>>()
+
+        for ((userId, itemMap) in userItemMatrix) {
+            for ((itemKey, weight) in itemMap) {
+                val userWeights = itemUserMatrix.getOrPut(itemKey) { mutableMapOf() }
+                userWeights[userId] = weight
+            }
+        }
+
+        return itemUserMatrix
+    }
+
+    private fun cosineSimilarity(
+        a: Map<String, Double>,
+        b: Map<String, Double>
+    ): Double {
+        val commonKeys = a.keys.intersect(b.keys)
+        if (commonKeys.isEmpty()) return 0.0
+
+        val dotProduct = commonKeys.sumOf { key ->
+            (a[key] ?: 0.0) * (b[key] ?: 0.0)
+        }
+
+        val normA = sqrt(a.values.sumOf { it * it })
+        val normB = sqrt(b.values.sumOf { it * it })
+
+        if (normA == 0.0 || normB == 0.0) return 0.0
+
+        return dotProduct / (normA * normB)
+    }
+
+    private fun recommendationKey(recommendation: Recommendation): String {
+        return normalizeTitle(recommendation.title)
+    }
+
     private suspend fun scoreWithANN(
         recommendations: List<Recommendation>,
         curatedBooks: List<Book>,
@@ -1192,18 +1480,36 @@ RULES FOR JSON:
             val user = userDoc.toObject(User::class.java) ?: return recommendations
             val favorites = favoritesManager.getFavorites(userId)
 
+            val maxCfScore = recommendations.maxOfOrNull { it.relevanceScore }?.takeIf { it > 0.0 } ?: 1.0
+
             recommendations.map { rec ->
                 val matchingBook = curatedBooks.firstOrNull { book ->
                     titlesMatch(book.title, rec.title)
                 }
 
-                val score = if (matchingBook != null) {
+                val annScore = if (matchingBook != null) {
                     recommendationEngine.scoreBook(matchingBook, user, favorites)
                 } else {
                     recommendationEngine.scoreRecommendation(rec, user, favorites)
                 }
 
-                rec.copy(relevanceScore = score)
+                val cfNormalized = (rec.relevanceScore / maxCfScore).coerceIn(0.0, 1.0)
+
+                // Important: combine ANN + CF instead of overwriting CF.
+                val finalScore = ((0.45 * annScore) + (0.55 * cfNormalized)).coerceIn(0.0, 1.0)
+
+                val updatedReason = when {
+                    cfNormalized >= 0.6 && rec.reason.isNotBlank() ->
+                        "${rec.reason} Similar users also engaged with this."
+                    cfNormalized >= 0.6 ->
+                        "Recommended because similar users liked it and it matches your interests."
+                    else -> rec.reason
+                }
+
+                rec.copy(
+                    relevanceScore = finalScore,
+                    reason = updatedReason
+                )
             }.sortedByDescending { it.relevanceScore }
         } catch (e: Exception) {
             recommendations

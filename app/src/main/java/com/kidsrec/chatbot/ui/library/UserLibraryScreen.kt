@@ -37,11 +37,11 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.kidsrec.chatbot.data.model.Book
 import com.kidsrec.chatbot.data.model.Favorite
-import com.kidsrec.chatbot.data.model.Recommendation
-import com.kidsrec.chatbot.data.model.RecommendationType
 import com.kidsrec.chatbot.ui.common.AgeUiMode
 import com.kidsrec.chatbot.ui.common.getAgeUiMode
 import com.kidsrec.chatbot.ui.favorites.FavoritesViewModel
+import com.kidsrec.chatbot.data.model.Recommendation
+import com.kidsrec.chatbot.data.model.RecommendationType
 
 @Composable
 fun UserLibraryScreen(

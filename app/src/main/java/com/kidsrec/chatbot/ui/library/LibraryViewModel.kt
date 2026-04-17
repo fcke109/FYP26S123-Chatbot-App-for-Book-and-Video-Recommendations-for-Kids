@@ -4,7 +4,6 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kidsrec.chatbot.data.model.Book
-import com.kidsrec.chatbot.data.model.Recommendation
 import com.kidsrec.chatbot.data.remote.OpenLibraryService
 import com.kidsrec.chatbot.data.repository.AccountManager
 import com.kidsrec.chatbot.data.repository.AnalyticsRepository
@@ -20,6 +19,8 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.kidsrec.chatbot.data.model.Recommendation
+import com.kidsrec.chatbot.data.model.RecommendationType
 
 @HiltViewModel
 class LibraryViewModel @Inject constructor(

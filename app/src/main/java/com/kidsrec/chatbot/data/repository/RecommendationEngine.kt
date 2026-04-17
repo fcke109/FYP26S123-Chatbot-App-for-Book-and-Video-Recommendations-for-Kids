@@ -1,14 +1,14 @@
 package com.kidsrec.chatbot.data.repository
 
 import com.kidsrec.chatbot.data.model.Book
+import com.kidsrec.chatbot.data.model.CFRecommendation
 import com.kidsrec.chatbot.data.model.Favorite
-import com.kidsrec.chatbot.data.model.Recommendation
-import com.kidsrec.chatbot.data.model.RecommendationType
 import com.kidsrec.chatbot.data.model.User
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.abs
-
+import com.kidsrec.chatbot.data.model.Recommendation
+import com.kidsrec.chatbot.data.model.RecommendationType
 @Singleton
 class RecommendationEngine @Inject constructor() {
 
@@ -198,6 +198,39 @@ class RecommendationEngine @Inject constructor() {
             clickedItems = clickedItems,
             limit = curatedBooks.size.coerceAtLeast(1)
         )
+    }
+
+    fun mergeCollaborativeScores(
+        baseRecommendations: List<Recommendation>,
+        collaborativeRecommendations: List<CFRecommendation>
+    ): List<Recommendation> {
+        if (baseRecommendations.isEmpty()) return emptyList()
+        if (collaborativeRecommendations.isEmpty()) return baseRecommendations
+
+        val collaborativeMap = collaborativeRecommendations.associateBy {
+            normalizeTitle(it.item.title)
+        }
+
+        return baseRecommendations
+            .map { recommendation ->
+                val key = normalizeTitle(recommendation.title)
+                val cf = collaborativeMap[key]
+
+                if (cf != null) {
+                    recommendation.copy(
+                        relevanceScore = ((recommendation.relevanceScore * 0.7) + (cf.finalScore * 0.3))
+                            .coerceIn(0.0, 1.0),
+                        reason = if (recommendation.reason.isNotBlank()) {
+                            recommendation.reason
+                        } else {
+                            cf.reason
+                        }
+                    )
+                } else {
+                    recommendation
+                }
+            }
+            .sortedByDescending { it.relevanceScore }
     }
 
     private fun computeInterestScore(book: Book, interests: List<String>): Double {
@@ -555,5 +588,12 @@ class RecommendationEngine @Inject constructor() {
         if (union.isEmpty()) return 0.0
         val intersection = a.intersect(b)
         return intersection.size.toDouble() / union.size.toDouble()
+    }
+
+    private fun normalizeTitle(text: String): String {
+        return text.lowercase()
+            .replace(Regex("[^a-z0-9 ]"), " ")
+            .replace(Regex("\\s+"), " ")
+            .trim()
     }
 }
