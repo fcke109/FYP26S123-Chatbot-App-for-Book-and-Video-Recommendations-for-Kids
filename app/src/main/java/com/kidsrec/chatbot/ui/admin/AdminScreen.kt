@@ -1,6 +1,7 @@
 package com.kidsrec.chatbot.ui.admin
 
 import androidx.compose.foundation.background
+import com.kidsrec.chatbot.data.model.BookCategory
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -45,6 +46,16 @@ import com.kidsrec.chatbot.data.model.UserStatus
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
+private val AdminBg = Color(0xFFF5F7FA)
+private val AdminCard = Color.White
+private val AdminTextSecondary = Color(0xFF6B7280)
+private val AdminBorder = Color(0xFFE5E7EB)
+private val AdminPrimary = Color(0xFF1F3A5F)
+private val AdminSuccess = Color(0xFF2E7D32)
+private val AdminWarning = Color(0xFFB26A00)
+private val AdminDanger = Color(0xFFC62828)
+private val AdminInfo = Color(0xFF1565C0)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdminScreen(
@@ -55,7 +66,16 @@ fun AdminScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var selectedTabIndex by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Dashboard", "Users", "Library", "Add Books", "Analytics", "Security", "Post Notifications")
+    val tabs = listOf(
+        "Dashboard",
+        "Users",
+        "Library",
+        "Add Books",
+        "Categories",
+        "Analytics",
+        "Security",
+        "Post Notifications"
+    )
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
 
     val users by viewModel.users.collectAsState()
@@ -73,20 +93,35 @@ fun AdminScreen(
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
-            ModalDrawerSheet {
-                Spacer(modifier = Modifier.height(16.dp))
+            ModalDrawerSheet(
+                drawerContainerColor = AdminCard,
+                drawerContentColor = MaterialTheme.colorScheme.onSurface
+            ) {
+                Spacer(modifier = Modifier.height(20.dp))
                 Text(
                     "Admin Dashboard",
-                    modifier = Modifier.padding(16.dp),
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold
+                    modifier = Modifier.padding(horizontal = 20.dp),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold
                 )
-                HorizontalDivider()
+                Text(
+                    "Little Dino control panel",
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = AdminTextSecondary
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                HorizontalDivider(color = AdminBorder)
                 Spacer(modifier = Modifier.height(8.dp))
 
                 tabs.forEachIndexed { index, title ->
                     NavigationDrawerItem(
-                        label = { Text(title) },
+                        label = {
+                            Text(
+                                title,
+                                fontWeight = if (selectedTabIndex == index) FontWeight.SemiBold else FontWeight.Normal
+                            )
+                        },
                         selected = selectedTabIndex == index,
                         onClick = {
                             selectedTabIndex = index
@@ -98,22 +133,39 @@ fun AdminScreen(
                                 1 -> Icon(Icons.Default.Group, null)
                                 2 -> Icon(Icons.AutoMirrored.Filled.LibraryBooks, null)
                                 3 -> Icon(Icons.Default.Search, null)
-                                4 -> Icon(Icons.Default.BarChart, null)
-                                5 -> Icon(Icons.Default.Security, null)
-                                6 -> Icon(Icons.Default.Notifications, null)
+                                4 -> Icon(Icons.Default.Category, null)
+                                5 -> Icon(Icons.Default.BarChart, null)
+                                6 -> Icon(Icons.Default.Security, null)
+                                7 -> Icon(Icons.Default.Notifications, null)
                             }
                         },
-                        modifier = Modifier.padding(horizontal = 12.dp)
+                        colors = NavigationDrawerItemDefaults.colors(
+                            selectedContainerColor = AdminPrimary.copy(alpha = 0.10f),
+                            selectedIconColor = AdminPrimary,
+                            selectedTextColor = AdminPrimary,
+                            unselectedContainerColor = Color.Transparent
+                        ),
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
                     )
                 }
             }
         }
     ) {
         Scaffold(
+            containerColor = AdminBg,
             snackbarHost = { SnackbarHost(snackbarHostState) },
             topBar = {
                 TopAppBar(
-                    title = { Text("Admin Dashboard", fontWeight = FontWeight.Bold) },
+                    title = {
+                        Text(
+                            "Admin Dashboard",
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = AdminCard,
+                        titleContentColor = MaterialTheme.colorScheme.onSurface
+                    ),
                     navigationIcon = {
                         IconButton(onClick = { scope.launch { drawerState.open() } }) {
                             Icon(Icons.Default.Menu, "Menu")
@@ -124,21 +176,27 @@ fun AdminScreen(
                             Icon(Icons.Default.Refresh, "Refresh Users")
                         }
                         IconButton(onClick = onLogout) {
-                            Icon(Icons.AutoMirrored.Filled.Logout, "Logout", tint = MaterialTheme.colorScheme.error)
+                            Icon(Icons.AutoMirrored.Filled.Logout, "Logout", tint = AdminDanger)
                         }
                     }
                 )
             }
         ) { padding ->
-            Box(modifier = Modifier.padding(padding).fillMaxSize()) {
+            Box(
+                modifier = Modifier
+                    .padding(padding)
+                    .fillMaxSize()
+                    .background(AdminBg)
+            ) {
                 when (selectedTabIndex) {
                     0 -> DashboardTab(users, books, adminStats, isLoadingAdminStats)
                     1 -> UserManagementTab(users, viewModel, snackbarHostState)
                     2 -> BookLibraryTab(books, viewModel, snackbarHostState, onViewBook)
                     3 -> CuratorSearchTab(viewModel, snackbarHostState, onViewBook)
-                    4 -> AnalyticsTab(topSearchedTopics, topViewedBooks, topDropOffs)
-                    5 -> SecurityControlPanel(viewModel, snackbarHostState)
-                    6 -> NotificationTab(viewModel, snackbarHostState)
+                    4 -> CategoryManagementTab(viewModel)
+                    5 -> AnalyticsTab(topSearchedTopics, topViewedBooks, topDropOffs)
+                    6 -> SecurityControlPanel(viewModel, snackbarHostState)
+                    7 -> NotificationTab(viewModel, snackbarHostState)
                 }
             }
         }
@@ -159,80 +217,191 @@ fun DashboardTab(users: List<User>, books: List<Book>, stats: AdminStats, isLoad
     val totalBooks = books.size
     val avgAge = if (users.isNotEmpty()) users.map { it.age }.average().toInt() else 0
 
-    LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
         item {
-            Text("User Statistics", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+            Column {
+                Text(
+                    "Overview",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    "Monitor users, content, and activity",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = AdminTextSecondary
+                )
+            }
         }
 
-        // User Status Overview
         item {
-            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
+            ElevatedCard(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.elevatedCardColors(containerColor = AdminCard),
+                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
+            ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("User Status Overview", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 12.dp))
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                        StatCard("Total Users", totalUsers.toString(), MaterialTheme.colorScheme.primary)
-                        StatCard("Active", activeUsers.toString(), Color(0xFF4CAF50))
-                        StatCard("Suspended", suspendedUsers.toString(), Color(0xFFFF9800))
-                        StatCard("Banned", bannedUsers.toString(), Color(0xFFF44336))
+                    Text(
+                        "User Status Overview",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        StatCard("Total Users", totalUsers.toString(), AdminPrimary, Modifier.weight(1f))
+                        StatCard("Active", activeUsers.toString(), AdminSuccess, Modifier.weight(1f))
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        StatCard("Suspended", suspendedUsers.toString(), AdminWarning, Modifier.weight(1f))
+                        StatCard("Banned", bannedUsers.toString(), AdminDanger, Modifier.weight(1f))
                     }
                 }
             }
         }
 
-        // Plan Distribution
         item {
-            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
+            ElevatedCard(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.elevatedCardColors(containerColor = AdminCard),
+                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
+            ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Plan Distribution", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 12.dp))
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                        StatCard("Free", freeUsers.toString(), Color.Gray)
-                        StatCard("Premium", premiumUsers.toString(), Color(0xFFFFA000))
+                    Text(
+                        "Plan Distribution",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        StatCard("Free", freeUsers.toString(), Color(0xFF607D8B), Modifier.weight(1f))
+                        StatCard("Premium", premiumUsers.toString(), AdminInfo, Modifier.weight(1f))
+                        StatCard("Admin", adminUsers.toString(), AdminPrimary, Modifier.weight(1f))
                     }
                 }
             }
         }
 
         item {
-            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
+            ElevatedCard(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.elevatedCardColors(containerColor = AdminCard),
+                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
+            ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Usage Activity", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 12.dp))
+                    Text(
+                        "Usage Activity",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
                     if (isLoadingStats) {
-                        Box(modifier = Modifier.fillMaxWidth().height(80.dp), contentAlignment = Alignment.Center) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(120.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
                             CircularProgressIndicator()
                         }
                     } else {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                            StatCard("Total Users", stats.totalUsers.toString(), MaterialTheme.colorScheme.primary)
-                            StatCard("DAU", stats.dailyActiveUsers.toString(), Color(0xFF4CAF50))
-                            StatCard("MAU", stats.monthlyActiveUsers.toString(), Color(0xFF1E88E5))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            StatCard("Daily Active Users", stats.dailyActiveUsers.toString(), AdminSuccess, Modifier.weight(1f))
+                            StatCard("Monthly Active Users", stats.monthlyActiveUsers.toString(), AdminInfo, Modifier.weight(1f))
                         }
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                            StatCard("Chatbot Usage", stats.chatbotUsageCount.toString(), Color(0xFFFF9800))
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            StatCard("Chatbot Sessions", stats.chatbotUsageCount.toString(), AdminPrimary, Modifier.weight(1f))
+                            StatCard("Tracked Users", stats.totalUsers.toString(), Color(0xFF455A64), Modifier.weight(1f))
                         }
                     }
                 }
             }
         }
 
-        // Additional Stats
         item {
-            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Additional Statistics", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 12.dp))
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                        StatCard("Library Size", totalBooks.toString(), MaterialTheme.colorScheme.secondary)
-                        StatCard("Average age", "$avgAge yrs", MaterialTheme.colorScheme.tertiary)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                ElevatedCard(
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.elevatedCardColors(containerColor = AdminCard),
+                    elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text("Library Size", style = MaterialTheme.typography.bodyMedium, color = AdminTextSecondary)
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            totalBooks.toString(),
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+
+                ElevatedCard(
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.elevatedCardColors(containerColor = AdminCard),
+                    elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text("Average Age", style = MaterialTheme.typography.bodyMedium, color = AdminTextSecondary)
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            "$avgAge yrs",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.SemiBold
+                        )
                     }
                 }
             }
         }
 
-        // Age Distribution
         item {
-            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
+            ElevatedCard(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.elevatedCardColors(containerColor = AdminCard),
+                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
+            ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Age Distribution", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 12.dp))
+                    Text(
+                        "Age Distribution",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+
                     val ageGroups = users.groupBy {
                         when {
                             it.age < 6 -> "Under 6"
@@ -241,12 +410,22 @@ fun DashboardTab(users: List<User>, books: List<Book>, stats: AdminStats, isLoad
                             else -> "13+"
                         }
                     }
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         ageGroups.forEach { (ageGroup, groupUsers) ->
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
                                 Text(ageGroup, style = MaterialTheme.typography.bodyMedium)
-                                Text("${groupUsers.size} users", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                                Text(
+                                    "${groupUsers.size} users",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold
+                                )
                             }
+                            HorizontalDivider(color = AdminBorder)
                         }
                     }
                 }
@@ -261,18 +440,39 @@ fun AnalyticsTab(
     topViewedBooks: List<TopViewedBook>,
     topDropOffs: List<TopDropOff>
 ) {
-    LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
         item {
-            Text("Analytics Overview", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+            Column {
+                Text(
+                    "Analytics",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    "Search trends, engagement, and content performance",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = AdminTextSecondary
+                )
+            }
         }
 
-        // Top Searched Topics
         item {
-            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
+            ElevatedCard(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.elevatedCardColors(containerColor = AdminCard)
+            ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Top Searched Topics", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 12.dp))
+                    Text("Top Searched Topics", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Spacer(modifier = Modifier.height(12.dp))
+
                     if (topSearchedTopics.isEmpty()) {
-                        Text("No search data yet.", color = Color.Gray)
+                        Text("No search data yet.", color = AdminTextSecondary)
                     } else {
                         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             topSearchedTopics.take(10).forEachIndexed { index, topic ->
@@ -282,9 +482,22 @@ fun AnalyticsTab(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Column(modifier = Modifier.weight(1f)) {
-                                        Text("${index + 1}. ${topic.query}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                        Text("Searched ${topic.count} times", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                                        Text(
+                                            "${index + 1}. ${topic.query}",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.SemiBold,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Text(
+                                            "Searched ${topic.count} times",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = AdminTextSecondary
+                                        )
                                     }
+                                }
+                                if (index < topSearchedTopics.take(10).lastIndex) {
+                                    HorizontalDivider(color = AdminBorder)
                                 }
                             }
                         }
@@ -293,13 +506,18 @@ fun AnalyticsTab(
             }
         }
 
-        // Top Viewed Books
         item {
-            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
+            ElevatedCard(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.elevatedCardColors(containerColor = AdminCard)
+            ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Top Viewed Books", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 12.dp))
+                    Text("Top Viewed Books", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Spacer(modifier = Modifier.height(12.dp))
+
                     if (topViewedBooks.isEmpty()) {
-                        Text("No book view data yet.", color = Color.Gray)
+                        Text("No book view data yet.", color = AdminTextSecondary)
                     } else {
                         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             topViewedBooks.take(10).forEachIndexed { index, book ->
@@ -309,9 +527,22 @@ fun AnalyticsTab(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Column(modifier = Modifier.weight(1f)) {
-                                        Text("${index + 1}. ${book.bookTitle}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                        Text("Viewed ${book.count} times", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                                        Text(
+                                            "${index + 1}. ${book.bookTitle}",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.SemiBold,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Text(
+                                            "Viewed ${book.count} times",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = AdminTextSecondary
+                                        )
                                     }
+                                }
+                                if (index < topViewedBooks.take(10).lastIndex) {
+                                    HorizontalDivider(color = AdminBorder)
                                 }
                             }
                         }
@@ -320,13 +551,18 @@ fun AnalyticsTab(
             }
         }
 
-        // Top Drop-Off Points
         item {
-            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
+            ElevatedCard(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.elevatedCardColors(containerColor = AdminCard)
+            ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Top Drop-Off Points", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 12.dp))
+                    Text("Top Drop-Off Points", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Spacer(modifier = Modifier.height(12.dp))
+
                     if (topDropOffs.isEmpty()) {
-                        Text("No drop-off data yet.", color = Color.Gray)
+                        Text("No drop-off data yet.", color = AdminTextSecondary)
                     } else {
                         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             topDropOffs.take(10).forEachIndexed { index, item ->
@@ -336,9 +572,22 @@ fun AnalyticsTab(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Column(modifier = Modifier.weight(1f)) {
-                                        Text("${index + 1}. ${item.itemTitle}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                        Text("Dropped off ${item.count} times • Avg ${item.averageDurationSeconds}s", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                                        Text(
+                                            "${index + 1}. ${item.itemTitle}",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.SemiBold,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Text(
+                                            "Dropped off ${item.count} times • Avg ${item.averageDurationSeconds}s",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = AdminTextSecondary
+                                        )
                                     }
+                                }
+                                if (index < topDropOffs.take(10).lastIndex) {
+                                    HorizontalDivider(color = AdminBorder)
                                 }
                             }
                         }
@@ -350,28 +599,41 @@ fun AnalyticsTab(
 }
 
 @Composable
-fun StatCard(label: String, value: String, color: Color) {
+fun StatCard(label: String, value: String, color: Color, modifier: Modifier = Modifier) {
     Card(
-        modifier = Modifier.size(80.dp),
-        colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.1f)),
-        shape = RoundedCornerShape(8.dp)
+        modifier = modifier.height(110.dp),
+        colors = CardDefaults.cardColors(containerColor = AdminCard),
+        shape = RoundedCornerShape(14.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(
-            modifier = Modifier.fillMaxSize().padding(8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(14.dp),
             verticalArrangement = Arrangement.Center
         ) {
             Text(
                 text = value,
                 style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-                color = color
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface
             )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
             Text(
                 text = label,
                 style = MaterialTheme.typography.bodySmall,
-                textAlign = TextAlign.Center,
-                color = color
+                color = AdminTextSecondary
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Box(
+                modifier = Modifier
+                    .height(4.dp)
+                    .fillMaxWidth()
+                    .background(color = color, shape = RoundedCornerShape(100.dp))
             )
         }
     }
@@ -400,11 +662,12 @@ fun CuratorSearchTab(
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+
         OutlinedTextField(
             value = query,
             onValueChange = { query = it },
             modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("Search ICDL & OpenLibrary (e.g. Cat)...") },
+            placeholder = { Text("Search books (e.g. dinosaurs, space...)") },
             trailingIcon = {
                 IconButton(onClick = onSearch) {
                     Icon(Icons.Default.Search, null)
@@ -419,30 +682,246 @@ fun CuratorSearchTab(
         Spacer(modifier = Modifier.height(16.dp))
 
         if (isSearching) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }
         } else {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(searchResults) { book ->
                     BookAdminCard(
                         book = book,
                         onAction = {
                             viewModel.addBookToLibrary(book)
-                            scope.launch { snackbarHostState.showSnackbar("Book added to collection!") }
+                            scope.launch {
+                                snackbarHostState.showSnackbar("Book added")
+                            }
                         },
                         onCardClick = {
                             val url = book.readerUrl.ifBlank { book.bookUrl }
                             if (url.isNotBlank()) onViewBook(book.title, url, false)
                         },
-                        actionIcon = Icons.Default.Add,
-                        showScore = true
+                        actionIcon = Icons.Default.Add
                     )
                 }
             }
         }
     }
 }
+
+@Composable
+fun CategoryManagementTab(viewModel: AdminViewModel) {
+    val categories by viewModel.categories.collectAsState()
+
+    var showAddDialog by remember { mutableStateOf(false) }
+    var categoryToEdit by remember { mutableStateOf<BookCategory?>(null) }
+    var categoryToDelete by remember { mutableStateOf<BookCategory?>(null) }
+
+    LaunchedEffect(Unit) {
+        viewModel.loadCategories()
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        Text(
+            "Book Categories",
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.SemiBold
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            "Add, edit, and remove book categories",
+            style = MaterialTheme.typography.bodyMedium,
+            color = AdminTextSecondary
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End
+        ) {
+            Button(
+                onClick = { showAddDialog = true },
+                colors = ButtonDefaults.buttonColors(containerColor = AdminPrimary)
+            ) {
+                Icon(Icons.Default.Add, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Add Category")
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        if (categories.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("No categories found.", color = AdminTextSecondary)
+            }
+        } else {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                items(categories) { category ->
+                    ElevatedCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.elevatedCardColors(containerColor = AdminCard),
+                        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    category.name,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    "ID: ${category.id}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = AdminTextSecondary
+                                )
+                                if (category.description.isNotBlank()) {
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        category.description,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = AdminTextSecondary
+                                    )
+                                }
+                            }
+
+                            IconButton(onClick = { categoryToEdit = category }) {
+                                Icon(Icons.Default.Edit, contentDescription = "Edit")
+                            }
+
+                            IconButton(onClick = { categoryToDelete = category }) {
+                                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = AdminDanger)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (showAddDialog) {
+        CategoryDialog(
+            title = "Add Category",
+            onDismiss = { showAddDialog = false },
+            onConfirm = { name, description ->
+                viewModel.addCategory(name, description)
+                showAddDialog = false
+            }
+        )
+    }
+
+    if (categoryToEdit != null) {
+        CategoryDialog(
+            title = "Edit Category",
+            initialName = categoryToEdit!!.name,
+            initialDescription = categoryToEdit!!.description,
+            onDismiss = { categoryToEdit = null },
+            onConfirm = { name, description ->
+                viewModel.updateCategory(
+                    id = categoryToEdit!!.id,
+                    name = name,
+                    description = description
+                )
+                categoryToEdit = null
+            }
+        )
+    }
+
+    if (categoryToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { categoryToDelete = null },
+            title = { Text("Delete Category") },
+            text = {
+                Text("Are you sure you want to delete \"${categoryToDelete!!.name}\"?")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteCategory(categoryToDelete!!.id)
+                        categoryToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AdminDanger)
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { categoryToDelete = null }) {
+                    Text("Cancel")
+                }
+            },
+            containerColor = AdminCard
+        )
+    }
+}
+
+@Composable
+fun CategoryDialog(
+    title: String,
+    initialName: String = "",
+    initialDescription: String = "",
+    onDismiss: () -> Unit,
+    onConfirm: (String, String) -> Unit
+) {
+    var name by remember { mutableStateOf(initialName) }
+    var description by remember { mutableStateOf(initialDescription) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Category Name") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    label = { Text("Description") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 3
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onConfirm(name.trim(), description.trim())
+                },
+                enabled = name.trim().isNotBlank(),
+                colors = ButtonDefaults.buttonColors(containerColor = AdminPrimary)
+            ) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        },
+        containerColor = AdminCard
+    )
+}
+
 
 @Composable
 fun BookLibraryTab(
@@ -454,35 +933,43 @@ fun BookLibraryTab(
     val scope = rememberCoroutineScope()
     var bookToRemoveUnsafe by remember { mutableStateOf<Book?>(null) }
 
-    // Remove unsafe content confirmation dialog
+    // 🔴 Unsafe delete dialog
     if (bookToRemoveUnsafe != null) {
-        var reason by remember { mutableStateOf("Violation of safety guidelines.") }
+        var reason by remember { mutableStateOf("") }
+
         AlertDialog(
             onDismissRequest = { bookToRemoveUnsafe = null },
-            icon = { Icon(Icons.Default.ReportProblem, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+            icon = {
+                Icon(Icons.Default.Warning, null, tint = AdminDanger)
+            },
             title = { Text("Remove Unsafe Content") },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Are you sure you want to remove \"${bookToRemoveUnsafe!!.title}\"? This will permanently delete it from the library.")
+                Column {
+                    Text("This will permanently remove the book.")
+                    Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
                         value = reason,
                         onValueChange = { reason = it },
-                        label = { Text("Reason for removal") },
-                        modifier = Modifier.fillMaxWidth(),
-                        minLines = 3
+                        label = { Text("Reason") },
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        viewModel.removeUnsafeContent(bookToRemoveUnsafe!!.id, reason)
-                        scope.launch { snackbarHostState.showSnackbar("${bookToRemoveUnsafe!!.title} removed as unsafe") }
+                        viewModel.removeUnsafeContent(
+                            bookToRemoveUnsafe!!.id,
+                            reason
+                        )
+                        scope.launch {
+                            snackbarHostState.showSnackbar("Removed as unsafe")
+                        }
                         bookToRemoveUnsafe = null
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                    colors = ButtonDefaults.buttonColors(containerColor = AdminDanger)
                 ) {
-                    Text("Remove Permanently")
+                    Text("Remove")
                 }
             },
             dismissButton = {
@@ -494,60 +981,77 @@ fun BookLibraryTab(
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text("Curated Library (${books.size})", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        }
+
+        Text(
+            "Curated Library (${books.size})",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.SemiBold
+        )
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        if (books.isEmpty()) {
-            Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                Text("No books added. Use 'Add Books' to start.", color = Color.Gray)
-            }
-        } else {
-            LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(books) { book ->
-                    Card(
-                        modifier = Modifier.fillMaxWidth().clickable {
-                            val url = book.readerUrl.ifBlank { book.bookUrl }
-                            if (url.isNotBlank()) onViewBook(book.title, url, false)
-                        },
-                        shape = RoundedCornerShape(12.dp),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            items(books) { book ->
+
+                Card(
+                    modifier = Modifier.fillMaxWidth().clickable {
+                        val url = book.readerUrl.ifBlank { book.bookUrl }
+                        if (url.isNotBlank()) onViewBook(book.title, url, false)
+                    },
+                    colors = CardDefaults.cardColors(containerColor = AdminCard),
+                    shape = RoundedCornerShape(14.dp),
+                    elevation = CardDefaults.cardElevation(1.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(modifier = Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Box {
-                                AsyncImage(
-                                    model = book.coverUrl,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(60.dp).clip(RoundedCornerShape(8.dp)).background(Color.Gray.copy(alpha = 0.1f)),
-                                    contentScale = ContentScale.Crop
+
+                        AsyncImage(
+                            model = book.coverUrl,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .size(60.dp)
+                                .clip(RoundedCornerShape(10.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(book.title, fontWeight = FontWeight.SemiBold)
+                            Text(
+                                "By ${book.author}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = AdminTextSecondary
+                            )
+                        }
+
+                        Row {
+
+                            // ⚠️ Unsafe delete
+                            IconButton(onClick = {
+                                bookToRemoveUnsafe = book
+                            }) {
+                                Icon(
+                                    Icons.Default.Warning,
+                                    contentDescription = "Unsafe",
+                                    tint = AdminDanger
                                 )
                             }
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(book.title, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text("By ${book.author}", style = MaterialTheme.typography.bodySmall, maxLines = 1)
-                                Row(modifier = Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    Surface(color = if (book.isKidSafe) Color(0xFF4CAF50).copy(alpha = 0.1f) else Color(0xFFF44336).copy(alpha = 0.1f), shape = RoundedCornerShape(4.dp)) {
-                                        Text(if (book.isKidSafe) "SAFE" else "UNSAFE", modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), fontSize = 9.sp, fontWeight = FontWeight.Bold, color = if (book.isKidSafe) Color(0xFF4CAF50) else Color(0xFFF44336))
-                                    }
+
+                            // 🗑️ Normal delete
+                            IconButton(onClick = {
+                                viewModel.deleteBookFromLibrary(book.id)
+                                scope.launch {
+                                    snackbarHostState.showSnackbar("Deleted")
                                 }
-                            }
-                            Row {
-                                IconButton(onClick = { bookToRemoveUnsafe = book }) {
-                                    Icon(Icons.Default.GppBad, "Remove unsafe", tint = MaterialTheme.colorScheme.error)
-                                }
-                                IconButton(onClick = {
-                                    viewModel.deleteBookFromLibrary(book.id)
-                                    scope.launch { snackbarHostState.showSnackbar("Book removed") }
-                                }) {
-                                    Icon(Icons.Default.Delete, "Delete", tint = Color.Gray)
-                                }
+                            }) {
+                                Icon(
+                                    Icons.Default.Delete,
+                                    contentDescription = "Delete",
+                                    tint = Color.Gray
+                                )
                             }
                         }
                     }
@@ -562,48 +1066,41 @@ fun BookAdminCard(
     book: Book,
     onAction: () -> Unit,
     onCardClick: () -> Unit,
-    actionIcon: androidx.compose.ui.graphics.vector.ImageVector,
-    actionColor: Color = MaterialTheme.colorScheme.primary,
-    showScore: Boolean = false
+    actionIcon: androidx.compose.ui.graphics.vector.ImageVector
 ) {
     Card(
         modifier = Modifier.fillMaxWidth().clickable { onCardClick() },
-        shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        colors = CardDefaults.cardColors(containerColor = AdminCard),
+        shape = RoundedCornerShape(14.dp),
+        elevation = CardDefaults.cardElevation(1.dp)
     ) {
-        Row(modifier = Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box {
-                AsyncImage(
-                    model = book.coverUrl,
-                    contentDescription = null,
-                    modifier = Modifier.size(60.dp).clip(RoundedCornerShape(8.dp)).background(Color.Gray.copy(alpha = 0.1f)),
-                    contentScale = ContentScale.Crop
-                )
-                if (showScore && book.searchScore > 0) {
-                    Surface(
-                        modifier = Modifier.align(Alignment.TopEnd).padding(2.dp),
-                        color = MaterialTheme.colorScheme.tertiary,
-                        shape = RoundedCornerShape(4.dp)
-                    ) {
-                        Text("${book.searchScore}%", modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp), fontSize = 8.sp, color = Color.White, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+
+            AsyncImage(
+                model = book.coverUrl,
+                contentDescription = null,
+                modifier = Modifier
+                    .size(60.dp)
+                    .clip(RoundedCornerShape(10.dp)),
+                contentScale = ContentScale.Crop
+            )
+
             Spacer(modifier = Modifier.width(12.dp))
+
             Column(modifier = Modifier.weight(1f)) {
-                Text(book.title, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text("By ${book.author}", style = MaterialTheme.typography.bodySmall, maxLines = 1)
-                Row(modifier = Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(4.dp)) {
-                        Text(book.id, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                    }
-                    Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(4.dp)) {
-                        Text("${book.ageMin}-${book.ageMax} yrs", modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), fontSize = 9.sp)
-                    }
-                }
+                Text(book.title, fontWeight = FontWeight.SemiBold)
+                Text(
+                    "By ${book.author}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = AdminTextSecondary
+                )
             }
+
             IconButton(onClick = onAction) {
-                Icon(actionIcon, null, tint = actionColor)
+                Icon(actionIcon, null, tint = AdminPrimary)
             }
         }
     }
@@ -622,7 +1119,6 @@ fun UserManagementTab(
     var userToSuspend by remember { mutableStateOf<User?>(null) }
     val currentUserId = viewModel.getCurrentUserId()
 
-    // Handle delete result
     LaunchedEffect(deleteResult) {
         deleteResult?.let { result ->
             if (result == "success") {
@@ -635,25 +1131,36 @@ fun UserManagementTab(
             isDeletingUser = false
         }
     }
+
     var userToBan by remember { mutableStateOf<User?>(null) }
     var userToActivate by remember { mutableStateOf<User?>(null) }
     var userToViewActivity by remember { mutableStateOf<User?>(null) }
+
     var pendingSearch by remember { mutableStateOf("") }
     var pendingPlan by remember { mutableStateOf("ALL") }
     var pendingStatus by remember { mutableStateOf("ALL") }
     var pendingAgeGroup by remember { mutableStateOf("ALL") }
     var pendingAccountType by remember { mutableStateOf("ALL") }
+
     var appliedSearch by remember { mutableStateOf("") }
     var appliedPlan by remember { mutableStateOf("ALL") }
     var appliedStatus by remember { mutableStateOf("ALL") }
     var appliedAgeGroup by remember { mutableStateOf("ALL") }
     var appliedAccountType by remember { mutableStateOf("ALL") }
+
     var planExpanded by remember { mutableStateOf(false) }
     var statusExpanded by remember { mutableStateOf(false) }
     var ageExpanded by remember { mutableStateOf(false) }
     var accountExpanded by remember { mutableStateOf(false) }
 
-    val filteredUsers = remember(users, appliedSearch, appliedPlan, appliedStatus, appliedAgeGroup, appliedAccountType) {
+    val filteredUsers = remember(
+        users,
+        appliedSearch,
+        appliedPlan,
+        appliedStatus,
+        appliedAgeGroup,
+        appliedAccountType
+    ) {
         users.filter { user ->
             val matchesSearch = appliedSearch.isBlank() || listOf(user.name, user.email, user.id).any {
                 it.contains(appliedSearch, ignoreCase = true)
@@ -668,25 +1175,29 @@ fun UserManagementTab(
                 else -> true
             }
             val matchesAccountType = appliedAccountType == "ALL" || user.accountType.name == appliedAccountType
+
             matchesSearch && matchesPlan && matchesStatus && matchesAge && matchesAccountType
-        }.sortedWith(compareBy<User> { user ->
-            user.planType != PlanType.ADMIN
-        }.thenBy { it.name })
+        }.sortedWith(
+            compareBy<User> { user -> user.planType != PlanType.ADMIN }
+                .thenBy { it.name }
+        )
     }
 
-    // Delete confirmation dialog
     if (userToDelete != null) {
         val isCurrentUser = userToDelete?.id == currentUserId
+
         AlertDialog(
             onDismissRequest = { userToDelete = null },
-            icon = { Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+            icon = { Icon(Icons.Default.Delete, null, tint = AdminDanger) },
             title = { Text("Delete User") },
             text = {
-                Text(if (isCurrentUser) {
-                    "You cannot delete your own account."
-                } else {
-                    "Are you sure you want to delete ${userToDelete!!.name} (${userToDelete!!.email})?\n\nThis will remove their profile, chat history, favorites, and reading history. This cannot be undone."
-                })
+                Text(
+                    if (isCurrentUser) {
+                        "You cannot delete your own account."
+                    } else {
+                        "Are you sure you want to delete ${userToDelete!!.name} (${userToDelete!!.email})?\n\nThis will remove their profile, chat history, favorites, and reading history. This cannot be undone."
+                    }
+                )
             },
             confirmButton = {
                 Button(
@@ -697,10 +1208,14 @@ fun UserManagementTab(
                         }
                     },
                     enabled = !isDeletingUser && !isCurrentUser,
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                    colors = ButtonDefaults.buttonColors(containerColor = AdminDanger)
                 ) {
                     if (isDeletingUser) {
-                        CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.White)
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
                     } else {
                         Text(if (isCurrentUser) "Cannot Delete" else "Delete")
                     }
@@ -710,23 +1225,26 @@ fun UserManagementTab(
                 OutlinedButton(onClick = { userToDelete = null }) {
                     Text("Cancel")
                 }
-            }
+            },
+            containerColor = AdminCard
         )
     }
 
-    // Suspend confirmation dialog
     if (userToSuspend != null) {
         val isCurrentUser = userToSuspend?.id == currentUserId
+
         AlertDialog(
             onDismissRequest = { userToSuspend = null },
-            icon = { Icon(Icons.Default.Warning, contentDescription = null, tint = Color(0xFFFF9800)) },
+            icon = { Icon(Icons.Default.PauseCircle, null, tint = AdminWarning) },
             title = { Text("Suspend User") },
             text = {
-                Text(if (isCurrentUser) {
-                    "You are suspending yourself. You will be unable to access the app until reactivated by another admin."
-                } else {
-                    "Are you sure you want to suspend ${userToSuspend!!.name} (${userToSuspend!!.email})?\n\nThe user will be temporarily unable to access the app until reactivated."
-                })
+                Text(
+                    if (isCurrentUser) {
+                        "You are suspending yourself. You will be unable to access the app until reactivated by another admin."
+                    } else {
+                        "Are you sure you want to suspend ${userToSuspend!!.name} (${userToSuspend!!.email})?\n\nThe user will be temporarily unable to access the app until reactivated."
+                    }
+                )
             },
             confirmButton = {
                 Button(
@@ -734,7 +1252,7 @@ fun UserManagementTab(
                         viewModel.suspendUser(userToSuspend!!.id)
                         userToSuspend = null
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF9800))
+                    colors = ButtonDefaults.buttonColors(containerColor = AdminWarning)
                 ) {
                     Text("Suspend")
                 }
@@ -743,23 +1261,26 @@ fun UserManagementTab(
                 OutlinedButton(onClick = { userToSuspend = null }) {
                     Text("Cancel")
                 }
-            }
+            },
+            containerColor = AdminCard
         )
     }
 
-    // Ban confirmation dialog
     if (userToBan != null) {
         val isCurrentUser = userToBan?.id == currentUserId
+
         AlertDialog(
             onDismissRequest = { userToBan = null },
-            icon = { Icon(Icons.Default.Block, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+            icon = { Icon(Icons.Default.Block, null, tint = AdminDanger) },
             title = { Text("Ban User") },
             text = {
-                Text(if (isCurrentUser) {
-                    "You are banning yourself. You will be permanently restricted from accessing the app until manually reactivated by another admin."
-                } else {
-                    "Are you sure you want to ban ${userToBan!!.name} (${userToBan!!.email})?\n\nThe user will be permanently restricted from accessing the app until manually reactivated."
-                })
+                Text(
+                    if (isCurrentUser) {
+                        "You are banning yourself. You will be permanently restricted from accessing the app until manually reactivated by another admin."
+                    } else {
+                        "Are you sure you want to ban ${userToBan!!.name} (${userToBan!!.email})?\n\nThe user will be permanently restricted from accessing the app until manually reactivated."
+                    }
+                )
             },
             confirmButton = {
                 Button(
@@ -767,7 +1288,7 @@ fun UserManagementTab(
                         viewModel.banUser(userToBan!!.id)
                         userToBan = null
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                    colors = ButtonDefaults.buttonColors(containerColor = AdminDanger)
                 ) {
                     Text("Ban")
                 }
@@ -776,23 +1297,26 @@ fun UserManagementTab(
                 OutlinedButton(onClick = { userToBan = null }) {
                     Text("Cancel")
                 }
-            }
+            },
+            containerColor = AdminCard
         )
     }
 
-    // Activate confirmation dialog
     if (userToActivate != null) {
         val isCurrentUser = userToActivate?.id == currentUserId
+
         AlertDialog(
             onDismissRequest = { userToActivate = null },
-            icon = { Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF4CAF50)) },
+            icon = { Icon(Icons.Default.CheckCircle, null, tint = AdminSuccess) },
             title = { Text("Activate User") },
             text = {
-                Text(if (isCurrentUser) {
-                    "You are reactivating yourself. This will restore your account access."
-                } else {
-                    "Are you sure you want to reactivate ${userToActivate!!.name} (${userToActivate!!.email})?\n\nThe user will regain full access to the app."
-                })
+                Text(
+                    if (isCurrentUser) {
+                        "You are reactivating yourself. This will restore your account access."
+                    } else {
+                        "Are you sure you want to reactivate ${userToActivate!!.name} (${userToActivate!!.email})?\n\nThe user will regain full access to the app."
+                    }
+                )
             },
             confirmButton = {
                 Button(
@@ -800,7 +1324,7 @@ fun UserManagementTab(
                         viewModel.activateUser(userToActivate!!.id)
                         userToActivate = null
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
+                    colors = ButtonDefaults.buttonColors(containerColor = AdminSuccess)
                 ) {
                     Text("Activate")
                 }
@@ -809,11 +1333,11 @@ fun UserManagementTab(
                 OutlinedButton(onClick = { userToActivate = null }) {
                     Text("Cancel")
                 }
-            }
+            },
+            containerColor = AdminCard
         )
     }
 
-    // User activity detail dialog
     if (userToViewActivity != null) {
         UserActivityDialog(
             user = userToViewActivity!!,
@@ -822,191 +1346,280 @@ fun UserManagementTab(
         )
     }
 
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        OutlinedTextField(
-            value = pendingSearch,
-            onValueChange = { pendingSearch = it },
-            modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("Search users by name, email, or ID") },
-            trailingIcon = {
-                Icon(Icons.Default.Search, null)
-            },
-            singleLine = true,
-            shape = RoundedCornerShape(12.dp)
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        Text(
+            "User Management",
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.SemiBold
         )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterDropdown(
-                    modifier = Modifier.weight(1f),
-                    label = "Plan",
-                    options = listOf("ALL", "FREE", "PREMIUM", "ADMIN"),
-                    selectedOption = pendingPlan,
-                    onOptionSelected = { pendingPlan = it },
-                    expanded = planExpanded,
-                    onExpandedChange = { planExpanded = it }
-                )
-                FilterDropdown(
-                    modifier = Modifier.weight(1f),
-                    label = "Status",
-                    options = listOf("ALL", "ACTIVE", "SUSPENDED", "BANNED"),
-                    selectedOption = pendingStatus,
-                    onOptionSelected = { pendingStatus = it },
-                    expanded = statusExpanded,
-                    onExpandedChange = { statusExpanded = it }
-                )
-            }
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterDropdown(
-                    modifier = Modifier.weight(1f),
-                    label = "Age",
-                    options = listOf("ALL", "Under 6", "6-9", "10-12", "13+"),
-                    selectedOption = pendingAgeGroup,
-                    onOptionSelected = { pendingAgeGroup = it },
-                    expanded = ageExpanded,
-                    onExpandedChange = { ageExpanded = it }
-                )
-                FilterDropdown(
-                    modifier = Modifier.weight(1f),
-                    label = "Account",
-                    options = listOf("ALL", "CHILD", "PARENT"),
-                    selectedOption = pendingAccountType,
-                    onOptionSelected = { pendingAccountType = it },
-                    expanded = accountExpanded,
-                    onExpandedChange = { accountExpanded = it }
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            OutlinedButton(
-                onClick = {
-                    pendingSearch = ""
-                    pendingPlan = "ALL"
-                    pendingStatus = "ALL"
-                    pendingAgeGroup = "ALL"
-                    pendingAccountType = "ALL"
-                }
-            ) {
-                Text("Reset")
-            }
-            Spacer(modifier = Modifier.width(8.dp))
-            Button(onClick = {
-                appliedSearch = pendingSearch.trim()
-                appliedPlan = pendingPlan
-                appliedStatus = pendingStatus
-                appliedAgeGroup = pendingAgeGroup
-                appliedAccountType = pendingAccountType
-            }) {
-                Text("Apply filters")
-            }
-        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            "Search, filter, and manage user accounts",
+            style = MaterialTheme.typography.bodyMedium,
+            color = AdminTextSecondary
+        )
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        Text("Matching users: ${filteredUsers.size}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+        ElevatedCard(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.elevatedCardColors(containerColor = AdminCard),
+            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                OutlinedTextField(
+                    value = pendingSearch,
+                    onValueChange = { pendingSearch = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("Search users by name, email, or ID") },
+                    trailingIcon = {
+                        Icon(Icons.Default.Search, null, tint = AdminTextSecondary)
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp)
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        FilterDropdown(
+                            modifier = Modifier.weight(1f),
+                            label = "Plan",
+                            options = listOf("ALL", "FREE", "PREMIUM", "ADMIN"),
+                            selectedOption = pendingPlan,
+                            onOptionSelected = { pendingPlan = it },
+                            expanded = planExpanded,
+                            onExpandedChange = { planExpanded = it }
+                        )
+                        FilterDropdown(
+                            modifier = Modifier.weight(1f),
+                            label = "Status",
+                            options = listOf("ALL", "ACTIVE", "SUSPENDED", "BANNED"),
+                            selectedOption = pendingStatus,
+                            onOptionSelected = { pendingStatus = it },
+                            expanded = statusExpanded,
+                            onExpandedChange = { statusExpanded = it }
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        FilterDropdown(
+                            modifier = Modifier.weight(1f),
+                            label = "Age",
+                            options = listOf("ALL", "Under 6", "6-9", "10-12", "13+"),
+                            selectedOption = pendingAgeGroup,
+                            onOptionSelected = { pendingAgeGroup = it },
+                            expanded = ageExpanded,
+                            onExpandedChange = { ageExpanded = it }
+                        )
+                        FilterDropdown(
+                            modifier = Modifier.weight(1f),
+                            label = "Account",
+                            options = listOf("ALL", "CHILD", "PARENT"),
+                            selectedOption = pendingAccountType,
+                            onOptionSelected = { pendingAccountType = it },
+                            expanded = accountExpanded,
+                            onExpandedChange = { accountExpanded = it }
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    OutlinedButton(
+                        onClick = {
+                            pendingSearch = ""
+                            pendingPlan = "ALL"
+                            pendingStatus = "ALL"
+                            pendingAgeGroup = "ALL"
+                            pendingAccountType = "ALL"
+                        }
+                    ) {
+                        Text("Reset")
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Button(
+                        onClick = {
+                            appliedSearch = pendingSearch.trim()
+                            appliedPlan = pendingPlan
+                            appliedStatus = pendingStatus
+                            appliedAgeGroup = pendingAgeGroup
+                            appliedAccountType = pendingAccountType
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = AdminPrimary)
+                    ) {
+                        Text("Apply Filters")
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        Text(
+            "Matching users: ${filteredUsers.size}",
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium,
+            color = AdminTextSecondary
+        )
 
         Spacer(modifier = Modifier.height(12.dp))
 
         if (filteredUsers.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("No users match the current filters.", color = Color.Gray)
+                Text("No users match the current filters.", color = AdminTextSecondary)
             }
         } else {
-            LazyColumn(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
                 items(filteredUsers) { user ->
                     val isAdminUser = user.email.lowercase() == "admin@littledino.com" || user.planType == PlanType.ADMIN
 
-                    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))) {
-                        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Surface(modifier = Modifier.size(40.dp), shape = CircleShape, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)) {
+                    ElevatedCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.elevatedCardColors(containerColor = AdminCard),
+                        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Surface(
+                                modifier = Modifier.size(42.dp),
+                                shape = CircleShape,
+                                color = AdminPrimary.copy(alpha = 0.10f)
+                            ) {
                                 Box(contentAlignment = Alignment.Center) {
-                                    Text(user.name.take(1).uppercase(), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                    Text(
+                                        user.name.take(1).uppercase(),
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = AdminPrimary
+                                    )
                                 }
                             }
+
                             Spacer(Modifier.width(12.dp))
+
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(user.name, fontWeight = FontWeight.Bold)
-                                Text(user.email, style = MaterialTheme.typography.bodySmall)
+                                Text(user.name, fontWeight = FontWeight.SemiBold)
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    user.email,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = AdminTextSecondary
+                                )
                             }
+
                             Column(horizontalAlignment = Alignment.Start) {
                                 PlanBadge(user.planType)
+                                Spacer(modifier = Modifier.height(6.dp))
                                 StatusBadge(user.status)
-                                Text("Age: ${user.age}", fontSize = 10.sp, color = Color.Gray)
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    "Age: ${user.age}",
+                                    fontSize = 11.sp,
+                                    color = AdminTextSecondary
+                                )
                             }
-                            // Action menu (not for admin account)
+
                             if (!isAdminUser) {
                                 var expanded by remember { mutableStateOf(false) }
+
                                 Box {
                                     IconButton(onClick = { expanded = true }) {
                                         Icon(Icons.Default.MoreVert, "More actions")
                                     }
+
                                     DropdownMenu(
                                         expanded = expanded,
-                                        onDismissRequest = { expanded = false }
+                                        onDismissRequest = { expanded = false },
+                                        containerColor = AdminCard
                                     ) {
                                         when (user.status) {
                                             UserStatus.ACTIVE -> {
                                                 DropdownMenuItem(
-                                                    text = { Text("Suspend User", color = Color(0xFFFF9800)) },
+                                                    text = { Text("Suspend User") },
                                                     onClick = {
                                                         userToSuspend = user
                                                         expanded = false
                                                     },
                                                     leadingIcon = {
-                                                        Icon(Icons.Default.Warning, null, tint = Color(0xFFFF9800))
+                                                        Icon(Icons.Default.PauseCircle, null, tint = AdminWarning)
                                                     }
                                                 )
                                                 DropdownMenuItem(
-                                                    text = { Text("Ban User", color = MaterialTheme.colorScheme.error) },
+                                                    text = { Text("Ban User") },
                                                     onClick = {
                                                         userToBan = user
                                                         expanded = false
                                                     },
                                                     leadingIcon = {
-                                                        Icon(Icons.Default.Block, null, tint = MaterialTheme.colorScheme.error)
+                                                        Icon(Icons.Default.Block, null, tint = AdminDanger)
                                                     }
                                                 )
                                             }
+
                                             UserStatus.SUSPENDED -> {
                                                 DropdownMenuItem(
-                                                    text = { Text("Activate User", color = Color(0xFF4CAF50)) },
+                                                    text = { Text("Activate User") },
                                                     onClick = {
                                                         userToActivate = user
                                                         expanded = false
                                                     },
                                                     leadingIcon = {
-                                                        Icon(Icons.Default.CheckCircle, null, tint = Color(0xFF4CAF50))
+                                                        Icon(Icons.Default.CheckCircle, null, tint = AdminSuccess)
                                                     }
                                                 )
                                                 DropdownMenuItem(
-                                                    text = { Text("Ban User", color = MaterialTheme.colorScheme.error) },
+                                                    text = { Text("Ban User") },
                                                     onClick = {
                                                         userToBan = user
                                                         expanded = false
                                                     },
                                                     leadingIcon = {
-                                                        Icon(Icons.Default.Block, null, tint = MaterialTheme.colorScheme.error)
+                                                        Icon(Icons.Default.Block, null, tint = AdminDanger)
                                                     }
                                                 )
                                             }
+
                                             UserStatus.BANNED -> {
                                                 DropdownMenuItem(
-                                                    text = { Text("Activate User", color = Color(0xFF4CAF50)) },
+                                                    text = { Text("Activate User") },
                                                     onClick = {
                                                         userToActivate = user
                                                         expanded = false
                                                     },
                                                     leadingIcon = {
-                                                        Icon(Icons.Default.CheckCircle, null, tint = Color(0xFF4CAF50))
+                                                        Icon(Icons.Default.CheckCircle, null, tint = AdminSuccess)
                                                     }
                                                 )
                                             }
                                         }
+
                                         DropdownMenuItem(
                                             text = { Text("View Activity") },
                                             onClick = {
@@ -1015,17 +1628,18 @@ fun UserManagementTab(
                                                 expanded = false
                                             },
                                             leadingIcon = {
-                                                Icon(Icons.Default.Info, null)
+                                                Icon(Icons.Default.Info, null, tint = AdminPrimary)
                                             }
                                         )
+
                                         DropdownMenuItem(
-                                            text = { Text("Delete User", color = MaterialTheme.colorScheme.error) },
+                                            text = { Text("Delete User") },
                                             onClick = {
                                                 userToDelete = user
                                                 expanded = false
                                             },
                                             leadingIcon = {
-                                                Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error)
+                                                Icon(Icons.Default.Delete, null, tint = AdminDanger)
                                             }
                                         )
                                     }
@@ -1041,17 +1655,21 @@ fun UserManagementTab(
 
 @Composable
 fun LoginAttemptCard(attempt: LoginAttempt) {
-    val statusColor = if (attempt.success) Color(0xFF4CAF50) else MaterialTheme.colorScheme.error
+    val statusColor = if (attempt.success) AdminSuccess else AdminDanger
     val statusText = if (attempt.success) "Success" else "Failed"
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = AdminCard),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
-        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Surface(
-                modifier = Modifier.size(12.dp),
+                modifier = Modifier.size(10.dp),
                 shape = CircleShape,
                 color = statusColor
             ) {}
@@ -1059,19 +1677,35 @@ fun LoginAttemptCard(attempt: LoginAttempt) {
             Spacer(modifier = Modifier.width(12.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                Text(attempt.email, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                Text(
+                    attempt.email,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium
+                )
                 Text(
                     "$statusText • ${attempt.timestamp.toDate().let {
                         java.text.SimpleDateFormat("MMM dd, HH:mm", java.util.Locale.getDefault()).format(it)
                     }}",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color.Gray
+                    color = AdminTextSecondary
                 )
+
                 if (!attempt.success && attempt.failureReason.isNotBlank()) {
-                    Text("Reason: ${attempt.failureReason}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        "Reason: ${attempt.failureReason}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = AdminDanger
+                    )
                 }
+
                 if (attempt.ipAddress.isNotBlank()) {
-                    Text("IP: ${attempt.ipAddress}", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        "IP: ${attempt.ipAddress}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = AdminTextSecondary
+                    )
                 }
             }
         }
@@ -1086,10 +1720,10 @@ fun SuspiciousActivityCard(
     scope: CoroutineScope
 ) {
     val severityColor = when (activity.severity) {
-        SecuritySeverity.LOW -> Color(0xFFFF9800)
-        SecuritySeverity.MEDIUM -> Color(0xFFFF5722)
-        SecuritySeverity.HIGH -> Color(0xFFF44336)
-        SecuritySeverity.CRITICAL -> Color(0xFFB71C1C)
+        SecuritySeverity.LOW -> AdminWarning
+        SecuritySeverity.MEDIUM -> Color(0xFFE65100)
+        SecuritySeverity.HIGH -> AdminDanger
+        SecuritySeverity.CRITICAL -> Color(0xFF8B0000)
     }
 
     val activityTypeText = when (activity.activityType) {
@@ -1102,17 +1736,16 @@ fun SuspiciousActivityCard(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (activity.resolved)
-                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
-            else
-                severityColor.copy(alpha = 0.1f)
-        )
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = AdminCard),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
-        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.Top) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.Top
+        ) {
             Surface(
-                modifier = Modifier.size(12.dp),
+                modifier = Modifier.size(10.dp),
                 shape = CircleShape,
                 color = severityColor
             ) {}
@@ -1126,13 +1759,17 @@ fun SuspiciousActivityCard(
                     verticalAlignment = Alignment.Top
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(activity.email, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                        Text(
+                            activity.email,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium
+                        )
                         Text(
                             "$activityTypeText • ${activity.timestamp.toDate().let {
                                 java.text.SimpleDateFormat("MMM dd, HH:mm", java.util.Locale.getDefault()).format(it)
                             }}",
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color.Gray
+                            color = AdminTextSecondary
                         )
                     }
 
@@ -1144,34 +1781,39 @@ fun SuspiciousActivityCard(
                                     snackbarHostState.showSnackbar("Activity marked as resolved")
                                 }
                             },
-                            modifier = Modifier.height(32.dp),
+                            modifier = Modifier.height(34.dp),
                             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
                         ) {
                             Text("Resolve", fontSize = 12.sp)
                         }
                     } else {
                         Surface(
-                            color = Color(0xFF4CAF50).copy(alpha = 0.1f),
-                            shape = RoundedCornerShape(4.dp)
+                            color = AdminSuccess.copy(alpha = 0.10f),
+                            shape = RoundedCornerShape(8.dp)
                         ) {
                             Text(
                                 "Resolved",
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                fontSize = 10.sp,
-                                color = Color(0xFF4CAF50),
-                                fontWeight = FontWeight.Bold
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                                fontSize = 11.sp,
+                                color = AdminSuccess,
+                                fontWeight = FontWeight.SemiBold
                             )
                         }
                     }
                 }
 
                 if (activity.details.isNotBlank()) {
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
                     Text(activity.details, style = MaterialTheme.typography.bodySmall)
                 }
 
                 if (activity.ipAddress.isNotBlank()) {
-                    Text("IP: ${activity.ipAddress}", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        "IP: ${activity.ipAddress}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = AdminTextSecondary
+                    )
                 }
             }
         }
@@ -1191,70 +1833,158 @@ fun UserActivityDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        modifier = Modifier.fillMaxWidth(0.95f).fillMaxHeight(0.9f),
+        modifier = Modifier
+            .fillMaxWidth(0.95f)
+            .fillMaxHeight(0.90f),
+        containerColor = AdminCard,
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Surface(modifier = Modifier.size(32.dp), shape = CircleShape, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)) {
+                Surface(
+                    modifier = Modifier.size(36.dp),
+                    shape = CircleShape,
+                    color = AdminPrimary.copy(alpha = 0.10f)
+                ) {
                     Box(contentAlignment = Alignment.Center) {
-                        Text(user.name.take(1).uppercase(), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, fontSize = 14.sp)
+                        Text(
+                            user.name.take(1).uppercase(),
+                            fontWeight = FontWeight.SemiBold,
+                            color = AdminPrimary,
+                            fontSize = 14.sp
+                        )
                     }
                 }
+
                 Spacer(Modifier.width(12.dp))
+
                 Column {
-                    Text("${user.name}'s Activity", style = MaterialTheme.typography.headlineSmall)
-                    Text(user.email, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                    Text("${user.name}'s Activity", style = MaterialTheme.typography.titleLarge)
+                    Text(
+                        user.email,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = AdminTextSecondary
+                    )
                 }
             }
         },
         text = {
             if (isLoading) {
-                Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(220.dp),
+                    contentAlignment = Alignment.Center
+                ) {
                     CircularProgressIndicator()
                 }
             } else {
                 Column(modifier = Modifier.fillMaxWidth()) {
-                    // User basic info
-                    Card(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp), shape = RoundedCornerShape(8.dp)) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Text("Account Information", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                            Spacer(Modifier.height(8.dp))
+                    ElevatedCard(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.elevatedCardColors(containerColor = AdminCard),
+                        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Text(
+                                "Account Information",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Spacer(Modifier.height(10.dp))
+
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("Plan:", style = MaterialTheme.typography.bodyMedium)
+                                Text("Plan", style = MaterialTheme.typography.bodyMedium)
                                 PlanBadge(user.planType)
                             }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("Status:", style = MaterialTheme.typography.bodyMedium)
+                                Text("Status", style = MaterialTheme.typography.bodyMedium)
                                 StatusBadge(user.status)
                             }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("Age:", style = MaterialTheme.typography.bodyMedium)
-                                Text("${user.age} years old", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                                Text("Age", style = MaterialTheme.typography.bodyMedium)
+                                Text(
+                                    "${user.age} years old",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Medium
+                                )
                             }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("Joined:", style = MaterialTheme.typography.bodyMedium)
-                                Text(user.createdAt.toDate().let {
-                                    java.text.SimpleDateFormat("MMM dd, yyyy", java.util.Locale.getDefault()).format(it)
-                                }, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                                Text("Joined", style = MaterialTheme.typography.bodyMedium)
+                                Text(
+                                    user.createdAt.toDate().let {
+                                        java.text.SimpleDateFormat("MMM dd, yyyy", java.util.Locale.getDefault()).format(it)
+                                    },
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Medium
+                                )
                             }
                         }
                     }
 
-                    // Reading History
-                    Text("Recent Reading Activity (${userReadingHistory.size})", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
+                    Text(
+                        "Recent Reading Activity (${userReadingHistory.size})",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+
                     if (userReadingHistory.isEmpty()) {
-                        Text("No reading history found", style = MaterialTheme.typography.bodyMedium, color = Color.Gray, modifier = Modifier.padding(bottom = 16.dp))
+                        Text(
+                            "No reading history found",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = AdminTextSecondary,
+                            modifier = Modifier.padding(bottom = 16.dp)
+                        )
                     } else {
-                        LazyColumn(modifier = Modifier.height(120.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        LazyColumn(
+                            modifier = Modifier
+                                .height(130.dp)
+                                .fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
                             items(userReadingHistory.take(5)) { history ->
-                                Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(6.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))) {
-                                    Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.AutoMirrored.Filled.LibraryBooks, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = CardDefaults.cardColors(containerColor = AdminBg)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(10.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            Icons.AutoMirrored.Filled.LibraryBooks,
+                                            null,
+                                            modifier = Modifier.size(16.dp),
+                                            tint = AdminPrimary
+                                        )
                                         Spacer(Modifier.width(8.dp))
                                         Column(modifier = Modifier.weight(1f)) {
-                                            Text(history.title, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                            Text("Opened: ${history.openedAt.toDate().let {
-                                                java.text.SimpleDateFormat("MMM dd, HH:mm", java.util.Locale.getDefault()).format(it)
-                                            }}", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                                            Text(
+                                                history.title,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                fontWeight = FontWeight.Medium,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                            Text(
+                                                "Opened: ${history.openedAt.toDate().let {
+                                                    java.text.SimpleDateFormat("MMM dd, HH:mm", java.util.Locale.getDefault()).format(it)
+                                                }}",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = AdminTextSecondary
+                                            )
                                         }
                                     }
                                 }
@@ -1263,23 +1993,62 @@ fun UserActivityDialog(
                         Spacer(Modifier.height(16.dp))
                     }
 
-                    // Chat History
-                    Text("Recent Chat Messages (${userChatHistory.size})", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
+                    Text(
+                        "Recent Chat Messages (${userChatHistory.size})",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+
                     if (userChatHistory.isEmpty()) {
-                        Text("No chat history found", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
+                        Text(
+                            "No chat history found",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = AdminTextSecondary
+                        )
                     } else {
-                        LazyColumn(modifier = Modifier.height(120.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        LazyColumn(
+                            modifier = Modifier
+                                .height(130.dp)
+                                .fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
                             items(userChatHistory.take(5)) { message ->
-                                Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(6.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))) {
-                                    Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.Top) {
-                                        Icon(if (message.role == MessageRole.USER) Icons.Default.Person else Icons.Default.SmartToy, null, modifier = Modifier.size(16.dp), tint = if (message.role == MessageRole.USER) MaterialTheme.colorScheme.primary else Color(0xFF4CAF50))
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = CardDefaults.cardColors(containerColor = AdminBg)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(10.dp),
+                                        verticalAlignment = Alignment.Top
+                                    ) {
+                                        Icon(
+                                            if (message.role == MessageRole.USER) Icons.Default.Person else Icons.Default.SmartToy,
+                                            null,
+                                            modifier = Modifier.size(16.dp),
+                                            tint = if (message.role == MessageRole.USER) AdminPrimary else AdminSuccess
+                                        )
                                         Spacer(Modifier.width(8.dp))
                                         Column(modifier = Modifier.weight(1f)) {
-                                            Text(if (message.role == MessageRole.USER) "User" else "Bot", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
-                                            Text(message.content, style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                                            Text(message.timestamp.toDate().let {
-                                                java.text.SimpleDateFormat("MMM dd, HH:mm", java.util.Locale.getDefault()).format(it)
-                                            }, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                                            Text(
+                                                if (message.role == MessageRole.USER) "User" else "Bot",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                            Text(
+                                                message.content,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                maxLines = 2,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                            Text(
+                                                message.timestamp.toDate().let {
+                                                    java.text.SimpleDateFormat("MMM dd, HH:mm", java.util.Locale.getDefault()).format(it)
+                                                },
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = AdminTextSecondary
+                                            )
                                         }
                                     }
                                 }
@@ -1298,7 +2067,10 @@ fun UserActivityDialog(
 }
 
 @Composable
-fun SecurityControlPanel(viewModel: AdminViewModel, snackbarHostState: SnackbarHostState) {
+fun SecurityControlPanel(
+    viewModel: AdminViewModel,
+    snackbarHostState: SnackbarHostState
+) {
     val loginAttempts by viewModel.loginAttempts.collectAsState()
     val suspiciousActivities by viewModel.suspiciousActivities.collectAsState()
     val isLoadingSecurityData by viewModel.isLoadingSecurityData.collectAsState()
@@ -1310,33 +2082,40 @@ fun SecurityControlPanel(viewModel: AdminViewModel, snackbarHostState: SnackbarH
     }
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Header
         item {
-            Text(
-                "Security Control Panel",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-            Text(
-                "Monitor login attempts and suspicious activities",
-                style = MaterialTheme.typography.bodyLarge,
-                color = Color.Gray
-            )
+            Column {
+                Text(
+                    "Security Control Panel",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    "Monitor login attempts and suspicious activities",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = AdminTextSecondary
+                )
+            }
         }
 
-        // Refresh Button
         item {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
                 OutlinedButton(
                     onClick = { viewModel.loadSecurityData() },
                     enabled = !isLoadingSecurityData
                 ) {
                     if (isLoadingSecurityData) {
-                        CircularProgressIndicator(modifier = Modifier.size(16.dp))
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp
+                        )
                         Spacer(modifier = Modifier.width(8.dp))
                     }
                     Text("Refresh Data")
@@ -1344,56 +2123,84 @@ fun SecurityControlPanel(viewModel: AdminViewModel, snackbarHostState: SnackbarH
             }
         }
 
-        // Login Attempts Section
         item {
-            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
+            ElevatedCard(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.elevatedCardColors(containerColor = AdminCard),
+                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp)
+            ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Recent Login Attempts (${loginAttempts.size})", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text(
+                            "Recent Login Attempts (${loginAttempts.size})",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
                         val failedCount = loginAttempts.count { !it.success }
-                        Text("$failedCount failed", style = MaterialTheme.typography.bodyMedium, color = if (failedCount > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
+                        Text(
+                            "$failedCount failed",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (failedCount > 0) AdminDanger else AdminPrimary
+                        )
                     }
 
                     Spacer(modifier = Modifier.height(12.dp))
 
                     if (loginAttempts.isEmpty()) {
-                        Text("No login attempts recorded", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
+                        Text("No login attempts recorded", color = AdminTextSecondary)
                     } else {
-                        loginAttempts.take(10).forEach { attempt ->
+                        loginAttempts.take(10).forEachIndexed { index, attempt ->
                             LoginAttemptCard(attempt)
-                            Spacer(modifier = Modifier.height(8.dp))
+                            if (index < loginAttempts.take(10).lastIndex) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                            }
                         }
                     }
                 }
             }
         }
 
-        // Suspicious Activities Section
         item {
-            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
+            ElevatedCard(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.elevatedCardColors(containerColor = AdminCard),
+                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp)
+            ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Suspicious Activities (${suspiciousActivities.size})", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text(
+                            "Suspicious Activities (${suspiciousActivities.size})",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
                         val unresolvedCount = suspiciousActivities.count { !it.resolved }
-                        Text("$unresolvedCount unresolved", style = MaterialTheme.typography.bodyMedium, color = if (unresolvedCount > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
+                        Text(
+                            "$unresolvedCount unresolved",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (unresolvedCount > 0) AdminDanger else AdminPrimary
+                        )
                     }
 
                     Spacer(modifier = Modifier.height(12.dp))
 
                     if (suspiciousActivities.isEmpty()) {
-                        Text("No suspicious activities detected", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
+                        Text("No suspicious activities detected", color = AdminTextSecondary)
                     } else {
-                        suspiciousActivities.take(10).forEach { activity ->
+                        suspiciousActivities.take(10).forEachIndexed { index, activity ->
                             SuspiciousActivityCard(activity, viewModel, snackbarHostState, scope)
-                            Spacer(modifier = Modifier.height(8.dp))
+                            if (index < suspiciousActivities.take(10).lastIndex) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                            }
                         }
                     }
                 }
@@ -1403,11 +2210,12 @@ fun SecurityControlPanel(viewModel: AdminViewModel, snackbarHostState: SnackbarH
 }
 
 @Composable
-fun NotificationTab(viewModel: AdminViewModel, snackbarHostState: SnackbarHostState) {
+fun NotificationTab(
+    viewModel: AdminViewModel,
+    snackbarHostState: SnackbarHostState
+) {
     val scope = rememberCoroutineScope()
-    var notificationState by remember {
-        mutableStateOf(AdminNotificationUiState())
-    }
+    var notificationState by remember { mutableStateOf(AdminNotificationUiState()) }
 
     val onSendClick: () -> Unit = {
         scope.launch {
@@ -1419,7 +2227,6 @@ fun NotificationTab(viewModel: AdminViewModel, snackbarHostState: SnackbarHostSt
                     targetValue = notificationState.targetValue
                 )
                 snackbarHostState.showSnackbar("Notification sent successfully!")
-                // Reset form
                 notificationState = AdminNotificationUiState()
             } catch (e: Exception) {
                 snackbarHostState.showSnackbar("Failed to send notification: ${e.message}")
@@ -1461,14 +2268,18 @@ fun FilterDropdown(
             trailingIcon = {
                 ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
             },
-            modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth(),
+            modifier = Modifier
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                .fillMaxWidth(),
             textStyle = TextStyle(fontSize = 12.sp),
             shape = RoundedCornerShape(12.dp),
             maxLines = 1
         )
+
         ExposedDropdownMenu(
             expanded = expanded,
-            onDismissRequest = { onExpandedChange(false) }
+            onDismissRequest = { onExpandedChange(false) },
+            containerColor = AdminCard
         ) {
             options.forEach { option ->
                 DropdownMenuItem(
@@ -1486,23 +2297,43 @@ fun FilterDropdown(
 @Composable
 fun PlanBadge(planType: PlanType) {
     val color = when (planType) {
-        PlanType.FREE -> Color.Gray
-        PlanType.PREMIUM -> Color(0xFFFFA000)
-        PlanType.ADMIN -> Color(0xFF9C27B0)
+        PlanType.FREE -> Color(0xFF607D8B)
+        PlanType.PREMIUM -> AdminInfo
+        PlanType.ADMIN -> AdminPrimary
     }
-    Surface(color = color.copy(alpha = 0.15f), contentColor = color, shape = RoundedCornerShape(8.dp)) {
-        Text(text = planType.name, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+
+    Surface(
+        color = color.copy(alpha = 0.10f),
+        contentColor = color,
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Text(
+            text = planType.name,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            fontSize = 10.sp,
+            fontWeight = FontWeight.SemiBold
+        )
     }
 }
 
 @Composable
 fun StatusBadge(status: UserStatus) {
     val (color, text) = when (status) {
-        UserStatus.ACTIVE -> Color(0xFF4CAF50) to "Active"
-        UserStatus.SUSPENDED -> Color(0xFFFF9800) to "Suspended"
-        UserStatus.BANNED -> Color(0xFFF44336) to "Banned"
+        UserStatus.ACTIVE -> AdminSuccess to "Active"
+        UserStatus.SUSPENDED -> AdminWarning to "Suspended"
+        UserStatus.BANNED -> AdminDanger to "Banned"
     }
-    Surface(color = color.copy(alpha = 0.15f), contentColor = color, shape = RoundedCornerShape(8.dp)) {
-        Text(text = text, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+
+    Surface(
+        color = color.copy(alpha = 0.10f),
+        contentColor = color,
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            fontSize = 10.sp,
+            fontWeight = FontWeight.SemiBold
+        )
     }
 }

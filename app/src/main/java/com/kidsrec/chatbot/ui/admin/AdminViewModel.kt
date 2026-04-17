@@ -1,6 +1,7 @@
 package com.kidsrec.chatbot.ui.admin
 
 import android.annotation.SuppressLint
+import com.kidsrec.chatbot.data.model.BookCategory
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -62,6 +63,9 @@ class AdminViewModel @Inject constructor(
     private val _users = MutableStateFlow<List<User>>(emptyList())
     val users: StateFlow<List<User>> = _users.asStateFlow()
 
+    private val _categories = MutableStateFlow<List<BookCategory>>(emptyList())
+    val categories: StateFlow<List<BookCategory>> = _categories.asStateFlow()
+
     private val _curatedBooks = MutableStateFlow<List<Book>>(emptyList())
     val curatedBooks: StateFlow<List<Book>> = _curatedBooks.asStateFlow()
 
@@ -120,6 +124,7 @@ class AdminViewModel @Inject constructor(
     fun refreshAllAdminData() {
         startManagingUsers()
         loadCuratedBooks()
+        loadCategories()
         refreshAdminStats()
         loadAnalytics()
     }
@@ -141,6 +146,102 @@ class AdminViewModel @Inject constructor(
             bookDataManager.getCuratedBooksFlow()
                 .catch { e -> Log.e("AdminVM", "Load failed", e) }
                 .collect { books -> _curatedBooks.value = books }
+        }
+    }
+
+    fun loadCategories() {
+        viewModelScope.launch {
+            try {
+                val snapshot = firestore.collection("categories").get().await()
+                val list = snapshot.documents.mapNotNull {
+                    it.toObject(BookCategory::class.java)?.copy(id = it.id)
+                }.sortedBy { it.name.lowercase() }
+
+                _categories.value = list
+            } catch (e: Exception) {
+                Log.e("AdminVM", "Failed to load categories", e)
+                _categories.value = emptyList()
+            }
+        }
+    }
+
+    fun addCategory(name: String, description: String) {
+        viewModelScope.launch {
+            try {
+                val trimmedName = name.trim()
+                val trimmedDescription = description.trim()
+
+                if (trimmedName.isBlank()) {
+                    Log.w("AdminVM", "Category name cannot be blank")
+                    return@launch
+                }
+
+                val id = trimmedName
+                    .lowercase()
+                    .replace(Regex("\\s+"), "-")
+                    .replace(Regex("[^a-z0-9-]"), "")
+
+                val category = BookCategory(
+                    id = id,
+                    name = trimmedName,
+                    description = trimmedDescription
+                )
+
+                firestore.collection("categories")
+                    .document(id)
+                    .set(category)
+                    .await()
+
+                loadCategories()
+                Log.d("AdminVM", "Category added: $id")
+            } catch (e: Exception) {
+                Log.e("AdminVM", "Failed to add category", e)
+            }
+        }
+    }
+
+    fun updateCategory(id: String, name: String, description: String) {
+        viewModelScope.launch {
+            try {
+                val trimmedName = name.trim()
+                val trimmedDescription = description.trim()
+
+                if (trimmedName.isBlank()) {
+                    Log.w("AdminVM", "Category name cannot be blank")
+                    return@launch
+                }
+
+                firestore.collection("categories")
+                    .document(id)
+                    .update(
+                        mapOf(
+                            "name" to trimmedName,
+                            "description" to trimmedDescription
+                        )
+                    )
+                    .await()
+
+                loadCategories()
+                Log.d("AdminVM", "Category updated: $id")
+            } catch (e: Exception) {
+                Log.e("AdminVM", "Failed to update category", e)
+            }
+        }
+    }
+
+    fun deleteCategory(id: String) {
+        viewModelScope.launch {
+            try {
+                firestore.collection("categories")
+                    .document(id)
+                    .delete()
+                    .await()
+
+                loadCategories()
+                Log.d("AdminVM", "Category deleted: $id")
+            } catch (e: Exception) {
+                Log.e("AdminVM", "Failed to delete category", e)
+            }
         }
     }
 
