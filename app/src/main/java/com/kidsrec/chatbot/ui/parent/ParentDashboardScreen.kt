@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -44,6 +45,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
@@ -67,6 +69,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -149,6 +152,9 @@ fun ParentDashboardScreen(
                 onClearConversation = { viewModel.clearConversation() },
                 onUpdateFilters = { maxAge: Int, allowVideos: Boolean ->
                     viewModel.updateChildFilters(selectedChild!!.id, maxAge, allowVideos)
+                },
+                onUpdatePin = { pin: String ->
+                    viewModel.updateChildParentalPin(selectedChild!!.id, pin)
                 },
                 modifier = Modifier.padding(paddingValues)
             )
@@ -441,6 +447,7 @@ private fun ChildDetailView(
     onSelectConversation: (String) -> Unit,
     onClearConversation: () -> Unit,
     onUpdateFilters: (maxAgeRating: Int, allowVideos: Boolean) -> Unit,
+    onUpdatePin: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
@@ -505,7 +512,11 @@ private fun ChildDetailView(
                 onSelectConversation = onSelectConversation,
                 onBack = onClearConversation
             )
-            3 -> ControlsTab(child, onUpdateFilters)
+            3 -> ControlsTab(
+                child = child,
+                onUpdateFilters = onUpdateFilters,
+                onUpdatePin = onUpdatePin
+            )
             4 -> ProgressTab(
                 child = child,
                 parentProgressViewModel = parentProgressViewModel
@@ -669,7 +680,8 @@ private fun FavoritesTab(favorites: List<Favorite>) {
 @Composable
 private fun ControlsTab(
     child: User,
-    onUpdateFilters: (maxAgeRating: Int, allowVideos: Boolean) -> Unit
+    onUpdateFilters: (maxAgeRating: Int, allowVideos: Boolean) -> Unit,
+    onUpdatePin: (String) -> Unit
 ) {
     var maxAgeRating by remember(child.id) {
         mutableFloatStateOf(child.contentFilters.maxAgeRating.toFloat())
@@ -677,7 +689,16 @@ private fun ControlsTab(
     var allowVideos by remember(child.id) {
         mutableStateOf(child.contentFilters.allowVideos)
     }
-    var hasChanges by remember { mutableStateOf(false) }
+    var pinInput by remember(child.id) {
+        mutableStateOf("")
+    }
+    var pinError by remember(child.id) {
+        mutableStateOf<String?>(null)
+    }
+    var hasChanges by remember(child.id) { mutableStateOf(false) }
+
+    val hasExistingPin = child.parentalPin?.matches(Regex("^\\d{4}$")) == true
+    val canSave = hasChanges || pinInput.isNotEmpty()
 
     Column(
         modifier = Modifier
@@ -698,7 +719,9 @@ private fun ControlsTab(
             fontSize = 14.sp,
             fontWeight = FontWeight.Medium
         )
+
         Spacer(modifier = Modifier.height(8.dp))
+
         Slider(
             value = maxAgeRating,
             onValueChange = {
@@ -708,6 +731,7 @@ private fun ControlsTab(
             valueRange = 3f..18f,
             steps = 14
         )
+
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
@@ -734,6 +758,7 @@ private fun ControlsTab(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+
                 Switch(
                     checked = allowVideos,
                     onCheckedChange = {
@@ -744,15 +769,76 @@ private fun ControlsTab(
             }
         }
 
+        Spacer(modifier = Modifier.height(28.dp))
+
+        Text(
+            text = "Parent PIN",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = if (hasExistingPin) {
+                "A 4-digit PIN is already set for this child. Enter a new one below to change it."
+            } else {
+                "No parent PIN is set yet. Create a 4-digit PIN for this child."
+            },
+            fontSize = 13.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        OutlinedTextField(
+            value = pinInput,
+            onValueChange = { value ->
+                if (value.length <= 4 && value.all { it.isDigit() }) {
+                    pinInput = value
+                    pinError = null
+                }
+            },
+            label = { Text("4-digit PIN") },
+            placeholder = { Text("Enter PIN") },
+            singleLine = true,
+            isError = pinError != null,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+            supportingText = {
+                Text(
+                    pinError ?: if (hasExistingPin) {
+                        "Leave blank if you do not want to change the current PIN."
+                    } else {
+                        "The parent should create this PIN."
+                    }
+                )
+            },
+            modifier = Modifier.fillMaxWidth()
+        )
+
         Spacer(modifier = Modifier.height(24.dp))
 
         Button(
             onClick = {
-                onUpdateFilters(maxAgeRating.toInt(), allowVideos)
+                if (pinInput.isNotEmpty() && pinInput.length != 4) {
+                    pinError = "PIN must be exactly 4 digits."
+                    return@Button
+                }
+
+                if (hasChanges) {
+                    onUpdateFilters(maxAgeRating.toInt(), allowVideos)
+                }
+
+                if (pinInput.length == 4) {
+                    onUpdatePin(pinInput)
+                    pinInput = ""
+                    pinError = null
+                }
+
                 hasChanges = false
             },
             modifier = Modifier.fillMaxWidth(),
-            enabled = hasChanges
+            enabled = canSave
         ) {
             Icon(Icons.Default.Save, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))

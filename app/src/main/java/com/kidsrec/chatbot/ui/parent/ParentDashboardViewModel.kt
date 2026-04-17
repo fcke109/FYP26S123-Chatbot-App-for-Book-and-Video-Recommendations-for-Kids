@@ -200,11 +200,48 @@ class ParentDashboardViewModel @Inject constructor(
                 _errorMessage.value = "Unauthorized action."
                 return@launch
             }
-            accountManager.updateChildFilters(childId, maxAgeRating, allowVideos)
-            val updated = accountManager.getUser(childId)
-            if (updated != null) {
-                _selectedChild.value = updated
+
+            val result = accountManager.updateChildFilters(childId, maxAgeRating, allowVideos)
+            result.fold(
+                onSuccess = {
+                    _errorMessage.value = null
+                    val updated = accountManager.getUser(childId)
+                    if (updated != null) {
+                        _selectedChild.value = updated
+                    }
+                },
+                onFailure = { error ->
+                    _errorMessage.value = error.message ?: "Failed to update filters."
+                }
+            )
+        }
+    }
+
+    fun updateChildParentalPin(childId: String, pin: String) {
+        viewModelScope.launch {
+            if (!isMyChild(childId)) {
+                _errorMessage.value = "Unauthorized action."
+                return@launch
             }
+
+            if (!pin.matches(Regex("^\\d{4}$"))) {
+                _errorMessage.value = "PIN must be exactly 4 digits."
+                return@launch
+            }
+
+            val result = accountManager.updateChildParentalPin(childId, pin)
+            result.fold(
+                onSuccess = {
+                    _errorMessage.value = null
+                    val updated = accountManager.getUser(childId)
+                    if (updated != null) {
+                        _selectedChild.value = updated
+                    }
+                },
+                onFailure = { error ->
+                    _errorMessage.value = error.message ?: "Failed to update parental PIN."
+                }
+            )
         }
     }
 

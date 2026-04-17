@@ -11,6 +11,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kidsrec.chatbot.ui.auth.AuthViewModel
@@ -22,6 +24,7 @@ fun ParentalControlsScreen(
     authViewModel: AuthViewModel
 ) {
     val user by authViewModel.currentUser.collectAsState()
+
     var isPinVerified by remember { mutableStateOf(false) }
     var enteredPin by remember { mutableStateOf("") }
     var pinError by remember { mutableStateOf(false) }
@@ -32,6 +35,9 @@ fun ParentalControlsScreen(
         user?.let {
             maxAgeRating = it.contentFilters.maxAgeRating
             allowVideos = it.contentFilters.allowVideos
+            isPinVerified = false
+            enteredPin = ""
+            pinError = false
         }
     }
 
@@ -47,8 +53,64 @@ fun ParentalControlsScreen(
             )
         }
     ) { paddingValues ->
-        if (!isPinVerified) {
-            // PIN Entry Screen
+        val currentUser = user
+
+        if (currentUser == null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+            return@Scaffold
+        }
+
+        val storedPin = currentUser.parentalPin
+
+        if (storedPin.isNullOrBlank()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Icon(
+                    Icons.Default.Lock,
+                    contentDescription = null,
+                    modifier = Modifier.size(64.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Text(
+                    text = "Parent PIN Not Set",
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = "Your parent needs to open the Parent Dashboard and create a 4-digit PIN for this child account first.",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Button(
+                    onClick = onNavigateBack,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Go Back")
+                }
+            }
+        } else if (!isPinVerified) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -75,7 +137,7 @@ fun ParentalControlsScreen(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
-                    text = "Enter your PIN to access parental controls",
+                    text = "Enter your parent's 4-digit PIN to access parental controls",
                     fontSize = 14.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -93,6 +155,7 @@ fun ParentalControlsScreen(
                     label = { Text("PIN") },
                     placeholder = { Text("Enter 4-digit PIN") },
                     isError = pinError,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                     supportingText = {
                         if (pinError) Text("Incorrect PIN. Please try again.")
                     },
@@ -104,15 +167,7 @@ fun ParentalControlsScreen(
 
                 Button(
                     onClick = {
-                        val storedPin = user?.parentalPin
-                        if (storedPin.isNullOrBlank()) {
-                            // No PIN set yet — first time setup, save this PIN
-                            user?.let { currentUser ->
-                                val updated = currentUser.copy(parentalPin = enteredPin)
-                                authViewModel.updateUser(updated)
-                            }
-                            isPinVerified = true
-                        } else if (enteredPin == storedPin) {
+                        if (enteredPin == storedPin) {
                             isPinVerified = true
                         } else {
                             pinError = true
@@ -122,10 +177,7 @@ fun ParentalControlsScreen(
                     modifier = Modifier.fillMaxWidth(),
                     enabled = enteredPin.length == 4
                 ) {
-                    Text(
-                        if (user?.parentalPin.isNullOrBlank()) "Set PIN"
-                        else "Verify PIN"
-                    )
+                    Text("Verify PIN")
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -135,7 +187,6 @@ fun ParentalControlsScreen(
                 }
             }
         } else {
-            // Parental Controls Settings
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -211,44 +262,15 @@ fun ParentalControlsScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                Text(
-                    text = "Activity Monitoring",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                OutlinedButton(
-                    onClick = { /* Navigate to chat history */ },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("View Chat History")
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                OutlinedButton(
-                    onClick = { /* Navigate to favorites */ },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("View Favorites")
-                }
-
-                Spacer(modifier = Modifier.height(32.dp))
-
                 Button(
                     onClick = {
-                        // Save settings
-                        user?.let { currentUser ->
-                            val updatedUser = currentUser.copy(
-                                contentFilters = currentUser.contentFilters.copy(
-                                    maxAgeRating = maxAgeRating,
-                                    allowVideos = allowVideos
-                                )
+                        val updatedUser = currentUser.copy(
+                            contentFilters = currentUser.contentFilters.copy(
+                                maxAgeRating = maxAgeRating,
+                                allowVideos = allowVideos
                             )
-                            authViewModel.updateUser(updatedUser)
-                        }
+                        )
+                        authViewModel.updateUser(updatedUser)
                         onNavigateBack()
                     },
                     modifier = Modifier.fillMaxWidth()

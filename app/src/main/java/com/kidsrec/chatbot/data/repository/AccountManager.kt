@@ -280,7 +280,6 @@ class AccountManager @Inject constructor(
         )
     }
 
-
     @Suppress("unused")
     suspend fun generateInviteCode(
         parentId: String,
@@ -447,6 +446,27 @@ class AccountManager @Inject constructor(
                     )
                 )
                 .await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    // ── Update a child's parental PIN (for parent) ────────────────
+    suspend fun updateChildParentalPin(
+        childId: String,
+        pin: String
+    ): Result<Unit> {
+        return try {
+            if (!pin.matches(Regex("^\\d{4}$"))) {
+                return Result.failure(Exception("PIN must be exactly 4 digits."))
+            }
+
+            firestore.collection("users")
+                .document(childId)
+                .update("parentalPin", pin)
+                .await()
+
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
