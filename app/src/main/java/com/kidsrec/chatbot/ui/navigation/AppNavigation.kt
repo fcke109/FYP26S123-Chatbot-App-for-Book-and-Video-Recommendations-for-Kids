@@ -53,7 +53,6 @@ import com.kidsrec.chatbot.ui.auth.AuthViewModel
 import com.kidsrec.chatbot.ui.auth.EmailVerificationScreen
 import com.kidsrec.chatbot.ui.auth.LoginScreen
 import com.kidsrec.chatbot.ui.auth.RegisterScreen
-import com.kidsrec.chatbot.ui.billing.PremiumUpgradeScreen
 import com.kidsrec.chatbot.ui.chat.ChatViewModel
 import com.kidsrec.chatbot.ui.chat.DinoChatPage
 import com.kidsrec.chatbot.ui.favorites.FavoritesScreen
@@ -68,6 +67,7 @@ import com.kidsrec.chatbot.ui.parent.ParentDashboardViewModel
 import com.kidsrec.chatbot.ui.parent.ParentInviteSetupRoute
 import com.kidsrec.chatbot.ui.parent.ParentProgressViewModel
 import com.kidsrec.chatbot.ui.parental.ParentalControlsScreen
+import com.kidsrec.chatbot.ui.billing.PaymentScreen
 import com.kidsrec.chatbot.ui.profile.ProfileScreen
 import com.kidsrec.chatbot.ui.profile.ProfileViewModel
 import com.kidsrec.chatbot.ui.reader.BookReaderScreen
@@ -773,8 +773,11 @@ fun MainScreen(
                 }
 
                 composable(Screen.PremiumUpgrade.route) {
-                    PremiumUpgradeScreen(
-                        onBack = { navController.popBackStack() }
+                    PaymentScreen(
+                        onBack = { navController.popBackStack() },
+                        onPaymentSuccess = {
+                            navController.popBackStack()
+                        }
                     )
                 }
             }

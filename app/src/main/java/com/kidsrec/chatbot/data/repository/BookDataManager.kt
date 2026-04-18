@@ -1,8 +1,8 @@
 package com.kidsrec.chatbot.data.repository
 
 import android.util.Log
+import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.Query
 import com.kidsrec.chatbot.data.model.Book
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -10,7 +10,6 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
-
 
 @Singleton
 class BookDataManager @Inject constructor(
@@ -26,6 +25,7 @@ class BookDataManager @Inject constructor(
                     trySend(emptyList())
                     return@addSnapshotListener
                 }
+
                 if (snapshot != null) {
                     val books = snapshot.documents
                         .mapNotNull { it.toObject(Book::class.java)?.copy(id = it.id) }
@@ -33,6 +33,7 @@ class BookDataManager @Inject constructor(
                     trySend(books)
                 }
             }
+
         awaitClose { subscription.remove() }
     }
 
@@ -43,17 +44,21 @@ class BookDataManager @Inject constructor(
                 .mapNotNull { it.toObject(Book::class.java)?.copy(id = it.id) }
                 .sortedBy { it.id }
             Result.success(books)
-        } catch (e: Exception) { Result.failure(e) }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
     suspend fun getNextSequentialId(): String {
         return try {
             val snapshot = collection.get().await()
             val existingIds = snapshot.documents.map { it.id }
+
             val maxId = existingIds
                 .filter { it.all { char -> char.isDigit() } }
                 .mapNotNull { it.toIntOrNull() }
                 .maxOrNull() ?: 0
+
             String.format("%03d", maxId + 1)
         } catch (e: Exception) {
             "001"
@@ -67,15 +72,28 @@ class BookDataManager @Inject constructor(
             } else {
                 book.id
             }
-            collection.document(finalId).set(book.copy(id = finalId)).await()
+
+            val cleanedCategory = book.category.trim().ifBlank { "General" }
+
+            val cleanedBook = book.copy(
+                id = finalId,
+                category = cleanedCategory,
+                updatedAt = Timestamp.now()
+            )
+
+            collection.document(finalId).set(cleanedBook).await()
             Result.success(Unit)
-        } catch (e: Exception) { Result.failure(e) }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
     suspend fun deleteBook(bookId: String): Result<Unit> {
         return try {
             collection.document(bookId).delete().await()
             Result.success(Unit)
-        } catch (e: Exception) { Result.failure(e) }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 }

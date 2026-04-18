@@ -2,13 +2,25 @@ package com.kidsrec.chatbot.ui.library
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -18,7 +30,16 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.PlayCircle
-import androidx.compose.material3.*
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -37,11 +58,75 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.kidsrec.chatbot.data.model.Book
 import com.kidsrec.chatbot.data.model.Favorite
+import com.kidsrec.chatbot.data.model.Recommendation
+import com.kidsrec.chatbot.data.model.RecommendationType
 import com.kidsrec.chatbot.ui.common.AgeUiMode
 import com.kidsrec.chatbot.ui.common.getAgeUiMode
 import com.kidsrec.chatbot.ui.favorites.FavoritesViewModel
-import com.kidsrec.chatbot.data.model.Recommendation
-import com.kidsrec.chatbot.data.model.RecommendationType
+
+private data class CategoryUi(
+    val emoji: String,
+    val container: Color,
+    val content: Color
+)
+
+private fun normalizedCategory(category: String): String {
+    return category.trim().ifBlank { "General" }
+}
+
+private fun categoryUi(category: String): CategoryUi {
+    val name = normalizedCategory(category).lowercase()
+
+    return when {
+        name == "all" -> CategoryUi(
+            emoji = "✨",
+            container = Color(0xFFEDE7F6),
+            content = Color(0xFF5E35B1)
+        )
+
+        "dino" in name || "dinosaur" in name || "prehistoric" in name -> CategoryUi(
+            emoji = "🦖",
+            container = Color(0xFFE8F5E9),
+            content = Color(0xFF2E7D32)
+        )
+
+        "space" in name || "planet" in name || "rocket" in name || "science" in name -> CategoryUi(
+            emoji = "🚀",
+            container = Color(0xFFE3F2FD),
+            content = Color(0xFF1565C0)
+        )
+
+        "animal" in name || "dog" in name || "pet" in name || "wildlife" in name -> CategoryUi(
+            emoji = "🐶",
+            container = Color(0xFFFFF3E0),
+            content = Color(0xFFEF6C00)
+        )
+
+        "fairy" in name || "princess" in name || "magic" in name -> CategoryUi(
+            emoji = "🪄",
+            container = Color(0xFFFCE4EC),
+            content = Color(0xFFC2185B)
+        )
+
+        "adventure" in name || "journey" in name -> CategoryUi(
+            emoji = "🗺️",
+            container = Color(0xFFF3E5F5),
+            content = Color(0xFF7B1FA2)
+        )
+
+        "education" in name || "learning" in name || "school" in name -> CategoryUi(
+            emoji = "📚",
+            container = Color(0xFFE0F2F1),
+            content = Color(0xFF00695C)
+        )
+
+        else -> CategoryUi(
+            emoji = "⭐",
+            container = Color(0xFFFFF8E1),
+            content = Color(0xFFF9A825)
+        )
+    }
+}
 
 @Composable
 fun UserLibraryScreen(
@@ -69,20 +154,24 @@ fun UserLibraryScreen(
     var selectedCategory by remember { mutableStateOf("All") }
 
     val categories = remember(books) {
-        listOf("All") + books.map { it.category.ifBlank { "General" } }.distinct().sorted()
+        listOf("All") + books
+            .map { normalizedCategory(it.category) }
+            .distinct()
+            .sorted()
     }
 
     val filteredBooksBySearch = if (searchUiState.query.isNotBlank() && !searchUiState.expanded) {
         books.filter {
             it.title.contains(searchUiState.query, ignoreCase = true) ||
-                    it.author.contains(searchUiState.query, ignoreCase = true)
+                    it.author.contains(searchUiState.query, ignoreCase = true) ||
+                    normalizedCategory(it.category).contains(searchUiState.query, ignoreCase = true)
         }
     } else {
         books
     }
 
-    val finalFilteredBooks = if (ageUiMode == AgeUiMode.OLDER_CHILD && selectedCategory != "All") {
-        filteredBooksBySearch.filter { (it.category.ifBlank { "General" }) == selectedCategory }
+    val finalFilteredBooks = if (selectedCategory != "All") {
+        filteredBooksBySearch.filter { normalizedCategory(it.category) == selectedCategory }
     } else {
         filteredBooksBySearch
     }
@@ -124,7 +213,7 @@ fun UserLibraryScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        if (ageUiMode == AgeUiMode.OLDER_CHILD && categories.size > 1) {
+        if (categories.size > 1) {
             CategorySection(
                 categories = categories,
                 selectedCategory = selectedCategory,
@@ -192,14 +281,19 @@ fun UserLibraryScreen(
 
                 item {
                     Text(
-                        text = if (searchUiState.query.isBlank()) {
-                            when (ageUiMode) {
-                                AgeUiMode.EARLY_CHILD -> "Books"
-                                AgeUiMode.YOUNG_CHILD -> "All Books"
-                                AgeUiMode.OLDER_CHILD -> "Browse Books"
-                            }
-                        } else {
-                            "Search Results"
+                        text = when {
+                            searchUiState.query.isNotBlank() && selectedCategory != "All" ->
+                                "Search Results • $selectedCategory"
+                            searchUiState.query.isNotBlank() ->
+                                "Search Results"
+                            selectedCategory != "All" ->
+                                "$selectedCategory Books"
+                            else ->
+                                when (ageUiMode) {
+                                    AgeUiMode.EARLY_CHILD -> "Books"
+                                    AgeUiMode.YOUNG_CHILD -> "All Books"
+                                    AgeUiMode.OLDER_CHILD -> "Browse Books"
+                                }
                         },
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
@@ -208,7 +302,21 @@ fun UserLibraryScreen(
                     Spacer(modifier = Modifier.height(8.dp))
                 }
 
-                if (ageUiMode == AgeUiMode.EARLY_CHILD) {
+                if (finalFilteredBooks.isEmpty()) {
+                    item {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant
+                        ) {
+                            Text(
+                                text = "No books found in this category yet.",
+                                modifier = Modifier.padding(16.dp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                } else if (ageUiMode == AgeUiMode.EARLY_CHILD) {
                     item {
                         LazyVerticalGrid(
                             columns = GridCells.Fixed(2),
@@ -304,37 +412,105 @@ fun UserLibraryScreen(
 }
 
 @Composable
+fun getEmoji(category: String): String {
+    return when (category.trim().lowercase()) {
+        "all" -> "✨"
+        "dinosaurs", "dinosaur", "prehistoric" -> "🦖"
+        "space", "planet", "rocket", "science" -> "🚀"
+        "animals", "animal", "dog", "pet", "wildlife" -> "🐶"
+        "adventure", "journey" -> "🗺️"
+        "fairy tales", "fairy", "princess", "magic" -> "🪄"
+        "education", "learning", "school" -> "📚"
+        else -> "✨"
+    }
+}
+@Composable
 fun CategorySection(
     categories: List<String>,
     selectedCategory: String,
     onCategorySelected: (String) -> Unit
 ) {
     Column {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                Icons.Default.Category,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(18.dp)
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(
-                text = "Categories",
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-        }
+        Text(
+            text = "Categories",
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFF374151),
+            fontSize = 16.sp
+        )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
             items(categories) { category ->
-                FilterChip(
-                    selected = selectedCategory == category,
+                val isSelected = selectedCategory == category
+
+                Surface(
                     onClick = { onCategorySelected(category) },
-                    label = { Text(category) }
-                )
+                    shape = RoundedCornerShape(50),
+                    color = if (isSelected) Color(0xFF1F2937) else Color.White,
+                    border = BorderStroke(
+                        1.dp,
+                        if (isSelected) Color(0xFF1F2937) else Color(0xFFD1D5DB)
+                    ),
+                    shadowElevation = if (isSelected) 2.dp else 0.dp
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = getEmoji(category),
+                            fontSize = 14.sp
+                        )
+
+                        Text(
+                            text = category,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (isSelected) Color.White else Color(0xFF374151),
+                            letterSpacing = 0.3.sp
+                        )
+                    }
+                }
             }
+        }
+    }
+}
+
+@Composable
+fun CategoryBadge(
+    category: String,
+    modifier: Modifier = Modifier
+) {
+    val name = normalizedCategory(category)
+    val emoji = getEmoji(name)
+
+    Surface(
+        modifier = modifier,
+        color = Color.White,
+        shape = RoundedCornerShape(50),
+        border = BorderStroke(1.dp, Color(0xFFD1D5DB)),
+        shadowElevation = 0.dp
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                text = emoji,
+                fontSize = 12.sp
+            )
+            Text(
+                text = name,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFF374151),
+                maxLines = 1
+            )
         }
     }
 }
@@ -539,6 +715,13 @@ fun BigBookTile(
                     .background(Color.Black.copy(alpha = 0.20f))
             )
 
+            CategoryBadge(
+                category = book.category,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(10.dp)
+            )
+
             Text(
                 text = book.title,
                 color = Color.White,
@@ -622,9 +805,14 @@ fun UserBookCardAdaptive(
                     overflow = TextOverflow.Ellipsis
                 )
 
+                Spacer(modifier = Modifier.height(6.dp))
+
+                CategoryBadge(category = book.category)
+
+                Spacer(modifier = Modifier.height(6.dp))
+
                 when (ageUiMode) {
                     AgeUiMode.EARLY_CHILD -> {
-                        Spacer(modifier = Modifier.height(6.dp))
                         AssistChip(
                             onClick = onClick,
                             label = { Text("Open") }

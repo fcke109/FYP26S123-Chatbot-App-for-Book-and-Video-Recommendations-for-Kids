@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -638,7 +639,7 @@ fun StatCard(label: String, value: String, color: Color, modifier: Modifier = Mo
         }
     }
 }
-
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CuratorSearchTab(
     viewModel: AdminViewModel,
@@ -648,10 +649,14 @@ fun CuratorSearchTab(
     var query by remember { mutableStateOf("") }
     val searchResults by viewModel.searchResults.collectAsState()
     val isSearching by viewModel.isSearching.collectAsState()
-    val scope = rememberCoroutineScope()
+    val categories by viewModel.categories.collectAsState()
 
+    val scope = rememberCoroutineScope()
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
+
+    var selectedCategory by remember { mutableStateOf("Dinosaurs") }
+    var expanded by remember { mutableStateOf(false) }
 
     val onSearch = {
         if (query.isNotBlank()) {
@@ -661,8 +666,13 @@ fun CuratorSearchTab(
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
 
+        // 🔍 SEARCH BAR
         OutlinedTextField(
             value = query,
             onValueChange = { query = it },
@@ -679,6 +689,59 @@ fun CuratorSearchTab(
             shape = RoundedCornerShape(12.dp)
         )
 
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // 🦖 CATEGORY DROPDOWN
+        ExposedDropdownMenuBox(
+            expanded = expanded,
+            onExpandedChange = { expanded = it }
+        ) {
+            OutlinedTextField(
+                value = selectedCategory,
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Select Category") },
+                trailingIcon = {
+                    ExposedDropdownMenuDefaults.TrailingIcon(expanded)
+                },
+                modifier = Modifier
+                    .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                    .fillMaxWidth()
+            )
+
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+
+                // Use Firestore categories if available
+                if (categories.isNotEmpty()) {
+                    categories.forEach { category ->
+                        DropdownMenuItem(
+                            text = {
+                                Text("${getEmoji(category.name)} ${category.name}")
+                            },
+                            onClick = {
+                                selectedCategory = category.name
+                                expanded = false
+                            }
+                        )
+                    }
+                } else {
+                    // fallback
+                    listOf("Dinosaurs", "Space", "Animals").forEach {
+                        DropdownMenuItem(
+                            text = { Text("${getEmoji(it)} $it") },
+                            onClick = {
+                                selectedCategory = it
+                                expanded = false
+                            }
+                        )
+                    }
+                }
+            }
+        }
+
         Spacer(modifier = Modifier.height(16.dp))
 
         if (isSearching) {
@@ -688,18 +751,28 @@ fun CuratorSearchTab(
         } else {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(searchResults) { book ->
+
                     BookAdminCard(
                         book = book,
+
+                        // 🔥 IMPORTANT FIX HERE
                         onAction = {
-                            viewModel.addBookToLibrary(book)
+                            val bookWithCategory = book.copy(
+                                category = selectedCategory
+                            )
+
+                            viewModel.addBookToLibrary(bookWithCategory)
+
                             scope.launch {
-                                snackbarHostState.showSnackbar("Book added")
+                                snackbarHostState.showSnackbar("Added to $selectedCategory 🦖")
                             }
                         },
+
                         onCardClick = {
                             val url = book.readerUrl.ifBlank { book.bookUrl }
                             if (url.isNotBlank()) onViewBook(book.title, url, false)
                         },
+
                         actionIcon = Icons.Default.Add
                     )
                 }
@@ -931,9 +1004,19 @@ fun BookLibraryTab(
     onViewBook: (String, String, Boolean) -> Unit
 ) {
     val scope = rememberCoroutineScope()
+    val categories by viewModel.categories.collectAsState()
+
+    var selectedCategory by remember { mutableStateOf("All") }
     var bookToRemoveUnsafe by remember { mutableStateOf<Book?>(null) }
 
-    // 🔴 Unsafe delete dialog
+    val filteredBooks = remember(books, selectedCategory) {
+        if (selectedCategory == "All") {
+            books
+        } else {
+            books.filter { it.category.equals(selectedCategory, ignoreCase = true) }
+        }
+    }
+
     if (bookToRemoveUnsafe != null) {
         var reason by remember { mutableStateOf("") }
 
@@ -980,84 +1063,188 @@ fun BookLibraryTab(
         )
     }
 
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
         Text(
-            "Curated Library (${books.size})",
+            "Curated Library (${filteredBooks.size})",
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.SemiBold
         )
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(6.dp))
 
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            items(books) { book ->
+        Text(
+            "Browse and manage books by category",
+            style = MaterialTheme.typography.bodyMedium,
+            color = AdminTextSecondary
+        )
 
-                Card(
-                    modifier = Modifier.fillMaxWidth().clickable {
-                        val url = book.readerUrl.ifBlank { book.bookUrl }
-                        if (url.isNotBlank()) onViewBook(book.title, url, false)
-                    },
-                    colors = CardDefaults.cardColors(containerColor = AdminCard),
-                    shape = RoundedCornerShape(14.dp),
-                    elevation = CardDefaults.cardElevation(1.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
+        Spacer(modifier = Modifier.height(14.dp))
+
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            item {
+                AdminCategoryChip(
+                    label = "All",
+                    selected = selectedCategory == "All",
+                    onClick = { selectedCategory = "All" }
+                )
+            }
+
+            items(categories) { category ->
+                AdminCategoryChip(
+                    label = category.name,
+                    selected = selectedCategory.equals(category.name, ignoreCase = true),
+                    onClick = { selectedCategory = category.name }
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        if (filteredBooks.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    "No books found in this category.",
+                    color = AdminTextSecondary
+                )
+            }
+        } else {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                items(filteredBooks) { book ->
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                val url = book.readerUrl.ifBlank { book.bookUrl }
+                                if (url.isNotBlank()) onViewBook(book.title, url, false)
+                            },
+                        colors = CardDefaults.cardColors(containerColor = AdminCard),
+                        shape = RoundedCornerShape(14.dp),
+                        elevation = CardDefaults.cardElevation(1.dp)
                     ) {
-
-                        AsyncImage(
-                            model = book.coverUrl,
-                            contentDescription = null,
-                            modifier = Modifier
-                                .size(60.dp)
-                                .clip(RoundedCornerShape(10.dp)),
-                            contentScale = ContentScale.Crop
-                        )
-
-                        Spacer(modifier = Modifier.width(12.dp))
-
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(book.title, fontWeight = FontWeight.SemiBold)
-                            Text(
-                                "By ${book.author}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = AdminTextSecondary
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            AsyncImage(
+                                model = book.coverUrl,
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .size(60.dp)
+                                    .clip(RoundedCornerShape(10.dp)),
+                                contentScale = ContentScale.Crop
                             )
-                        }
 
-                        Row {
+                            Spacer(modifier = Modifier.width(12.dp))
 
-                            // ⚠️ Unsafe delete
-                            IconButton(onClick = {
-                                bookToRemoveUnsafe = book
-                            }) {
-                                Icon(
-                                    Icons.Default.Warning,
-                                    contentDescription = "Unsafe",
-                                    tint = AdminDanger
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    book.title,
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+
+                                Spacer(modifier = Modifier.height(2.dp))
+
+                                Text(
+                                    "By ${book.author}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = AdminTextSecondary
+                                )
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                ProfessionalCategoryTag(
+                                    text = book.category.ifBlank { "General" }
                                 )
                             }
 
-                            // 🗑️ Normal delete
-                            IconButton(onClick = {
-                                viewModel.deleteBookFromLibrary(book.id)
-                                scope.launch {
-                                    snackbarHostState.showSnackbar("Deleted")
+                            Row {
+                                IconButton(onClick = {
+                                    bookToRemoveUnsafe = book
+                                }) {
+                                    Icon(
+                                        Icons.Default.Warning,
+                                        contentDescription = "Unsafe",
+                                        tint = AdminDanger
+                                    )
                                 }
-                            }) {
-                                Icon(
-                                    Icons.Default.Delete,
-                                    contentDescription = "Delete",
-                                    tint = Color.Gray
-                                )
+
+                                IconButton(onClick = {
+                                    viewModel.deleteBookFromLibrary(book.id)
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar("Deleted")
+                                    }
+                                }) {
+                                    Icon(
+                                        Icons.Default.Delete,
+                                        contentDescription = "Delete",
+                                        tint = Color.Gray
+                                    )
+                                }
                             }
                         }
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+fun AdminCategoryChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(10.dp),
+        color = if (selected) Color(0xFF243447) else Color(0xFFF8FAFC),
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp,
+        border = androidx.compose.foundation.BorderStroke(
+            width = 1.dp,
+            color = if (selected) Color(0xFF243447) else Color(0xFFD1D5DB)
+        )
+    ) {
+        Text(
+            text = label,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+            color = if (selected) Color.White else Color(0xFF374151),
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Medium
+        )
+    }
+}
+
+@Composable
+fun ProfessionalCategoryTag(text: String) {
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = Color(0xFFF8FAFC),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            Color(0xFFD1D5DB)
+        )
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+            color = Color(0xFF374151),
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Medium
+        )
     }
 }
 
@@ -2335,5 +2522,17 @@ fun StatusBadge(status: UserStatus) {
             fontSize = 10.sp,
             fontWeight = FontWeight.SemiBold
         )
+    }
+}
+
+fun getEmoji(category: String): String {
+    return when (category.lowercase()) {
+        "dinosaurs" -> "🦖"
+        "space" -> "🚀"
+        "animals" -> "🐶"
+        "adventure" -> "🗺️"
+        "fairy tales" -> "🪄"
+        "education" -> "📚"
+        else -> "⭐"
     }
 }
