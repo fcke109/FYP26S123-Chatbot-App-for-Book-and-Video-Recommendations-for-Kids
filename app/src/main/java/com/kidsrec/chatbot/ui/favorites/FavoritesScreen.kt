@@ -42,7 +42,9 @@ fun FavoritesScreen(
     val totalCount by viewModel.totalFavoritesCount.collectAsState()
     val selectedFilter by viewModel.selectedFilter.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
-    val isGuest by viewModel.isGuest.collectAsState()
+    val isFreePlan by viewModel.isFreePlan.collectAsState()
+    val bookCount by viewModel.bookFavoritesCount.collectAsState()
+    val videoCount by viewModel.videoFavoritesCount.collectAsState()
 
     Scaffold(
         topBar = {
@@ -56,8 +58,32 @@ fun FavoritesScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
+            if (isFreePlan) {
+                Surface(
+                    color = Color(0xFFFFF8E1),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                    ) {
+                        Text(
+                            text = "Free plan favorites",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF8D6E00)
+                        )
+                        Text(
+                            text = "Books $bookCount/${FavoritesViewModel.FREE_BOOK_LIMIT}  •  " +
+                                    "Videos $videoCount/${FavoritesViewModel.FREE_VIDEO_LIMIT}",
+                            fontSize = 12.sp,
+                            color = Color(0xFF8D6E00)
+                        )
+                    }
+                }
+            }
+
             // Filter chips row
-            if (!isGuest && !isLoading && totalCount > 0) {
+            if (!isLoading && totalCount > 0) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -97,27 +123,6 @@ fun FavoritesScreen(
                         CircularProgressIndicator(
                             modifier = Modifier.align(Alignment.Center)
                         )
-                    }
-                    isGuest -> {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(32.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            Text(
-                                text = "Favorites require an account",
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "Create an account to save your favorite books and videos!",
-                                fontSize = 14.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
                     }
                     favorites.isEmpty() -> {
                         val emptyMessage = when {

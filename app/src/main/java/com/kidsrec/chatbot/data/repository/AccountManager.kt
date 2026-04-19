@@ -10,6 +10,7 @@ import com.kidsrec.chatbot.data.model.AccountType
 import com.kidsrec.chatbot.data.model.Favorite
 import com.kidsrec.chatbot.data.model.InviteCode
 import com.kidsrec.chatbot.data.model.LoginAttempt
+import com.kidsrec.chatbot.data.model.PlanType
 import com.kidsrec.chatbot.data.model.ReadingHistory
 import com.kidsrec.chatbot.data.model.StarterBookSeed
 import com.kidsrec.chatbot.data.model.User
@@ -73,6 +74,7 @@ class AccountManager @Inject constructor(
                 name = name,
                 email = email,
                 age = age,
+                planType = PlanType.PREMIUM,
                 accountType = AccountType.CHILD,
                 interests = interests,
                 readingLevel = readingLevel
@@ -112,6 +114,7 @@ class AccountManager @Inject constructor(
                 name = name,
                 email = email,
                 age = 0,
+                planType = PlanType.PREMIUM,
                 accountType = AccountType.PARENT,
                 interests = emptyList(),
                 readingLevel = "Beginner"
@@ -203,6 +206,7 @@ class AccountManager @Inject constructor(
                 name = name,
                 email = email,
                 age = age,
+                planType = PlanType.PREMIUM,
                 accountType = AccountType.CHILD,
                 parentId = code.parentId,
                 interests = finalInterests,
@@ -525,6 +529,24 @@ class AccountManager @Inject constructor(
                 trySend(users)
             }
         awaitClose { listener.remove() }
+    }
+
+    suspend fun upgradeToPremium(userId: String): Result<Unit> {
+        return try {
+            firestore.collection("users")
+                .document(userId)
+                .update(
+                    mapOf(
+                        "planType" to PlanType.PREMIUM.name,
+                        "isGuest" to false
+                    )
+                )
+                .await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e("AccountManager", "Failed to upgrade user to premium", e)
+            Result.failure(e)
+        }
     }
 
     suspend fun updateUser(user: User): Result<Unit> {

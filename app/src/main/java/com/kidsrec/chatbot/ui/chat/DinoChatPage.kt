@@ -51,6 +51,9 @@ import com.kidsrec.chatbot.R
 import com.kidsrec.chatbot.data.model.ChatMessage
 import com.kidsrec.chatbot.data.model.Conversation
 import com.kidsrec.chatbot.data.model.MessageRole
+import com.kidsrec.chatbot.data.model.PlanType
+import com.kidsrec.chatbot.data.repository.ChatQuotaManager
+import com.kidsrec.chatbot.data.repository.ChatQuotaStatus
 import com.kidsrec.chatbot.data.repository.GamificationManager
 import com.kidsrec.chatbot.data.repository.LearningProgressManager
 import com.kidsrec.chatbot.ui.favorites.FavoritesViewModel
@@ -74,8 +77,9 @@ fun DinoChatPage(
     val error by viewModel.error.collectAsState()
     val conversations by viewModel.conversations.collectAsState()
     val favoriteItems by favoritesViewModel.favorites.collectAsState()
-    val isGuestUser by favoritesViewModel.isGuest.collectAsState()
+    val quota by viewModel.quota.collectAsState()
     val searchUiState by searchViewModel.uiState.collectAsState()
+    val isFreeUser = quota?.planType == PlanType.FREE
 
     var messageText by remember { mutableStateOf("") }
     var inputWarning by remember { mutableStateOf<String?>(null) }
@@ -361,6 +365,13 @@ fun DinoChatPage(
             }
         }
 
+        if (isFreeUser) {
+            val currentQuota = quota
+            if (currentQuota != null) {
+                FreePlanQuotaBanner(status = currentQuota)
+            }
+        }
+
         Box(
             modifier = Modifier
                 .weight(1f)
@@ -379,7 +390,7 @@ fun DinoChatPage(
                         MessageBubble(
                             message = message,
                             favoriteItems = favoriteItems,
-                            isGuest = isGuestUser,
+                            isGuest = false,
                             onToggleFavorite = { rec ->
                                 val isFav = favoriteItems.any { it.itemId == rec.id }
                                 if (isFav) {
@@ -536,8 +547,13 @@ fun DinoChatPage(
 
                     Spacer(modifier = Modifier.width(8.dp))
 
+                    val quotaBlocked = isFreeUser && quota?.exhausted == true
                     FloatingActionButton(
                         onClick = {
+                            if (quotaBlocked) {
+                                inputWarning = "Daily Free plan limit reached. Upgrade to Premium to keep chatting."
+                                return@FloatingActionButton
+                            }
                             if (messageText.isNotBlank()) {
                                 val validation = com.kidsrec.chatbot.util.InputSanitizer.validateMessage(messageText)
                                 if (validation != null) {
@@ -550,11 +566,77 @@ fun DinoChatPage(
                                 }
                             }
                         },
-                        containerColor = MaterialTheme.colorScheme.primary
+                        containerColor = if (quotaBlocked) Color.Gray else MaterialTheme.colorScheme.primary
                     ) {
                         Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send")
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun FreePlanQuotaBanner(status: ChatQuotaStatus) {
+    val resetAtMillis = status.resetAt?.toDate()?.time
+    val resetText = remember(resetAtMillis) {
+        if (resetAtMillis == null) {
+            "Resets 24 hours after your first question today."
+        } else {
+            val remaining = resetAtMillis - System.currentTimeMillis()
+            if (remaining <= 0) {
+                "Quota has been refreshed!"
+            } else {
+                val totalMinutes = remaining / 60_000L
+                val hours = totalMinutes / 60L
+                val minutes = totalMinutes % 60L
+                when {
+                    hours > 0 -> "Resets in ${hours}h ${minutes}m"
+                    minutes > 0 -> "Resets in ${minutes}m"
+                    else -> "Resets in under a minute"
+                }
+            }
+        }
+    }
+
+    val containerColor = if (status.exhausted) {
+        Color(0xFFFFEBEE)
+    } else {
+        Color(0xFFFFF8E1)
+    }
+    val textColor = if (status.exhausted) Color(0xFFC62828) else Color(0xFF8D6E00)
+
+    Surface(
+        color = containerColor,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = if (status.exhausted) Icons.Default.Lock else Icons.Default.Info,
+                contentDescription = null,
+                tint = textColor,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = if (status.exhausted) {
+                        "Free plan limit reached (0/${status.limit} left)"
+                    } else {
+                        "Free plan: ${status.remaining}/${status.limit} questions left today"
+                    },
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = textColor
+                )
+                Text(
+                    text = resetText,
+                    fontSize = 11.sp,
+                    color = textColor.copy(alpha = 0.85f)
+                )
             }
         }
     }

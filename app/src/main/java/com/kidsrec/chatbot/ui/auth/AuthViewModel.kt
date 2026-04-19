@@ -82,8 +82,38 @@ class AuthViewModel @Inject constructor(
                     Log.e("AuthVM", "Failed to load user data", e)
                 }
                 .collect { user ->
-                    _currentUser.value = user
+                    // Auto-upgrade legacy registered users to PREMIUM.
+                    // Anonymous (guest) users remain FREE so the Free plan limits apply.
+                    if (
+                        user != null &&
+                        !user.isGuest &&
+                        user.planType == PlanType.FREE &&
+                        !isAdminEmail(user.email)
+                    ) {
+                        val upgrade = accountManager.upgradeToPremium(user.id)
+                        if (upgrade.isFailure) {
+                            Log.w("AuthVM", "Failed to auto-upgrade legacy user to premium", upgrade.exceptionOrNull())
+                        }
+                        _currentUser.value = user.copy(planType = PlanType.PREMIUM)
+                    } else {
+                        _currentUser.value = user
+                    }
                 }
+        }
+    }
+
+    fun upgradeCurrentUserToPremium() {
+        val userId = accountManager.getCurrentUserId() ?: return
+        viewModelScope.launch {
+            val result = accountManager.upgradeToPremium(userId)
+            if (result.isSuccess) {
+                _currentUser.value = _currentUser.value?.copy(
+                    planType = PlanType.PREMIUM,
+                    isGuest = false
+                )
+            } else {
+                Log.e("AuthVM", "Failed to upgrade user to premium", result.exceptionOrNull())
+            }
         }
     }
 
@@ -220,37 +250,37 @@ class AuthViewModel @Inject constructor(
             val result = accountManager.signInAnonymously()
             result.fold(
                 onSuccess = { user ->
-                    val guestDoc = User(
+                    val freeDoc = User(
                         id = user.uid,
-                        name = "Guest",
+                        name = "Free User",
                         email = "",
                         age = 8,
                         accountType = AccountType.CHILD,
                         isGuest = true,
                         planType = PlanType.FREE
                     )
-                    val updateResult = accountManager.updateUser(guestDoc)
+                    val updateResult = accountManager.updateUser(freeDoc)
                     if (updateResult.isFailure) {
-                        Log.e("AuthVM", "Failed to create guest profile", updateResult.exceptionOrNull())
+                        Log.e("AuthVM", "Failed to create free user profile", updateResult.exceptionOrNull())
                         try {
                             user.delete()
                         } catch (_: Exception) {
                         }
                         accountManager.signOut()
-                        _authState.value = AuthState.Error("Failed to create guest account. Try again.")
+                        _authState.value = AuthState.Error("Failed to create free account. Try again.")
                         return@fold
                     }
                     _authState.value = AuthState.Authenticated(user.uid)
-                    _currentUser.value = guestDoc
+                    _currentUser.value = freeDoc
                 },
                 onFailure = { error ->
-                    Log.e("AuthVM", "Guest sign-in failed", error)
+                    Log.e("AuthVM", "Free sign-in failed", error)
                     _authState.value = AuthState.Error(
                         if (
                             error.message?.contains("ADMIN_ONLY_OPERATION") == true ||
                             error.message?.contains("anonymous") == true
                         ) {
-                            "Guest browsing is not enabled. Please ask the admin to enable Anonymous sign-in in Firebase."
+                            "Free access is not enabled. Please ask the admin to enable Anonymous sign-in in Firebase."
                         } else {
                             mapFirebaseError(error)
                         }

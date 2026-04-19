@@ -4,11 +4,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kidsrec.chatbot.data.model.ChatMessage
 import com.kidsrec.chatbot.data.model.Conversation
+import com.kidsrec.chatbot.data.model.PlanType
 import com.kidsrec.chatbot.data.remote.OpenLibraryService
 import com.kidsrec.chatbot.data.repository.AccountManager
 import com.kidsrec.chatbot.data.repository.AnalyticsRepository
 import com.kidsrec.chatbot.data.repository.BookDataManager
 import com.kidsrec.chatbot.data.repository.ChatDataManager
+import com.kidsrec.chatbot.data.repository.ChatQuotaManager
+import com.kidsrec.chatbot.data.repository.ChatQuotaStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
 import android.util.Log
 import kotlinx.coroutines.Job
@@ -28,7 +31,8 @@ class ChatViewModel @Inject constructor(
     private val accountManager: AccountManager,
     private val bookDataManager: BookDataManager,
     private val openLibraryService: OpenLibraryService,
-    private val analyticsRepository: AnalyticsRepository
+    private val analyticsRepository: AnalyticsRepository,
+    private val chatQuotaManager: ChatQuotaManager
 ) : ViewModel() {
 
     private val _messages = MutableStateFlow<List<ChatMessage>>(emptyList())
@@ -43,12 +47,32 @@ class ChatViewModel @Inject constructor(
     private val _conversations = MutableStateFlow<List<Conversation>>(emptyList())
     val conversations: StateFlow<List<Conversation>> = _conversations.asStateFlow()
 
+    private val _quota = MutableStateFlow<ChatQuotaStatus?>(null)
+    val quota: StateFlow<ChatQuotaStatus?> = _quota.asStateFlow()
+
     private var currentConversationId: String? = null
     private var messagesJob: Job? = null
+    private var quotaJob: Job? = null
 
     init {
         initializeConversation()
         loadConversationsList()
+        loadQuota()
+    }
+
+    private fun loadQuota() {
+        quotaJob?.cancel()
+        quotaJob = viewModelScope.launch {
+            val userId = accountManager.getCurrentUserId() ?: return@launch
+            val user = accountManager.getUser(userId) ?: return@launch
+            chatQuotaManager.statusFlow(user)
+                .catch { e -> Log.e("ChatVM", "Quota flow failed", e) }
+                .collect { status -> _quota.value = status }
+        }
+    }
+
+    fun clearError() {
+        _error.value = null
     }
 
     private fun initializeConversation() {
@@ -135,6 +159,19 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             val userId = accountManager.getCurrentUserId() ?: return@launch
             val conversationId = currentConversationId ?: return@launch
+
+            // Enforce Free plan daily quota before making the API call.
+            val user = accountManager.getUser(userId)
+            if (user != null && user.planType == PlanType.FREE) {
+                val consumeResult = chatQuotaManager.tryConsume(user)
+                if (consumeResult.isFailure) {
+                    _error.value = consumeResult.exceptionOrNull()?.message
+                        ?: "Free plan limit reached."
+                    return@launch
+                }
+                _quota.value = consumeResult.getOrNull()
+            }
+
             _isLoading.value = true
             _error.value = null
             val result = chatDataManager.sendMessage(userId, conversationId, message)

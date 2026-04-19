@@ -243,7 +243,7 @@ fun AppNavigation() {
             authViewModel = authViewModel,
             isAdmin = isAdmin,
             isParent = isParent,
-            isGuest = currentUser?.isGuest == true
+            isFree = currentUser?.planType == PlanType.FREE
         )
 
         is AuthState.EmailNotVerified -> EmailVerificationScreen(authViewModel)
@@ -292,7 +292,7 @@ fun MainScreen(
     authViewModel: AuthViewModel,
     isAdmin: Boolean,
     isParent: Boolean = false,
-    isGuest: Boolean = false
+    isFree: Boolean = false
 ) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -336,8 +336,6 @@ fun MainScreen(
 
     val bottomNavItems = if (isAdmin || isParent) {
         emptyList()
-    } else if (isGuest) {
-        listOf(Screen.Chat, Screen.Library, Screen.Profile)
     } else {
         listOf(Screen.Chat, Screen.Library, Screen.Favorites, Screen.Profile)
     }
@@ -513,6 +511,9 @@ fun MainScreen(
                         },
                         onNavigateToBadgesRewards = {
                             navController.navigate(Screen.BadgesRewards.route)
+                        },
+                        onNavigateToUpgrade = {
+                            navController.navigate(Screen.PremiumUpgrade.route)
                         }
                     )
                 }
@@ -520,7 +521,7 @@ fun MainScreen(
                 composable(Screen.BadgesRewards.route) {
                     val childUser = currentUser
 
-                    if (childUser != null && !childUser.isGuest) {
+                    if (childUser != null && childUser.planType == PlanType.PREMIUM) {
                         BadgesRewardsScreen(
                             childUserId = childUser.id,
                             childName = childUser.name,
@@ -776,6 +777,7 @@ fun MainScreen(
                     PaymentScreen(
                         onBack = { navController.popBackStack() },
                         onPaymentSuccess = {
+                            authViewModel.upgradeCurrentUserToPremium()
                             navController.popBackStack()
                         }
                     )

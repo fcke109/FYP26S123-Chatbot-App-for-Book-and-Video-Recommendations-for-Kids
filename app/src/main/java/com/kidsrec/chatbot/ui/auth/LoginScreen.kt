@@ -169,13 +169,13 @@ fun LoginScreen(
             shape = MaterialTheme.shapes.large,
             enabled = authState !is AuthState.Loading
         ) {
-            Text("Browse as Guest", fontSize = 16.sp)
+            Text("Continue as Free User", fontSize = 16.sp)
         }
 
         Spacer(modifier = Modifier.height(4.dp))
 
         Text(
-            text = "Limited features - no favorites or chat history",
+            text = "Free plan: 5 chat questions/day, up to 2 favorite books and 2 favorite videos",
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

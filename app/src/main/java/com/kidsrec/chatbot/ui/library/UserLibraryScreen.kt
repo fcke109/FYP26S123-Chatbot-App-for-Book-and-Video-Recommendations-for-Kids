@@ -145,7 +145,6 @@ fun UserLibraryScreen(
     val books by viewModel.curatedBooks.collectAsState()
     val topPicks by viewModel.topPicks.collectAsState()
     val favoriteItems by favoritesViewModel.favorites.collectAsState()
-    val isGuest by favoritesViewModel.isGuest.collectAsState()
     val searchUiState by searchViewModel.uiState.collectAsState()
     val userAge by viewModel.userAge.collectAsState()
 
@@ -244,7 +243,6 @@ fun UserLibraryScreen(
                             },
                             picks = topPicks,
                             favoriteItems = favoriteItems,
-                            isGuest = isGuest,
                             ageUiMode = ageUiMode,
                             onToggleFavorite = { rec ->
                                 val isFav = favoriteItems.any { it.itemId == rec.id }
@@ -331,7 +329,7 @@ fun UserLibraryScreen(
                                 BigBookTile(
                                     book = book,
                                     isFavorited = isFavorited,
-                                    showFavoriteButton = !isGuest,
+                                    showFavoriteButton = true,
                                     onFavoriteClick = {
                                         if (isFavorited) {
                                             favoritesViewModel.removeFavorite(book.id)
@@ -372,7 +370,7 @@ fun UserLibraryScreen(
                         UserBookCardAdaptive(
                             book = book,
                             isFavorited = isFavorited,
-                            showFavoriteButton = !isGuest,
+                            showFavoriteButton = true,
                             ageUiMode = ageUiMode,
                             onFavoriteClick = {
                                 if (isFavorited) {
@@ -520,7 +518,7 @@ fun TopPicksSection(
     title: String,
     picks: List<Recommendation>,
     favoriteItems: List<Favorite>,
-    isGuest: Boolean = false,
+    @Suppress("UNUSED_PARAMETER") isGuest: Boolean = false,
     ageUiMode: AgeUiMode,
     onToggleFavorite: (Recommendation) -> Unit,
     onPickClick: (Recommendation) -> Unit
@@ -550,7 +548,7 @@ fun TopPicksSection(
                 TopPickCardAdaptive(
                     pick = pick,
                     isFavorited = isFavorited,
-                    showFavoriteButton = !isGuest,
+                    showFavoriteButton = true,
                     ageUiMode = ageUiMode,
                     onFavoriteClick = { onToggleFavorite(pick) },
                     onClick = { onPickClick(pick) }

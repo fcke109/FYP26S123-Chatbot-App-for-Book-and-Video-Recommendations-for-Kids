@@ -24,6 +24,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.kidsrec.chatbot.data.model.PlanType
 import com.kidsrec.chatbot.data.model.ReadingHistory
 import com.kidsrec.chatbot.ui.auth.AuthViewModel
 import com.kidsrec.chatbot.ui.parental.ChildSafetyLockGate
@@ -36,7 +37,8 @@ fun ProfileScreen(
     profileViewModel: ProfileViewModel,
     onItemClick: (url: String, title: String, isVideo: Boolean) -> Unit = { _, _, _ -> },
     onNavigateToParentalControls: () -> Unit = {},
-    onNavigateToBadgesRewards: () -> Unit = {}
+    onNavigateToBadgesRewards: () -> Unit = {},
+    onNavigateToUpgrade: () -> Unit = {}
 ) {
     val user by authViewModel.currentUser.collectAsState()
     val updateSuccess by profileViewModel.updateSuccess.collectAsState()
@@ -105,7 +107,7 @@ fun ProfileScreen(
             TopAppBar(
                 title = { Text("Profile") },
                 actions = {
-                    if (!isEditing && user?.isGuest != true) {
+                    if (!isEditing && user?.planType != PlanType.FREE) {
                         IconButton(onClick = { requestEditAccess() }) {
                             Icon(Icons.Default.Edit, contentDescription = "Edit Profile")
                         }
@@ -293,34 +295,62 @@ fun ProfileScreen(
                 }
             } else {
                 user?.let { currentUser ->
-                    if (currentUser.isGuest) {
+                    val isFreePlan = currentUser.planType == PlanType.FREE
+                    if (isFreePlan) {
                         Text(
-                            text = "Guest",
+                            text = currentUser.name.ifBlank { "Free User" },
                             fontSize = 28.sp,
                             fontWeight = FontWeight.Bold
                         )
 
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        Text(
-                            text = "You're browsing as a guest",
-                            fontSize = 16.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Surface(
+                            color = Color(0xFFFFF8E1),
+                            shape = RoundedCornerShape(50)
+                        ) {
+                            Text(
+                                text = "Free plan",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFF8D6E00),
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                            )
+                        }
 
                         Spacer(modifier = Modifier.height(24.dp))
 
                         Card(modifier = Modifier.fillMaxWidth()) {
                             Column(modifier = Modifier.padding(16.dp)) {
                                 Text(
-                                    text = "Create an account to unlock:",
+                                    text = "Your Free plan includes:",
                                     fontWeight = FontWeight.Medium,
                                     fontSize = 16.sp
                                 )
                                 Spacer(modifier = Modifier.height(8.dp))
-                                Text(text = "- Save your favorite books and videos")
-                                Text(text = "- Get personalized recommendations")
-                                Text(text = "- Track your reading history")
+                                Text(text = "- 5 Little Dino chat questions per day")
+                                Text(text = "- Up to 2 favorite books and 2 favorite videos")
+                                Text(text = "- Browse the library and read books/watch videos")
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    text = "Upgrade to Premium to unlock:",
+                                    fontWeight = FontWeight.Medium,
+                                    fontSize = 16.sp
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(text = "- Unlimited chat questions")
+                                Text(text = "- Unlimited favorites")
+                                Text(text = "- Badges & Rewards gamification")
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Button(
+                                    onClick = onNavigateToUpgrade,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(14.dp)
+                                ) {
+                                    Icon(Icons.Default.Star, contentDescription = null)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Upgrade to Premium")
+                                }
                             }
                         }
                     } else {

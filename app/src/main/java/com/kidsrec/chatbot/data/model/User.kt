@@ -41,6 +41,15 @@ data class User(
 ) {
     // No-arg constructor for Firestore
     constructor() : this("")
+
+    val isFreePlan: Boolean
+        get() = planType == PlanType.FREE
+
+    val isPremiumPlan: Boolean
+        get() = planType == PlanType.PREMIUM
+
+    val isAdminPlan: Boolean
+        get() = planType == PlanType.ADMIN
 }
 
 @Keep

@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kidsrec.chatbot.data.model.Favorite
+import com.kidsrec.chatbot.data.model.PlanType
 import com.kidsrec.chatbot.data.model.RecommendationType
 import com.kidsrec.chatbot.data.repository.AccountManager
 import com.kidsrec.chatbot.data.repository.FavoritesManager
@@ -32,6 +33,8 @@ class FavoritesViewModel @Inject constructor(
     companion object {
         private const val TAG = "FavoritesVM"
         private const val TEST_TAG = "FAV_TEST"
+        const val FREE_BOOK_LIMIT = 2
+        const val FREE_VIDEO_LIMIT = 2
     }
 
     private val _favorites = MutableStateFlow<List<Favorite>>(emptyList())
@@ -58,6 +61,17 @@ class FavoritesViewModel @Inject constructor(
 
     private val _isGuest = MutableStateFlow(false)
     val isGuest: StateFlow<Boolean> = _isGuest.asStateFlow()
+
+    private val _isFreePlan = MutableStateFlow(false)
+    val isFreePlan: StateFlow<Boolean> = _isFreePlan.asStateFlow()
+
+    val bookFavoritesCount: StateFlow<Int> =
+        _favorites.map { favs -> favs.count { it.type == RecommendationType.BOOK } }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    val videoFavoritesCount: StateFlow<Int> =
+        _favorites.map { favs -> favs.count { it.type == RecommendationType.VIDEO } }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
@@ -102,19 +116,11 @@ class FavoritesViewModel @Inject constructor(
                 }
 
                 val user = accountManager.getUser(userId)
-                Log.d(TEST_TAG, "Loaded user for favorites. isGuest=${user?.isGuest}")
+                Log.d(TEST_TAG, "Loaded user for favorites. isGuest=${user?.isGuest} plan=${user?.planType}")
 
-                if (user?.isGuest == true) {
-                    Log.w(TEST_TAG, "Guest user detected. Favorites disabled.")
-                    _isGuest.value = true
-                    _favorites.value = emptyList()
-                    _isLoading.value = false
-                    currentListeningUserId = null
-                    favoritesJob?.cancel()
-                    return@launch
-                }
-
-                _isGuest.value = false
+                // Free users can still favorite (within limits), so we continue loading.
+                _isGuest.value = user?.isGuest == true
+                _isFreePlan.value = user?.planType == PlanType.FREE
 
                 favoritesJob?.cancel()
                 currentListeningUserId = userId
@@ -165,9 +171,23 @@ class FavoritesViewModel @Inject constructor(
         imageUrl: String,
         url: String = ""
     ) {
-        if (_isGuest.value) {
-            Log.w(TEST_TAG, "addFavorite blocked because user is guest")
-            return
+        if (_isFreePlan.value) {
+            val alreadyFavorited = _favorites.value.any { it.itemId == itemId }
+            if (!alreadyFavorited) {
+                val currentBooks = _favorites.value.count { it.type == RecommendationType.BOOK }
+                val currentVideos = _favorites.value.count { it.type == RecommendationType.VIDEO }
+
+                if (type == RecommendationType.BOOK && currentBooks >= FREE_BOOK_LIMIT) {
+                    _errorMessage.value =
+                        "Free plan allows up to $FREE_BOOK_LIMIT favorite books. Upgrade to Premium for unlimited favorites."
+                    return
+                }
+                if (type == RecommendationType.VIDEO && currentVideos >= FREE_VIDEO_LIMIT) {
+                    _errorMessage.value =
+                        "Free plan allows up to $FREE_VIDEO_LIMIT favorite videos. Upgrade to Premium for unlimited favorites."
+                    return
+                }
+            }
         }
 
         viewModelScope.launch {
@@ -214,11 +234,6 @@ class FavoritesViewModel @Inject constructor(
     }
 
     fun removeFavorite(itemId: String) {
-        if (_isGuest.value) {
-            Log.w(TEST_TAG, "removeFavorite blocked because user is guest")
-            return
-        }
-
         viewModelScope.launch {
             try {
                 val userId = accountManager.getCurrentUserId()
