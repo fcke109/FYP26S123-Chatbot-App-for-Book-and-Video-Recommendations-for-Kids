@@ -22,7 +22,8 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.kidsrec.chatbot.data.model.AccountType
+
+private enum class RegistrationMode { PARENT, PREMIUM_KID, FREE_KID }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -31,7 +32,10 @@ fun RegisterScreen(
     onNavigateToLogin: () -> Unit,
     viewModel: AuthViewModel
 ) {
-    var selectedAccountType by remember { mutableStateOf<AccountType?>(null) }
+    var registrationMode by remember { mutableStateOf<RegistrationMode?>(null) }
+    val isKid = registrationMode == RegistrationMode.PREMIUM_KID ||
+            registrationMode == RegistrationMode.FREE_KID
+    val needsInviteCode = registrationMode == RegistrationMode.PREMIUM_KID
 
     // Shared fields
     var name by remember { mutableStateOf("") }
@@ -80,7 +84,7 @@ fun RegisterScreen(
         Spacer(modifier = Modifier.height(24.dp))
 
         // ── Step 1: Account Type Selection ──────────────────────
-        if (selectedAccountType == null) {
+        if (registrationMode == null) {
             Text(
                 text = "I am a...",
                 fontSize = 20.sp,
@@ -98,17 +102,27 @@ fun RegisterScreen(
                     description = "Manage and monitor your children's activity",
                     icon = Icons.Default.Person,
                     modifier = Modifier.weight(1f),
-                    onClick = { selectedAccountType = AccountType.PARENT }
+                    onClick = { registrationMode = RegistrationMode.PARENT }
                 )
 
                 AccountTypeCard(
-                    title = "Kid",
-                    description = "Discover books and videos with Little Dino",
+                    title = "Kid (Premium)",
+                    description = "Join with a parent invite code",
                     icon = Icons.Default.Face,
                     modifier = Modifier.weight(1f),
-                    onClick = { selectedAccountType = AccountType.CHILD }
+                    onClick = { registrationMode = RegistrationMode.PREMIUM_KID }
                 )
             }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            AccountTypeCard(
+                title = "Free Kid",
+                description = "Sign up for the free plan (5 chats/day, limited favorites)",
+                icon = Icons.Default.Face,
+                modifier = Modifier.fillMaxWidth(),
+                onClick = { registrationMode = RegistrationMode.FREE_KID }
+            )
 
             Spacer(modifier = Modifier.height(24.dp))
 
@@ -124,7 +138,7 @@ fun RegisterScreen(
         // Back button to return to account type selection
         TextButton(
             onClick = {
-                selectedAccountType = null
+                registrationMode = null
                 viewModel.clearError()
             },
             modifier = Modifier.align(Alignment.Start)
@@ -132,15 +146,19 @@ fun RegisterScreen(
             Icon(Icons.Default.ArrowBack, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(modifier = Modifier.width(4.dp))
             Text(
-                if (selectedAccountType == AccountType.PARENT) "Parent Account"
-                else "Kid Account"
+                when (registrationMode) {
+                    RegistrationMode.PARENT -> "Parent Account"
+                    RegistrationMode.PREMIUM_KID -> "Kid Account (Premium)"
+                    RegistrationMode.FREE_KID -> "Free Kid Account"
+                    null -> ""
+                }
             )
         }
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // ── Invite Code (child only, shown first) ───────────────
-        AnimatedVisibility(visible = selectedAccountType == AccountType.CHILD) {
+        // ── Invite Code (premium kid only) ──────────────────────
+        AnimatedVisibility(visible = needsInviteCode) {
             Column {
                 OutlinedTextField(
                     value = inviteCode,
@@ -207,7 +225,7 @@ fun RegisterScreen(
 
         // ── Child-only fields: Age, Interests, Reading Level ────
         AnimatedVisibility(
-            visible = selectedAccountType == AccountType.CHILD,
+            visible = isKid,
             enter = fadeIn(),
             exit = fadeOut()
         ) {
@@ -360,29 +378,29 @@ fun RegisterScreen(
         Spacer(modifier = Modifier.height(24.dp))
 
         // ── Submit button ───────────────────────────────────────
-        val isFormValid = when (selectedAccountType) {
-            AccountType.PARENT -> {
+        val kidFieldsValid = name.isNotBlank() && email.isNotBlank() && password.length >= 6 &&
+                age.isNotBlank() && selectedInterests.isNotEmpty()
+
+        val isFormValid = when (registrationMode) {
+            RegistrationMode.PARENT -> {
                 name.isNotBlank() && email.isNotBlank() && password.length >= 6
             }
-            AccountType.CHILD -> {
-                name.isNotBlank() && email.isNotBlank() && password.length >= 6 &&
-                        age.isNotBlank() && selectedInterests.isNotEmpty() &&
-                        inviteCode.length == 6
-            }
-            else -> false
+            RegistrationMode.PREMIUM_KID -> kidFieldsValid && inviteCode.length == 6
+            RegistrationMode.FREE_KID -> kidFieldsValid
+            null -> false
         }
 
         Button(
             onClick = {
-                when (selectedAccountType) {
-                    AccountType.PARENT -> {
+                when (registrationMode) {
+                    RegistrationMode.PARENT -> {
                         viewModel.signUpParent(
                             email = email,
                             password = password,
                             name = name
                         )
                     }
-                    AccountType.CHILD -> {
+                    RegistrationMode.PREMIUM_KID -> {
                         val ageInt = age.toIntOrNull() ?: 0
                         viewModel.signUpChild(
                             email = email,
@@ -394,7 +412,18 @@ fun RegisterScreen(
                             inviteCode = inviteCode
                         )
                     }
-                    else -> {}
+                    RegistrationMode.FREE_KID -> {
+                        val ageInt = age.toIntOrNull() ?: 0
+                        viewModel.signUpFreeKid(
+                            email = email,
+                            password = password,
+                            name = name,
+                            age = ageInt,
+                            interests = selectedInterests.toList(),
+                            readingLevel = readingLevel
+                        )
+                    }
+                    null -> {}
                 }
             },
             modifier = Modifier

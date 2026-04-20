@@ -149,6 +149,47 @@ class AccountManager @Inject constructor(
         }
     }
 
+    // ── Free Kid signup (standalone, no parent, FREE plan) ────────
+    suspend fun signUpFreeKid(
+        email: String,
+        password: String,
+        name: String,
+        age: Int,
+        interests: List<String>,
+        readingLevel: String
+    ): Result<FirebaseUser> {
+        var createdUser: FirebaseUser? = null
+        return try {
+            val result = auth.createUserWithEmailAndPassword(email, password).await()
+            val user = result.user ?: return Result.failure(Exception("User creation failed"))
+            createdUser = user
+
+            user.getIdToken(true).await()
+
+            val userDoc = User(
+                id = user.uid,
+                name = name,
+                email = email,
+                age = age,
+                planType = PlanType.FREE,
+                accountType = AccountType.CHILD,
+                interests = interests.map { it.trim() }.filter { it.isNotBlank() }.take(5),
+                readingLevel = readingLevel
+            )
+
+            firestore.collection("users")
+                .document(user.uid)
+                .set(userDoc)
+                .await()
+
+            Result.success(user)
+        } catch (e: Exception) {
+            createdUser?.delete()
+            auth.signOut()
+            Result.failure(e)
+        }
+    }
+
     // ── Child signup with invite code ──────────────────────────────
     suspend fun signUpChild(
         email: String,

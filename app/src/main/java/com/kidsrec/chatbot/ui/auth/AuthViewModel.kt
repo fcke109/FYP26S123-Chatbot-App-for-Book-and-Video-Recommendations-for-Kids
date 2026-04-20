@@ -82,22 +82,7 @@ class AuthViewModel @Inject constructor(
                     Log.e("AuthVM", "Failed to load user data", e)
                 }
                 .collect { user ->
-                    // Auto-upgrade legacy registered users to PREMIUM.
-                    // Anonymous (guest) users remain FREE so the Free plan limits apply.
-                    if (
-                        user != null &&
-                        !user.isGuest &&
-                        user.planType == PlanType.FREE &&
-                        !isAdminEmail(user.email)
-                    ) {
-                        val upgrade = accountManager.upgradeToPremium(user.id)
-                        if (upgrade.isFailure) {
-                            Log.w("AuthVM", "Failed to auto-upgrade legacy user to premium", upgrade.exceptionOrNull())
-                        }
-                        _currentUser.value = user.copy(planType = PlanType.PREMIUM)
-                    } else {
-                        _currentUser.value = user
-                    }
+                    _currentUser.value = user
                 }
         }
     }
@@ -244,47 +229,27 @@ class AuthViewModel @Inject constructor(
         }
     }
 
-    fun continueAsGuest() {
+    fun signUpFreeKid(
+        email: String,
+        password: String,
+        name: String,
+        age: Int,
+        interests: List<String>,
+        readingLevel: String
+    ) {
         viewModelScope.launch {
             _authState.value = AuthState.Loading
-            val result = accountManager.signInAnonymously()
+            val result = accountManager.signUpFreeKid(
+                email, password, name, age, interests, readingLevel
+            )
             result.fold(
                 onSuccess = { user ->
-                    val freeDoc = User(
-                        id = user.uid,
-                        name = "Free User",
-                        email = "",
-                        age = 8,
-                        accountType = AccountType.CHILD,
-                        isGuest = true,
-                        planType = PlanType.FREE
-                    )
-                    val updateResult = accountManager.updateUser(freeDoc)
-                    if (updateResult.isFailure) {
-                        Log.e("AuthVM", "Failed to create free user profile", updateResult.exceptionOrNull())
-                        try {
-                            user.delete()
-                        } catch (_: Exception) {
-                        }
-                        accountManager.signOut()
-                        _authState.value = AuthState.Error("Failed to create free account. Try again.")
-                        return@fold
-                    }
                     _authState.value = AuthState.Authenticated(user.uid)
-                    _currentUser.value = freeDoc
+                    loadUserData(user.uid)
                 },
                 onFailure = { error ->
-                    Log.e("AuthVM", "Free sign-in failed", error)
-                    _authState.value = AuthState.Error(
-                        if (
-                            error.message?.contains("ADMIN_ONLY_OPERATION") == true ||
-                            error.message?.contains("anonymous") == true
-                        ) {
-                            "Free access is not enabled. Please ask the admin to enable Anonymous sign-in in Firebase."
-                        } else {
-                            mapFirebaseError(error)
-                        }
-                    )
+                    _currentUser.value = null
+                    _authState.value = AuthState.Error(mapFirebaseError(error))
                 }
             )
         }
