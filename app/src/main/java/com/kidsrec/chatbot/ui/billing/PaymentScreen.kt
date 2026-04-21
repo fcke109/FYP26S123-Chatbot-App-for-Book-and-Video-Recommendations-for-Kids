@@ -245,7 +245,7 @@ fun PaymentScreen(
                                     Text("Processing...")
                                 } else {
                                     Text(
-                                        text = "Pay $4.99",
+                                        text = "Pay $9.99",
                                         fontSize = 16.sp,
                                         fontWeight = FontWeight.SemiBold
                                     )
