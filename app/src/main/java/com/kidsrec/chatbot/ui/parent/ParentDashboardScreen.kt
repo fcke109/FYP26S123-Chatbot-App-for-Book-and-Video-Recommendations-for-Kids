@@ -1,5 +1,7 @@
 package com.kidsrec.chatbot.ui.parent
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,6 +18,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -33,16 +36,22 @@ import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -55,6 +64,7 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -65,6 +75,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
@@ -82,6 +93,17 @@ import com.kidsrec.chatbot.data.model.ReadingHistory
 import com.kidsrec.chatbot.data.model.User
 import java.text.SimpleDateFormat
 import java.util.Locale
+
+private val ParentBlue = Color(0xFF4F8EE8)
+private val ParentBlueDark = Color(0xFF316FC8)
+private val ParentSoftBlue = Color(0xFFEFF6FF)
+private val ParentMint = Color(0xFFE9F8F0)
+private val ParentGold = Color(0xFFFFB300)
+private val ParentDanger = Color(0xFFE65353)
+private val ParentSurface = Color(0xFFF8FBFF)
+private val ParentBorder = Color(0xFFDCE7F7)
+private val ParentTextSoft = Color(0xFF6D7A8C)
+private val ParentPinkSoft = Color(0xFFFFEEF5)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -104,17 +126,37 @@ fun ParentDashboardScreen(
     val selectedConversationId by viewModel.selectedConversationId.collectAsState()
 
     Scaffold(
+        containerColor = ParentSurface,
         topBar = {
             TopAppBar(
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.White,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface
+                ),
                 title = {
-                    Text(
-                        text = selectedChild?.name ?: "Parent Dashboard"
-                    )
+                    Column {
+                        Text(
+                            text = selectedChild?.name ?: "Parent Dashboard",
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = if (selectedChild != null) {
+                                "Monitor activity and update child settings"
+                            } else {
+                                "Manage linked children and account controls"
+                            },
+                            fontSize = 12.sp,
+                            color = ParentTextSoft
+                        )
+                    }
                 },
                 navigationIcon = {
                     if (selectedChild != null) {
                         IconButton(onClick = { viewModel.clearSelectedChild() }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                            Icon(
+                                Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Back"
+                            )
                         }
                     }
                 },
@@ -123,14 +165,14 @@ fun ParentDashboardScreen(
                         Icon(
                             Icons.Default.Star,
                             contentDescription = "Upgrade to Premium",
-                            tint = Color(0xFFFFA000)
+                            tint = ParentGold
                         )
                     }
                     IconButton(onClick = onLogout) {
                         Icon(
                             Icons.AutoMirrored.Filled.Logout,
                             contentDescription = "Logout",
-                            tint = Color(0xFFE53935)
+                            tint = ParentDanger
                         )
                     }
                 }
@@ -146,14 +188,14 @@ fun ParentDashboardScreen(
                 messages = childMessages,
                 selectedConversationId = selectedConversationId,
                 parentProgressViewModel = parentProgressViewModel,
-                onSelectConversation = { conversationId: String ->
+                onSelectConversation = { conversationId ->
                     viewModel.selectConversation(selectedChild!!.id, conversationId)
                 },
                 onClearConversation = { viewModel.clearConversation() },
-                onUpdateFilters = { maxAge: Int, allowVideos: Boolean ->
+                onUpdateFilters = { maxAge, allowVideos ->
                     viewModel.updateChildFilters(selectedChild!!.id, maxAge, allowVideos)
                 },
-                onUpdatePin = { pin: String ->
+                onUpdatePin = { pin ->
                     viewModel.updateChildParentalPin(selectedChild!!.id, pin)
                 },
                 modifier = Modifier.padding(paddingValues)
@@ -167,7 +209,7 @@ fun ParentDashboardScreen(
                 onGenerateCode = onGenerateCode,
                 onDismissCode = { viewModel.dismissInviteCode() },
                 onDismissError = { viewModel.dismissError() },
-                onSelectChild = { child: User -> viewModel.selectChild(child) },
+                onSelectChild = { child -> viewModel.selectChild(child) },
                 modifier = Modifier.padding(paddingValues)
             )
         }
@@ -194,180 +236,354 @@ private fun ParentHomeView(
             .verticalScroll(rememberScrollState())
             .padding(16.dp)
     ) {
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.primaryContainer
-            )
-        ) {
-            Column(modifier = Modifier.padding(20.dp)) {
-                Text(
-                    text = "Welcome, Parent!",
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "Generate an invite code to link your child's account.",
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Button(
-                    onClick = onGenerateCode,
-                    enabled = !isLoading
-                ) {
-                    if (isLoading) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(20.dp),
-                            color = MaterialTheme.colorScheme.onPrimary,
-                            strokeWidth = 2.dp
-                        )
-                    } else {
-                        Icon(Icons.Default.Add, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Add Child Account")
-                    }
-                }
-            }
-        }
+        HeroSummaryCard(
+            childCount = children.size,
+            isLoading = isLoading,
+            onGenerateCode = onGenerateCode
+        )
 
         if (inviteCode != null) {
             Spacer(modifier = Modifier.height(16.dp))
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.tertiaryContainer
-                )
-            ) {
-                Column(
-                    modifier = Modifier.padding(20.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = "Invite Code",
-                        fontSize = 14.sp,
-                        color = MaterialTheme.colorScheme.onTertiaryContainer
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = inviteCode,
-                        fontSize = 36.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 6.sp,
-                        color = MaterialTheme.colorScheme.onTertiaryContainer
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Expires in 24 hours",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.6f)
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(
-                            onClick = { clipboardManager.setText(AnnotatedString(inviteCode)) }
-                        ) {
-                            Icon(
-                                Icons.Default.ContentCopy,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Copy")
-                        }
-                        TextButton(onClick = onDismissCode) {
-                            Text("Dismiss")
-                        }
-                    }
-                }
-            }
+            InviteCodeCard(
+                inviteCode = inviteCode,
+                onCopy = { clipboardManager.setText(AnnotatedString(inviteCode)) },
+                onDismiss = onDismissCode
+            )
         }
 
         if (errorMessage != null) {
             Spacer(modifier = Modifier.height(12.dp))
-            Surface(
-                color = MaterialTheme.colorScheme.errorContainer,
-                shape = MaterialTheme.shapes.medium,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier.padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        Icons.Default.ErrorOutline,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.error
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = errorMessage,
-                        color = MaterialTheme.colorScheme.onErrorContainer,
-                        modifier = Modifier.weight(1f)
-                    )
-                    IconButton(onClick = onDismissError) {
-                        Icon(Icons.Default.Close, contentDescription = "Dismiss")
-                    }
-                }
-            }
+            ErrorBanner(
+                message = errorMessage,
+                onDismiss = onDismissError
+            )
         }
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        Text(
-            text = "Your Children",
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold
+        SectionHeader(
+            title = "Your Children",
+            subtitle = if (children.isEmpty()) {
+                "No linked child accounts yet"
+            } else {
+                "${children.size} linked account${if (children.size == 1) "" else "s"}"
+            }
         )
 
         Spacer(modifier = Modifier.height(12.dp))
 
         if (children.isEmpty()) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant
-                )
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(32.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Icon(
-                        Icons.Default.ChildCare,
-                        contentDescription = null,
-                        modifier = Modifier.size(48.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = "No children linked yet",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Generate an invite code and share it with your child to link their account.",
-                        fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                        modifier = Modifier.padding(horizontal = 16.dp)
-                    )
-                }
-            }
+            EmptyChildrenCard()
         } else {
             children.forEach { child ->
                 ChildCard(
                     child = child,
                     onClick = { onSelectChild(child) }
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(10.dp))
             }
+        }
+    }
+}
+
+@Composable
+private fun HeroSummaryCard(
+    childCount: Int,
+    isLoading: Boolean,
+    onGenerateCode: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    brush = Brush.verticalGradient(
+                        listOf(ParentSoftBlue, Color.White)
+                    )
+                )
+                .padding(20.dp)
+        ) {
+            Column {
+                Surface(
+                    shape = RoundedCornerShape(50),
+                    color = ParentBlue.copy(alpha = 0.10f)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Shield,
+                            contentDescription = null,
+                            tint = ParentBlue,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Parent controls",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = ParentBlueDark
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Text(
+                    text = "Welcome, Parent",
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = "Create invite codes, review activity, and manage safer content settings for your child accounts.",
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp,
+                    color = ParentTextSoft
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    StatChip(title = "Linked", value = childCount.toString())
+                    StatChip(
+                        title = "Status",
+                        value = if (childCount == 0) "Setup" else "Active"
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(18.dp))
+
+                Button(
+                    onClick = onGenerateCode,
+                    enabled = !isLoading,
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = ParentBlue)
+                ) {
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Icon(Icons.Default.Add, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Generate Invite Code")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatChip(
+    title: String,
+    value: String
+) {
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = ParentMint
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = value,
+                fontWeight = FontWeight.Bold,
+                color = ParentBlueDark
+            )
+            Text(
+                text = title,
+                fontSize = 11.sp,
+                color = ParentTextSoft
+            )
+        }
+    }
+}
+
+@Composable
+private fun InviteCodeCard(
+    inviteCode: String,
+    onCopy: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "Invite Code Ready",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = ParentBlueDark
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = ParentSoftBlue
+            ) {
+                Text(
+                    text = inviteCode,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
+                    fontSize = 32.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 5.sp,
+                    color = ParentBlue
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = "Expires in 24 hours",
+                fontSize = 12.sp,
+                color = ParentTextSoft
+            )
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = onCopy,
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Icon(
+                        Icons.Default.ContentCopy,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Copy")
+                }
+
+                TextButton(onClick = onDismiss) {
+                    Text("Dismiss")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ErrorBanner(
+    message: String,
+    onDismiss: () -> Unit
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.errorContainer,
+        shape = RoundedCornerShape(18.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                Icons.Default.ErrorOutline,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+            Text(
+                text = message,
+                color = MaterialTheme.colorScheme.onErrorContainer,
+                modifier = Modifier.weight(1f)
+            )
+            IconButton(onClick = onDismiss) {
+                Icon(Icons.Default.Close, contentDescription = "Dismiss")
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmptyChildrenCard() {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(28.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = ParentSoftBlue,
+                modifier = Modifier.size(72.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Default.ChildCare,
+                        contentDescription = null,
+                        modifier = Modifier.size(36.dp),
+                        tint = ParentBlue
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            Text(
+                text = "No children linked yet",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold
+            )
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Text(
+                text = "Generate an invite code and share it with your child to connect their account here.",
+                fontSize = 13.sp,
+                lineHeight = 20.sp,
+                color = ParentTextSoft,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+@Composable
+private fun SectionHeader(
+    title: String,
+    subtitle: String? = null
+) {
+    Column {
+        Text(
+            text = title,
+            fontSize = 21.sp,
+            fontWeight = FontWeight.Bold
+        )
+        if (subtitle != null) {
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = subtitle,
+                fontSize = 13.sp,
+                color = ParentTextSoft
+            )
         }
     }
 }
@@ -379,7 +595,10 @@ private fun ChildCard(
 ) {
     Card(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
     ) {
         Row(
             modifier = Modifier
@@ -388,21 +607,21 @@ private fun ChildCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Surface(
-                color = MaterialTheme.colorScheme.primaryContainer,
-                shape = MaterialTheme.shapes.medium,
-                modifier = Modifier.size(50.dp)
+                color = ParentSoftBlue,
+                shape = CircleShape,
+                modifier = Modifier.size(56.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Text(
                         text = child.name.firstOrNull()?.uppercase() ?: "?",
                         fontSize = 22.sp,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                        color = ParentBlue
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(14.dp))
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -410,16 +629,18 @@ private fun ChildCard(
                     fontSize = 18.sp,
                     fontWeight = FontWeight.SemiBold
                 )
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = "${child.age} years old  |  ${child.readingLevel}",
+                    text = "${child.age} years old · ${child.readingLevel}",
                     fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = ParentTextSoft
                 )
                 if (child.interests.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = child.interests.take(3).joinToString(", "),
+                        text = child.interests.take(3).joinToString(" • "),
                         fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                        color = ParentBlueDark,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -429,7 +650,7 @@ private fun ChildCard(
             Icon(
                 Icons.Default.ChevronRight,
                 contentDescription = "View details",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                tint = ParentTextSoft
             )
         }
     }
@@ -451,53 +672,36 @@ private fun ChildDetailView(
     modifier: Modifier = Modifier
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Activity", "Favorites", "Chat History", "Controls", "Progress")
+    val tabs = listOf("Activity", "Favorites", "Chat", "Controls", "Progress")
 
-    Column(modifier = modifier.fillMaxSize()) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.secondaryContainer
-            )
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .background(ParentSurface)
+    ) {
+        ChildDashboardSummaryCard(
+            child = child,
+            historyCount = history.size,
+            favoritesCount = favorites.size,
+            conversationCount = conversations.size
+        )
+
+        ScrollableTabRow(
+            selectedTabIndex = selectedTab,
+            edgePadding = 12.dp,
+            containerColor = ParentSurface,
+            contentColor = ParentBlue
         ) {
-            Row(
-                modifier = Modifier.padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Surface(
-                    color = MaterialTheme.colorScheme.primary,
-                    shape = MaterialTheme.shapes.medium,
-                    modifier = Modifier.size(48.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text(
-                            text = child.name.firstOrNull()?.uppercase() ?: "?",
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimary
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                Column {
-                    Text(child.name, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                    Text(
-                        text = "${child.age} years old  |  ${child.readingLevel}",
-                        fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
-                    )
-                }
-            }
-        }
-
-        ScrollableTabRow(selectedTabIndex = selectedTab, edgePadding = 0.dp) {
             tabs.forEachIndexed { index, title ->
                 Tab(
                     selected = selectedTab == index,
                     onClick = { selectedTab = index },
-                    text = { Text(title) }
+                    text = {
+                        Text(
+                            text = title,
+                            fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Medium
+                        )
+                    }
                 )
             }
         }
@@ -526,6 +730,130 @@ private fun ChildDetailView(
 }
 
 @Composable
+private fun ChildDashboardSummaryCard(
+    child: User,
+    historyCount: Int,
+    favoritesCount: Int,
+    conversationCount: Int
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(18.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Surface(
+                    color = ParentSoftBlue,
+                    shape = CircleShape,
+                    modifier = Modifier.size(60.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = child.name.firstOrNull()?.uppercase() ?: "?",
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = ParentBlue
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(14.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = child.name,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "${child.age} years old · ${child.readingLevel}",
+                        fontSize = 13.sp,
+                        color = ParentTextSoft
+                    )
+                    if (child.interests.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = child.interests.take(4).joinToString(" • "),
+                            fontSize = 12.sp,
+                            color = ParentBlueDark,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                SummaryStatCard(
+                    modifier = Modifier.weight(1f),
+                    title = "Activity",
+                    value = historyCount.toString(),
+                    tint = ParentBlue,
+                    bg = ParentSoftBlue
+                )
+                SummaryStatCard(
+                    modifier = Modifier.weight(1f),
+                    title = "Favorites",
+                    value = favoritesCount.toString(),
+                    tint = Color(0xFFE91E63),
+                    bg = ParentPinkSoft
+                )
+                SummaryStatCard(
+                    modifier = Modifier.weight(1f),
+                    title = "Chats",
+                    value = conversationCount.toString(),
+                    tint = Color(0xFF26A69A),
+                    bg = ParentMint
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SummaryStatCard(
+    modifier: Modifier = Modifier,
+    title: String,
+    value: String,
+    tint: Color,
+    bg: Color
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(18.dp),
+        color = bg
+    ) {
+        Column(
+            modifier = Modifier.padding(vertical = 14.dp, horizontal = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = value,
+                fontWeight = FontWeight.ExtraBold,
+                color = tint,
+                fontSize = 18.sp
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = title,
+                fontSize = 12.sp,
+                color = ParentTextSoft
+            )
+        }
+    }
+}
+
+@Composable
 private fun ProgressTab(
     child: User,
     parentProgressViewModel: ParentProgressViewModel
@@ -545,66 +873,62 @@ private fun ProgressTab(
 @Composable
 private fun ActivityTab(history: List<ReadingHistory>) {
     if (history.isEmpty()) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(32.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(
-                    Icons.Default.History,
-                    contentDescription = null,
-                    modifier = Modifier.size(48.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    "No activity yet",
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    "Activity will appear here once your child opens books or videos.",
-                    fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                    modifier = Modifier.padding(horizontal = 24.dp),
-                    textAlign = TextAlign.Center
-                )
-            }
-        }
+        EmptyState(
+            icon = Icons.Default.History,
+            title = "No activity yet",
+            subtitle = "Activity will appear here once your child opens books or videos."
+        )
     } else {
         val dateFormat = remember { SimpleDateFormat("MMM dd, yyyy  hh:mm a", Locale.getDefault()) }
+
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             items(history) { entry ->
-                Card(modifier = Modifier.fillMaxWidth()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(18.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                ) {
                     Row(
-                        modifier = Modifier.padding(12.dp),
+                        modifier = Modifier.padding(14.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = if (entry.isVideo) Icons.Default.PlayCircle else Icons.AutoMirrored.Filled.MenuBook,
-                            contentDescription = null,
-                            tint = if (entry.isVideo) Color.Red else MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(28.dp)
-                        )
+                        Surface(
+                            shape = CircleShape,
+                            color = if (entry.isVideo) Color(0xFFFFEBEE) else ParentSoftBlue,
+                            modifier = Modifier.size(42.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = if (entry.isVideo) {
+                                        Icons.Default.PlayCircle
+                                    } else {
+                                        Icons.AutoMirrored.Filled.MenuBook
+                                    },
+                                    contentDescription = null,
+                                    tint = if (entry.isVideo) Color(0xFFE53935) else ParentBlue,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                        }
+
                         Spacer(modifier = Modifier.width(12.dp))
+
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = entry.title,
-                                fontWeight = FontWeight.Medium,
+                                fontWeight = FontWeight.SemiBold,
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis
                             )
+                            Spacer(modifier = Modifier.height(4.dp))
                             Text(
                                 text = dateFormat.format(entry.openedAt.toDate()),
                                 fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = ParentTextSoft
                             )
                         }
                     }
@@ -617,54 +941,57 @@ private fun ActivityTab(history: List<ReadingHistory>) {
 @Composable
 private fun FavoritesTab(favorites: List<Favorite>) {
     if (favorites.isEmpty()) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(32.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(
-                    Icons.Default.FavoriteBorder,
-                    contentDescription = null,
-                    modifier = Modifier.size(48.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text("No favorites yet", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
+        EmptyState(
+            icon = Icons.Default.FavoriteBorder,
+            title = "No favorites yet",
+            subtitle = "Saved books and videos will appear here when your child favorites them."
+        )
     } else {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             items(favorites) { fav ->
-                Card(modifier = Modifier.fillMaxWidth()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(18.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                ) {
                     Row(
-                        modifier = Modifier.padding(12.dp),
+                        modifier = Modifier.padding(14.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Favorite,
-                            contentDescription = null,
-                            tint = Color(0xFFE91E63),
-                            modifier = Modifier.size(24.dp)
-                        )
+                        Surface(
+                            shape = CircleShape,
+                            color = ParentPinkSoft,
+                            modifier = Modifier.size(42.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.Favorite,
+                                    contentDescription = null,
+                                    tint = Color(0xFFE91E63),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+
                         Spacer(modifier = Modifier.width(12.dp))
+
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = fav.title,
-                                fontWeight = FontWeight.Medium,
+                                fontWeight = FontWeight.SemiBold,
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis
                             )
                             if (fav.description.isNotBlank()) {
+                                Spacer(modifier = Modifier.height(4.dp))
                                 Text(
                                     text = fav.description,
                                     fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    color = ParentTextSoft,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -706,117 +1033,182 @@ private fun ControlsTab(
             .verticalScroll(rememberScrollState())
             .padding(16.dp)
     ) {
-        Text(
-            text = "Content Filters",
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold
-        )
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        Text(
-            text = "Maximum Age Rating: ${maxAgeRating.toInt()} years",
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Medium
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Slider(
-            value = maxAgeRating,
-            onValueChange = {
-                maxAgeRating = it
-                hasChanges = true
-            },
-            valueRange = 3f..18f,
-            steps = 14
-        )
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text("3", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text("18", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Allow Video Recommendations", fontWeight = FontWeight.Medium)
-                    Text(
-                        text = "Enable or disable video content for this child",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                Switch(
-                    checked = allowVideos,
-                    onCheckedChange = {
-                        allowVideos = it
-                        hasChanges = true
-                    }
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(28.dp))
-
-        Text(
-            text = "Parent PIN",
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text(
-            text = if (hasExistingPin) {
-                "A 4-digit PIN is already set for this child. Enter a new one below to change it."
-            } else {
-                "No parent PIN is set yet. Create a 4-digit PIN for this child."
-            },
-            fontSize = 13.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+        SectionHeader(
+            title = "Parental Controls",
+            subtitle = "Manage content visibility and parent approval settings"
         )
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        OutlinedTextField(
-            value = pinInput,
-            onValueChange = { value ->
-                if (value.length <= 4 && value.all { it.isDigit() }) {
-                    pinInput = value
-                    pinError = null
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(22.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White)
+        ) {
+            Column(modifier = Modifier.padding(18.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.Tune,
+                        contentDescription = null,
+                        tint = ParentBlue
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Content Filters",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
-            },
-            label = { Text("4-digit PIN") },
-            placeholder = { Text("Enter PIN") },
-            singleLine = true,
-            isError = pinError != null,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-            supportingText = {
-                Text(
-                    pinError ?: if (hasExistingPin) {
-                        "Leave blank if you do not want to change the current PIN."
-                    } else {
-                        "The parent should create this PIN."
-                    }
-                )
-            },
-            modifier = Modifier.fillMaxWidth()
-        )
 
-        Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(18.dp))
+
+                Text(
+                    text = "Maximum Age Rating",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Text(
+                    text = "${maxAgeRating.toInt()} years old",
+                    color = ParentTextSoft,
+                    fontSize = 13.sp
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Slider(
+                    value = maxAgeRating,
+                    onValueChange = {
+                        maxAgeRating = it
+                        hasChanges = true
+                    },
+                    valueRange = 3f..18f,
+                    steps = 14
+                )
+
+                LinearProgressIndicator(
+                    progress = { (maxAgeRating - 3f) / 15f },
+                    modifier = Modifier.fillMaxWidth(),
+                    color = ParentBlue,
+                    trackColor = ParentSoftBlue
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("3", fontSize = 12.sp, color = ParentTextSoft)
+                    Text("18", fontSize = 12.sp, color = ParentTextSoft)
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(18.dp),
+                    colors = CardDefaults.cardColors(containerColor = ParentSoftBlue)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Allow Video Recommendations",
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Enable or disable video content for this child",
+                                fontSize = 12.sp,
+                                color = ParentTextSoft
+                            )
+                        }
+
+                        Switch(
+                            checked = allowVideos,
+                            onCheckedChange = {
+                                allowVideos = it
+                                hasChanges = true
+                            }
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(22.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White)
+        ) {
+            Column(modifier = Modifier.padding(18.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.Lock,
+                        contentDescription = null,
+                        tint = ParentBlue
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Parent PIN",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = if (hasExistingPin) {
+                        "A PIN is already set. Enter a new 4-digit PIN below to change it."
+                    } else {
+                        "Create a 4-digit parent PIN for this child."
+                    },
+                    fontSize = 13.sp,
+                    lineHeight = 20.sp,
+                    color = ParentTextSoft
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                OutlinedTextField(
+                    value = pinInput,
+                    onValueChange = { value ->
+                        if (value.length <= 4 && value.all { it.isDigit() }) {
+                            pinInput = value
+                            pinError = null
+                        }
+                    },
+                    label = { Text("4-digit PIN") },
+                    placeholder = { Text("Enter PIN") },
+                    singleLine = true,
+                    isError = pinError != null,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                    supportingText = {
+                        Text(
+                            pinError ?: if (hasExistingPin) {
+                                "Leave blank if you do not want to change the current PIN."
+                            } else {
+                                "Only the parent should know this PIN."
+                            }
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
 
         Button(
             onClick = {
@@ -838,7 +1230,9 @@ private fun ControlsTab(
                 hasChanges = false
             },
             modifier = Modifier.fillMaxWidth(),
-            enabled = canSave
+            enabled = canSave,
+            shape = RoundedCornerShape(16.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = ParentBlue)
         ) {
             Icon(Icons.Default.Save, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
@@ -860,62 +1254,58 @@ private fun ChatHistoryTab(
     if (selectedConversationId != null) {
         Column(modifier = Modifier.fillMaxSize()) {
             Surface(
-                color = MaterialTheme.colorScheme.surfaceVariant,
+                color = Color.White,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back to conversations")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back to conversations"
+                        )
                     }
                     Text(
-                        "Conversation",
-                        fontWeight = FontWeight.Medium,
+                        text = "Conversation",
+                        fontWeight = FontWeight.SemiBold,
                         fontSize = 14.sp
                     )
                 }
             }
 
+            HorizontalDivider(color = ParentBorder)
+
             if (messages.isEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(32.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        "No messages in this conversation",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                EmptyState(
+                    icon = Icons.AutoMirrored.Filled.Chat,
+                    title = "No messages in this conversation",
+                    subtitle = "Messages will appear here once the conversation contains chat history."
+                )
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     items(messages) { message ->
                         val isUser = message.role == MessageRole.USER
+
                         Column(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalAlignment = if (isUser) Alignment.End else Alignment.Start
                         ) {
                             Card(
-                                modifier = Modifier.widthIn(max = 300.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = if (isUser) {
-                                        MaterialTheme.colorScheme.primaryContainer
-                                    } else {
-                                        MaterialTheme.colorScheme.surfaceVariant
-                                    }
-                                ),
+                                modifier = Modifier.widthIn(max = 310.dp),
                                 shape = RoundedCornerShape(
-                                    topStart = 16.dp,
-                                    topEnd = 16.dp,
-                                    bottomStart = if (isUser) 16.dp else 4.dp,
-                                    bottomEnd = if (isUser) 4.dp else 16.dp
+                                    topStart = 18.dp,
+                                    topEnd = 18.dp,
+                                    bottomStart = if (isUser) 18.dp else 6.dp,
+                                    bottomEnd = if (isUser) 6.dp else 18.dp
+                                ),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (isUser) ParentSoftBlue else Color.White
                                 )
                             ) {
                                 Column(modifier = Modifier.padding(12.dp)) {
@@ -923,27 +1313,18 @@ private fun ChatHistoryTab(
                                         text = if (isUser) "Child" else "Little Dino",
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = if (isUser) {
-                                            MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f)
-                                        } else {
-                                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                                        }
+                                        color = ParentTextSoft
                                     )
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Text(
                                         text = message.content,
-                                        fontSize = 14.sp,
-                                        color = if (isUser) {
-                                            MaterialTheme.colorScheme.onPrimaryContainer
-                                        } else {
-                                            MaterialTheme.colorScheme.onSurfaceVariant
-                                        }
+                                        fontSize = 14.sp
                                     )
-                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Spacer(modifier = Modifier.height(6.dp))
                                     Text(
                                         text = dateFormat.format(message.timestamp.toDate()),
                                         fontSize = 10.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                        color = ParentTextSoft
                                     )
                                 }
                             }
@@ -954,79 +1335,119 @@ private fun ChatHistoryTab(
         }
     } else {
         if (conversations.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(32.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(
-                        Icons.AutoMirrored.Filled.Chat,
-                        contentDescription = null,
-                        modifier = Modifier.size(48.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        "No chat history yet",
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Chat conversations will appear here once your child starts chatting with Little Dino.",
-                        fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                        modifier = Modifier.padding(horizontal = 24.dp),
-                        textAlign = TextAlign.Center
-                    )
-                }
-            }
+            EmptyState(
+                icon = Icons.AutoMirrored.Filled.Chat,
+                title = "No chat history yet",
+                subtitle = "Chat conversations will appear here once your child starts chatting with Little Dino."
+            )
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 items(conversations) { conversation ->
                     Card(
                         onClick = { onSelectConversation(conversation.id) },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(18.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White)
                     ) {
                         Row(
-                            modifier = Modifier.padding(12.dp),
+                            modifier = Modifier.padding(14.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.Chat,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(28.dp)
-                            )
+                            Surface(
+                                shape = CircleShape,
+                                color = ParentSoftBlue,
+                                modifier = Modifier.size(42.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.Chat,
+                                        contentDescription = null,
+                                        tint = ParentBlue,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+
                             Spacer(modifier = Modifier.width(12.dp))
+
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = conversation.preview,
-                                    fontWeight = FontWeight.Medium,
+                                    fontWeight = FontWeight.SemiBold,
                                     maxLines = 2,
                                     overflow = TextOverflow.Ellipsis
                                 )
+                                Spacer(modifier = Modifier.height(4.dp))
                                 Text(
                                     text = dateFormat.format(conversation.lastUpdated.toDate()),
                                     fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = ParentTextSoft
                                 )
                             }
+
                             Icon(
                                 Icons.Default.ChevronRight,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                tint = ParentTextSoft
                             )
                         }
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun EmptyState(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    subtitle: String
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Surface(
+                shape = CircleShape,
+                color = ParentSoftBlue,
+                modifier = Modifier.size(72.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        icon,
+                        contentDescription = null,
+                        modifier = Modifier.size(34.dp),
+                        tint = ParentBlue
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            Text(
+                text = title,
+                fontWeight = FontWeight.Bold,
+                fontSize = 17.sp
+            )
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Text(
+                text = subtitle,
+                fontSize = 13.sp,
+                lineHeight = 20.sp,
+                color = ParentTextSoft,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 20.dp)
+            )
         }
     }
 }
