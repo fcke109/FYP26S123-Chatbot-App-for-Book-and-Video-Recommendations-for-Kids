@@ -22,7 +22,6 @@ import java.util.Calendar
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
-import com.kidsrec.chatbot.data.model.Recommendation
 import com.kidsrec.chatbot.data.model.RecommendationType
 
 /**
@@ -192,13 +191,15 @@ class AccountManager @Inject constructor(
     ): Result<FirebaseUser> {
         var createdUser: FirebaseUser? = null
         return try {
+            val normalizedCode = inviteCode.trim().uppercase()
+
             val result = auth.createUserWithEmailAndPassword(email, password).await()
             val user = result.user ?: return Result.failure(Exception("User creation failed"))
             createdUser = user
 
             user.getIdToken(true).await()
 
-            val codeResult = validateInviteCode(inviteCode)
+            val codeResult = validateInviteCode(normalizedCode)
             if (codeResult.isFailure) {
                 user.delete().await()
                 auth.signOut()
@@ -209,10 +210,8 @@ class AccountManager @Inject constructor(
 
             val code = codeResult.getOrThrow()
 
-            val inviteSnapshot = firestore.collection("inviteCodes")
-                .document(inviteCode.uppercase())
-                .get()
-                .await()
+            val inviteRef = firestore.collection("inviteCodes").document(normalizedCode)
+            val inviteSnapshot = inviteRef.get().await()
 
             val parentSelectedInterests = (inviteSnapshot.get("childInterests") as? List<*>)
                 ?.mapNotNull { it as? String }
@@ -248,16 +247,11 @@ class AccountManager @Inject constructor(
             )
 
             batch.update(
-                firestore.collection("inviteCodes").document(inviteCode.uppercase()),
+                inviteRef,
                 mapOf(
                     "usedCount" to FieldValue.increment(1),
                     "isActive" to false
                 )
-            )
-
-            batch.update(
-                firestore.collection("users").document(code.assignedParentId),
-                "childIds", FieldValue.arrayUnion(user.uid)
             )
 
             batch.commit().await()
@@ -335,7 +329,7 @@ class AccountManager @Inject constructor(
 
             var code: String
             var attempts = 0
-            lateinit var existing: com.google.firebase.firestore.DocumentSnapshot
+            var exists = true
 
             do {
                 code = UUID.randomUUID().toString()
@@ -343,15 +337,16 @@ class AccountManager @Inject constructor(
                     .take(6)
                     .uppercase()
 
-                existing = firestore.collection("inviteCodes")
+                exists = firestore.collection("inviteCodes")
                     .document(code)
                     .get()
                     .await()
+                    .exists()
 
                 attempts++
-            } while (existing.exists() && attempts < 5)
+            } while (exists && attempts < 5)
 
-            if (attempts >= 5) {
+            if (exists) {
                 return Result.failure(Exception("Could not generate unique code. Try again."))
             }
 
@@ -366,31 +361,25 @@ class AccountManager @Inject constructor(
                 code = code,
                 createdBy = currentUser.uid,
                 assignedParentId = currentUser.uid,
-                parentName = parentName,
+                parentName = parentName.trim(),
                 createdAt = now,
                 expiresAt = expiresAt,
                 isActive = true,
                 maxUses = 1,
-                usedCount = 0
+                usedCount = 0,
+                childInterests = childInterests
+                    .map { it.trim() }
+                    .filter { it.isNotBlank() }
+                    .distinct()
+                    .take(5),
+                starterBooks = starterBooks
+                    .distinctBy { it.id }
+                    .take(10)
             )
 
             firestore.collection("inviteCodes")
                 .document(code)
-                .set(
-                    mapOf(
-                        "code" to inviteCode.code,
-                        "createdBy" to inviteCode.createdBy,
-                        "assignedParentId" to inviteCode.assignedParentId,
-                        "parentName" to inviteCode.parentName,
-                        "createdAt" to inviteCode.createdAt,
-                        "expiresAt" to inviteCode.expiresAt,
-                        "isActive" to inviteCode.isActive,
-                        "maxUses" to inviteCode.maxUses,
-                        "usedCount" to inviteCode.usedCount,
-                        "childInterests" to childInterests.take(5),
-                        "starterBooks" to starterBooks.distinctBy { it.id }
-                    )
-                )
+                .set(inviteCode)
                 .await()
 
             Result.success(code)
@@ -402,8 +391,10 @@ class AccountManager @Inject constructor(
 
     suspend fun validateInviteCode(code: String): Result<InviteCode> {
         return try {
+            val normalizedCode = code.trim().uppercase()
+
             val doc = firestore.collection("inviteCodes")
-                .document(code.uppercase())
+                .document(normalizedCode)
                 .get()
                 .await()
 

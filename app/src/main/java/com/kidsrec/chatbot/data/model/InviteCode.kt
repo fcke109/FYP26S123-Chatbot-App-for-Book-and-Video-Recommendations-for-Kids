@@ -14,7 +14,9 @@ data class InviteCode(
     val expiresAt: Timestamp = Timestamp.now(),
     val isActive: Boolean = true,
     val maxUses: Int = 1,
-    val usedCount: Int = 0
+    val usedCount: Int = 0,
+    val childInterests: List<String> = emptyList(),
+    val starterBooks: List<StarterBookSeed> = emptyList()
 ) {
     fun isExpired(): Boolean {
         return expiresAt.toDate().before(Date())
