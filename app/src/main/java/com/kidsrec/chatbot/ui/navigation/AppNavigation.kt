@@ -3,7 +3,6 @@ package com.kidsrec.chatbot.ui.navigation
 import android.util.Log
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
@@ -270,7 +269,6 @@ fun AuthNavigation(authViewModel: AuthViewModel) {
         composable(Screen.Login.route) {
             LoginScreen(
                 onLoginSuccess = {},
-                onAdminLogin = {},
                 onNavigateToRegister = { navController.navigate(Screen.Register.route) },
                 viewModel = authViewModel
             )

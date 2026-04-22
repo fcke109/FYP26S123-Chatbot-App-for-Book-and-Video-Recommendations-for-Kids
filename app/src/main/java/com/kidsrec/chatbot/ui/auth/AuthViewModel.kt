@@ -5,7 +5,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.FirebaseNetworkException
 import com.google.firebase.FirebaseTooManyRequestsException
-import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthInvalidUserException
 import com.google.firebase.auth.FirebaseAuthUserCollisionException
@@ -20,16 +19,11 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-
-private const val ADMIN_EMAIL = "admin@littledino.com"
-
-private fun isAdminEmail(email: String?): Boolean {
-    return email.equals(ADMIN_EMAIL, ignoreCase = true)
-}
 
 @HiltViewModel
 class AuthViewModel @Inject constructor(
@@ -42,16 +36,20 @@ class AuthViewModel @Inject constructor(
     private val _currentUser = MutableStateFlow<User?>(null)
     val currentUser: StateFlow<User?> = _currentUser.asStateFlow()
 
-    val isAdmin: StateFlow<Boolean> = _currentUser.map { user ->
-        val firebaseEmail = FirebaseAuth.getInstance().currentUser?.email
-        isAdminEmail(firebaseEmail) || isAdminEmail(user?.email)
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+    val isAdmin: StateFlow<Boolean> = _currentUser
+        .map { user ->
+            user?.planType == PlanType.ADMIN
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
-    val isParent: StateFlow<Boolean> = _currentUser.map { user ->
-        val firebaseEmail = FirebaseAuth.getInstance().currentUser?.email
-        val admin = isAdminEmail(firebaseEmail) || isAdminEmail(user?.email)
-        !admin && user?.accountType == AccountType.PARENT
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+    val isParent: StateFlow<Boolean> = _currentUser
+        .map { user ->
+            user?.accountType == AccountType.PARENT && user.planType != PlanType.ADMIN
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    private val _verificationMessage = MutableStateFlow<String?>(null)
+    val verificationMessage: StateFlow<String?> = _verificationMessage.asStateFlow()
 
     init {
         checkAuthState()
@@ -59,37 +57,79 @@ class AuthViewModel @Inject constructor(
 
     private fun checkAuthState() {
         val userId = accountManager.getCurrentUserId()
-        val firebaseEmail = FirebaseAuth.getInstance().currentUser?.email
 
         if (userId != null) {
-            // Admin bypasses email verification flow
-            if (isAdminEmail(firebaseEmail)) {
-                _authState.value = AuthState.Authenticated(userId)
-                loadUserData(userId)
-            } else {
-                _authState.value = AuthState.Authenticated(userId)
-                loadUserData(userId)
-            }
+            _authState.value = AuthState.Loading
+            refreshSignedInUser(userId)
         } else {
+            _currentUser.value = null
             _authState.value = AuthState.Unauthenticated
         }
     }
 
-    private fun loadUserData(userId: String) {
+    private fun refreshSignedInUser(userId: String) {
+        viewModelScope.launch {
+            try {
+                val userData = accountManager.getUser(userId)
+
+                if (userData == null) {
+                    Log.w("AuthVM", "No Firestore user document found for uid=$userId")
+                    _currentUser.value = null
+                    _authState.value = AuthState.Error("User profile not found.")
+                    return@launch
+                }
+
+                _currentUser.value = userData
+                observeUserData(userId)
+
+                val isAdminUser = userData.planType == PlanType.ADMIN
+                val isParentUser = userData.accountType == AccountType.PARENT
+
+                when {
+                    isAdminUser -> {
+                        _authState.value = AuthState.Authenticated(userId)
+                    }
+
+                    isParentUser && !accountManager.isEmailVerified() -> {
+                        _authState.value = AuthState.EmailNotVerified(userId)
+                    }
+
+                    else -> {
+                        _authState.value = AuthState.Authenticated(userId)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("AuthVM", "Failed to refresh signed-in user", e)
+                _currentUser.value = null
+                _authState.value = AuthState.Error("Failed to load account data.")
+            }
+        }
+    }
+
+    private fun observeUserData(userId: String) {
         viewModelScope.launch {
             accountManager.getUserFlow(userId)
                 .catch { e ->
-                    Log.e("AuthVM", "Failed to load user data", e)
+                    Log.e("AuthVM", "Failed to observe user data", e)
                 }
                 .collect { user ->
-                    _currentUser.value = user
+                    if (user != null) {
+                        _currentUser.value = user
+                    }
                 }
         }
     }
 
     fun upgradeCurrentUserToPremium() {
         val userId = accountManager.getCurrentUserId() ?: return
+
         viewModelScope.launch {
+            val current = _currentUser.value
+            if (current?.planType == PlanType.ADMIN) {
+                Log.w("AuthVM", "Skipping premium upgrade for admin account")
+                return@launch
+            }
+
             val result = accountManager.upgradeToPremium(userId)
             if (result.isSuccess) {
                 _currentUser.value = _currentUser.value?.copy(
@@ -103,38 +143,53 @@ class AuthViewModel @Inject constructor(
     }
 
     fun signIn(email: String, password: String) {
+        val cleanEmail = email.trim()
+
         viewModelScope.launch {
             _authState.value = AuthState.Loading
+            _verificationMessage.value = null
 
-            val result = accountManager.signIn(email, password)
+            val result = accountManager.signIn(cleanEmail, password)
             result.fold(
-                onSuccess = { user ->
-                    val signedInEmail = user.email ?: FirebaseAuth.getInstance().currentUser?.email
-                    val isAdminUser = isAdminEmail(signedInEmail)
+                onSuccess = { firebaseUser ->
+                    try {
+                        val userData = accountManager.getUser(firebaseUser.uid)
 
-                    val userData = accountManager.getUser(user.uid)
-
-                    when {
-                        // Admin bypasses email verification completely
-                        isAdminUser -> {
-                            _authState.value = AuthState.Authenticated(user.uid)
-                            loadUserData(user.uid)
+                        if (userData == null) {
+                            Log.e("AuthVM", "Signed in but Firestore user document missing")
+                            _currentUser.value = null
+                            _authState.value = AuthState.Error("User profile not found.")
+                            return@fold
                         }
 
-                        // Normal parent account still requires email verification
-                        userData?.accountType == AccountType.PARENT && !accountManager.isEmailVerified() -> {
-                            _authState.value = AuthState.EmailNotVerified(user.uid)
-                            loadUserData(user.uid)
-                        }
+                        _currentUser.value = userData
+                        observeUserData(firebaseUser.uid)
 
-                        else -> {
-                            _authState.value = AuthState.Authenticated(user.uid)
-                            loadUserData(user.uid)
+                        val isAdminUser = userData.planType == PlanType.ADMIN
+                        val isParentUser = userData.accountType == AccountType.PARENT
+
+                        when {
+                            isAdminUser -> {
+                                _authState.value = AuthState.Authenticated(firebaseUser.uid)
+                            }
+
+                            isParentUser && !accountManager.isEmailVerified() -> {
+                                _authState.value = AuthState.EmailNotVerified(firebaseUser.uid)
+                            }
+
+                            else -> {
+                                _authState.value = AuthState.Authenticated(firebaseUser.uid)
+                            }
                         }
+                    } catch (e: Exception) {
+                        Log.e("AuthVM", "Failed after sign-in", e)
+                        _currentUser.value = null
+                        _authState.value = AuthState.Error("Failed to load account data.")
                     }
                 },
                 onFailure = { error ->
                     Log.e("AuthVM", "Sign-in error: ${error::class.simpleName} -> ${error.message}", error)
+                    _currentUser.value = null
                     _authState.value = AuthState.Error(mapFirebaseError(error))
                 }
             )
@@ -150,29 +205,40 @@ class AuthViewModel @Inject constructor(
         readingLevel: String,
         planType: PlanType = PlanType.FREE
     ) {
+        val safePlanType = if (planType == PlanType.ADMIN) PlanType.FREE else planType
+        val cleanEmail = email.trim()
+
         viewModelScope.launch {
             _authState.value = AuthState.Loading
-            val result = accountManager.signUp(email, password, name, age, interests, readingLevel)
+            _verificationMessage.value = null
+
+            val result = accountManager.signUp(cleanEmail, password, name, age, interests, readingLevel)
             result.fold(
                 onSuccess = { user ->
                     val userDoc = User(
                         id = user.uid,
                         name = name,
-                        email = email,
+                        email = cleanEmail,
                         age = age,
                         accountType = AccountType.CHILD,
                         interests = interests,
                         readingLevel = readingLevel,
-                        planType = planType
+                        planType = safePlanType
                     )
+
                     val updateResult = accountManager.updateUser(userDoc)
                     if (updateResult.isFailure) {
                         Log.e("AuthVM", "Failed to save user profile", updateResult.exceptionOrNull())
+                        _authState.value = AuthState.Error("Failed to create user profile.")
+                        return@fold
                     }
+
+                    _currentUser.value = userDoc
+                    observeUserData(user.uid)
                     _authState.value = AuthState.Authenticated(user.uid)
-                    loadUserData(user.uid)
                 },
                 onFailure = { error ->
+                    _currentUser.value = null
                     _authState.value = AuthState.Error(mapFirebaseError(error))
                 }
             )
@@ -180,19 +246,31 @@ class AuthViewModel @Inject constructor(
     }
 
     fun signUpParent(email: String, password: String, name: String) {
+        val cleanEmail = email.trim()
+
         viewModelScope.launch {
             _authState.value = AuthState.Loading
-            val result = accountManager.signUpParent(email, password, name)
+            _verificationMessage.value = null
+
+            val result = accountManager.signUpParent(cleanEmail, password, name)
             result.fold(
                 onSuccess = { user ->
-                    val signedInEmail = user.email ?: FirebaseAuth.getInstance().currentUser?.email
+                    try {
+                        val userData = accountManager.getUser(user.uid)
+                            ?: accountManager.getUserFlow(user.uid).firstOrNull()
 
-                    if (isAdminEmail(signedInEmail)) {
-                        _authState.value = AuthState.Authenticated(user.uid)
-                    } else {
-                        _authState.value = AuthState.EmailNotVerified(user.uid)
+                        _currentUser.value = userData
+                        observeUserData(user.uid)
+
+                        if (userData?.planType == PlanType.ADMIN) {
+                            _authState.value = AuthState.Authenticated(user.uid)
+                        } else {
+                            _authState.value = AuthState.EmailNotVerified(user.uid)
+                        }
+                    } catch (e: Exception) {
+                        Log.e("AuthVM", "Failed to load parent user after signup", e)
+                        _authState.value = AuthState.Error("Failed to load account data.")
                     }
-                    loadUserData(user.uid)
                 },
                 onFailure = { error ->
                     _currentUser.value = null
@@ -211,15 +289,25 @@ class AuthViewModel @Inject constructor(
         readingLevel: String,
         inviteCode: String
     ) {
+        val cleanEmail = email.trim()
+
         viewModelScope.launch {
             _authState.value = AuthState.Loading
+            _verificationMessage.value = null
+
             val result = accountManager.signUpChild(
-                email, password, name, age, interests, readingLevel, inviteCode
+                cleanEmail,
+                password,
+                name,
+                age,
+                interests,
+                readingLevel,
+                inviteCode
             )
+
             result.fold(
                 onSuccess = { user ->
-                    _authState.value = AuthState.Authenticated(user.uid)
-                    loadUserData(user.uid)
+                    refreshSignedInUser(user.uid)
                 },
                 onFailure = { error ->
                     _currentUser.value = null
@@ -237,15 +325,24 @@ class AuthViewModel @Inject constructor(
         interests: List<String>,
         readingLevel: String
     ) {
+        val cleanEmail = email.trim()
+
         viewModelScope.launch {
             _authState.value = AuthState.Loading
+            _verificationMessage.value = null
+
             val result = accountManager.signUpFreeKid(
-                email, password, name, age, interests, readingLevel
+                cleanEmail,
+                password,
+                name,
+                age,
+                interests,
+                readingLevel
             )
+
             result.fold(
                 onSuccess = { user ->
-                    _authState.value = AuthState.Authenticated(user.uid)
-                    loadUserData(user.uid)
+                    refreshSignedInUser(user.uid)
                 },
                 onFailure = { error ->
                     _currentUser.value = null
@@ -255,23 +352,14 @@ class AuthViewModel @Inject constructor(
         }
     }
 
-    fun clearError() {
-        if (_authState.value is AuthState.Error) {
-            _authState.value = AuthState.Unauthenticated
-        }
-    }
-
-    private val _verificationMessage = MutableStateFlow<String?>(null)
-    val verificationMessage: StateFlow<String?> = _verificationMessage.asStateFlow()
-
     fun checkEmailVerified() {
         viewModelScope.launch {
             val state = _authState.value
-            val firebaseEmail = FirebaseAuth.getInstance().currentUser?.email
+            val current = _currentUser.value
 
             if (state is AuthState.EmailNotVerified) {
                 try {
-                    if (isAdminEmail(firebaseEmail) || accountManager.isEmailVerified()) {
+                    if (current?.planType == PlanType.ADMIN || accountManager.isEmailVerified()) {
                         _verificationMessage.value = null
                         _authState.value = AuthState.Authenticated(state.userId)
                     } else {
@@ -297,9 +385,17 @@ class AuthViewModel @Inject constructor(
         }
     }
 
+    fun clearError() {
+        if (_authState.value is AuthState.Error) {
+            _authState.value = AuthState.Unauthenticated
+        }
+    }
+
     fun signOut() {
         _currentUser.value = null
+        _verificationMessage.value = null
         _authState.value = AuthState.Unauthenticated
+
         viewModelScope.launch {
             accountManager.signOut()
         }
@@ -307,6 +403,13 @@ class AuthViewModel @Inject constructor(
 
     fun updateUser(user: User) {
         viewModelScope.launch {
+            val current = _currentUser.value
+
+            if (current?.planType == PlanType.ADMIN && user.planType != PlanType.ADMIN) {
+                Log.w("AuthVM", "Blocked client-side attempt to downgrade admin planType")
+                return@launch
+            }
+
             accountManager.updateUser(user)
         }
     }

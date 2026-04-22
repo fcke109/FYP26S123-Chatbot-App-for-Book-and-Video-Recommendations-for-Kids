@@ -22,7 +22,6 @@ import java.util.Calendar
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
-import com.kidsrec.chatbot.data.model.Recommendation
 import com.kidsrec.chatbot.data.model.RecommendationType
 
 /**
@@ -44,12 +43,9 @@ class AccountManager @Inject constructor(
             val result = auth.signInWithEmailAndPassword(email, password).await()
             val user = result.user ?: return Result.failure(Exception("Sign in failed"))
 
-            // Track successful login attempt
             trackLoginAttempt(email, user.uid, true, "")
-
             Result.success(user)
         } catch (e: Exception) {
-            // Track failed login attempt
             trackLoginAttempt(email, "", false, e.message ?: "Unknown error")
             Result.failure(e)
         }
@@ -87,14 +83,12 @@ class AccountManager @Inject constructor(
 
             Result.success(user)
         } catch (e: Exception) {
-            // If auth account was created but Firestore write failed, clean up
             createdUser?.delete()
             auth.signOut()
             Result.failure(e)
         }
     }
 
-    // ── Parent signup ──────────────────────────────────────────────
     suspend fun signUpParent(
         email: String,
         password: String,
@@ -106,7 +100,6 @@ class AccountManager @Inject constructor(
             val user = result.user ?: return Result.failure(Exception("User creation failed"))
             createdUser = user
 
-            // Send email verification for parent accounts
             user.sendEmailVerification().await()
 
             val userDoc = User(
@@ -127,14 +120,12 @@ class AccountManager @Inject constructor(
 
             Result.success(user)
         } catch (e: Exception) {
-            // If auth account was created but Firestore write failed, clean up
             createdUser?.delete()
             auth.signOut()
             Result.failure(e)
         }
     }
 
-    // ── Check email verification status ───────────────────────────
     suspend fun isEmailVerified(): Boolean {
         auth.currentUser?.reload()?.await()
         return auth.currentUser?.isEmailVerified ?: false
@@ -149,7 +140,6 @@ class AccountManager @Inject constructor(
         }
     }
 
-    // ── Free Kid signup (standalone, no parent, FREE plan) ────────
     suspend fun signUpFreeKid(
         email: String,
         password: String,
@@ -190,7 +180,6 @@ class AccountManager @Inject constructor(
         }
     }
 
-    // ── Child signup with invite code ──────────────────────────────
     suspend fun signUpChild(
         email: String,
         password: String,
@@ -202,30 +191,27 @@ class AccountManager @Inject constructor(
     ): Result<FirebaseUser> {
         var createdUser: FirebaseUser? = null
         return try {
-            // 1. Create Firebase Auth account FIRST (so we're authenticated for Firestore)
+            val normalizedCode = inviteCode.trim().uppercase()
+
             val result = auth.createUserWithEmailAndPassword(email, password).await()
             val user = result.user ?: return Result.failure(Exception("User creation failed"))
             createdUser = user
 
-            // Force token refresh so Firestore recognizes the new user
             user.getIdToken(true).await()
 
-            // 2. Now validate the invite code (requires authentication)
-            val codeResult = validateInviteCode(inviteCode)
+            val codeResult = validateInviteCode(normalizedCode)
             if (codeResult.isFailure) {
-                // Invalid code — clean up the auth account we just created
                 user.delete().await()
                 auth.signOut()
                 return Result.failure(
                     codeResult.exceptionOrNull() ?: Exception("Invalid invite code")
                 )
             }
+
             val code = codeResult.getOrThrow()
 
-            val inviteSnapshot = firestore.collection("inviteCodes")
-                .document(inviteCode.uppercase())
-                .get()
-                .await()
+            val inviteRef = firestore.collection("inviteCodes").document(normalizedCode)
+            val inviteSnapshot = inviteRef.get().await()
 
             val parentSelectedInterests = (inviteSnapshot.get("childInterests") as? List<*>)
                 ?.mapNotNull { it as? String }
@@ -241,7 +227,6 @@ class AccountManager @Inject constructor(
                 .distinct()
                 .take(5)
 
-            // 3. Create child doc, mark invite used, link to parent — atomically
             val childDoc = User(
                 id = user.uid,
                 name = name,
@@ -249,23 +234,26 @@ class AccountManager @Inject constructor(
                 age = age,
                 planType = PlanType.PREMIUM,
                 accountType = AccountType.CHILD,
-                parentId = code.parentId,
+                parentId = code.assignedParentId,
                 interests = finalInterests,
                 readingLevel = readingLevel
             )
+
             val batch = firestore.batch()
+
             batch.set(
                 firestore.collection("users").document(user.uid),
                 childDoc
             )
+
             batch.update(
-                firestore.collection("inviteCodes").document(inviteCode.uppercase()),
-                "used", true
+                inviteRef,
+                mapOf(
+                    "usedCount" to FieldValue.increment(1),
+                    "isActive" to false
+                )
             )
-            batch.update(
-                firestore.collection("users").document(code.parentId),
-                "childIds", FieldValue.arrayUnion(user.uid)
-            )
+
             batch.commit().await()
 
             val starterBooks = (inviteSnapshot.get("starterBooks") as? List<*>).orEmpty()
@@ -311,7 +299,6 @@ class AccountManager @Inject constructor(
         }
     }
 
-    // ── Invite code generation ────────────────────────────────────
     @Suppress("unused")
     suspend fun generateInviteCode(
         parentId: String,
@@ -333,9 +320,16 @@ class AccountManager @Inject constructor(
         starterBooks: List<StarterBookSeed>
     ): Result<String> {
         return try {
+            val currentUser = auth.currentUser
+                ?: return Result.failure(Exception("User not logged in"))
+
+            if (currentUser.uid != parentId) {
+                return Result.failure(Exception("Parent ID does not match logged in user."))
+            }
+
             var code: String
             var attempts = 0
-            lateinit var existing: com.google.firebase.firestore.DocumentSnapshot
+            var exists = true
 
             do {
                 code = UUID.randomUUID().toString()
@@ -343,15 +337,16 @@ class AccountManager @Inject constructor(
                     .take(6)
                     .uppercase()
 
-                existing = firestore.collection("inviteCodes")
+                exists = firestore.collection("inviteCodes")
                     .document(code)
                     .get()
                     .await()
+                    .exists()
 
                 attempts++
-            } while (existing.exists() && attempts < 5)
+            } while (exists && attempts < 5)
 
-            if (attempts >= 5) {
+            if (exists) {
                 return Result.failure(Exception("Could not generate unique code. Try again."))
             }
 
@@ -364,40 +359,42 @@ class AccountManager @Inject constructor(
 
             val inviteCode = InviteCode(
                 code = code,
-                parentId = parentId,
-                parentName = parentName,
+                createdBy = currentUser.uid,
+                assignedParentId = currentUser.uid,
+                parentName = parentName.trim(),
                 createdAt = now,
                 expiresAt = expiresAt,
-                used = false
+                isActive = true,
+                maxUses = 1,
+                usedCount = 0,
+                childInterests = childInterests
+                    .map { it.trim() }
+                    .filter { it.isNotBlank() }
+                    .distinct()
+                    .take(5),
+                starterBooks = starterBooks
+                    .distinctBy { it.id }
+                    .take(10)
             )
 
             firestore.collection("inviteCodes")
                 .document(code)
-                .set(
-                    mapOf(
-                        "code" to inviteCode.code,
-                        "parentId" to inviteCode.parentId,
-                        "parentName" to inviteCode.parentName,
-                        "createdAt" to inviteCode.createdAt,
-                        "expiresAt" to inviteCode.expiresAt,
-                        "used" to inviteCode.used,
-                        "childInterests" to childInterests.take(5),
-                        "starterBooks" to starterBooks.distinctBy { it.id }
-                    )
-                )
+                .set(inviteCode)
                 .await()
 
             Result.success(code)
         } catch (e: Exception) {
+            Log.e("AccountManager", "Generate invite code failed: ${e.message}", e)
             Result.failure(e)
         }
     }
 
-    // ── Invite code validation ────────────────────────────────────
     suspend fun validateInviteCode(code: String): Result<InviteCode> {
         return try {
+            val normalizedCode = code.trim().uppercase()
+
             val doc = firestore.collection("inviteCodes")
-                .document(code.uppercase())
+                .document(normalizedCode)
                 .get()
                 .await()
 
@@ -408,7 +405,11 @@ class AccountManager @Inject constructor(
             val inviteCode = doc.toObject(InviteCode::class.java)
                 ?: return Result.failure(Exception("Invalid invite code data."))
 
-            if (inviteCode.used) {
+            if (!inviteCode.isActive) {
+                return Result.failure(Exception("This invite code is no longer active."))
+            }
+
+            if (inviteCode.usedCount >= inviteCode.maxUses) {
                 return Result.failure(Exception("This invite code has already been used."))
             }
 
@@ -422,7 +423,6 @@ class AccountManager @Inject constructor(
         }
     }
 
-    // ── Get children for a parent ─────────────────────────────────
     @Suppress("unused")
     fun getChildrenFlow(parentId: String): Flow<List<User>> = callbackFlow {
         val listener = firestore.collection("users")
@@ -439,7 +439,6 @@ class AccountManager @Inject constructor(
         awaitClose { listener.remove() }
     }
 
-    // ── Get child's favorites (for parent dashboard) ──────────────
     fun getChildFavoritesFlow(childId: String): Flow<List<Favorite>> = callbackFlow {
         val listener = firestore.collection("favorites")
             .document(childId)
@@ -456,7 +455,6 @@ class AccountManager @Inject constructor(
         awaitClose { listener.remove() }
     }
 
-    // ── Get child's reading history (for parent dashboard) ────────
     fun getChildReadingHistoryFlow(childId: String): Flow<List<ReadingHistory>> = callbackFlow {
         val listener = firestore.collection("readingHistory")
             .document(childId)
@@ -475,7 +473,6 @@ class AccountManager @Inject constructor(
         awaitClose { listener.remove() }
     }
 
-    // ── Update a child's content filters (for parent) ─────────────
     suspend fun updateChildFilters(
         childId: String,
         maxAgeRating: Int,
@@ -497,7 +494,6 @@ class AccountManager @Inject constructor(
         }
     }
 
-    // ── Update a child's parental PIN (for parent) ────────────────
     suspend fun updateChildParentalPin(
         childId: String,
         pin: String
@@ -615,7 +611,12 @@ class AccountManager @Inject constructor(
         }
     }
 
-    private suspend fun trackLoginAttempt(email: String, userId: String, success: Boolean, failureReason: String) {
+    private suspend fun trackLoginAttempt(
+        email: String,
+        userId: String,
+        success: Boolean,
+        failureReason: String
+    ) {
         try {
             val loginAttempt = LoginAttempt(
                 userId = userId,
@@ -627,7 +628,6 @@ class AccountManager @Inject constructor(
                 .add(loginAttempt)
                 .await()
         } catch (e: Exception) {
-            // Log error but don't fail the sign in process
             Log.w("AccountManager", "Failed to track login attempt", e)
         }
     }

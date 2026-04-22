@@ -35,7 +35,8 @@ fun RegisterScreen(
     var registrationMode by remember { mutableStateOf<RegistrationMode?>(null) }
     val isKid = registrationMode == RegistrationMode.PREMIUM_KID ||
             registrationMode == RegistrationMode.FREE_KID
-    val needsInviteCode = registrationMode == RegistrationMode.PREMIUM_KID
+    val needsInviteCode = registrationMode == RegistrationMode.PREMIUM_KID ||
+            registrationMode == RegistrationMode.FREE_KID
 
     // Shared fields
     var name by remember { mutableStateOf("") }
