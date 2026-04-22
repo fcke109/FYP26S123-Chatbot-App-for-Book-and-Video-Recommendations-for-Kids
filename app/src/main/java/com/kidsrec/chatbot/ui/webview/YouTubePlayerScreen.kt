@@ -1,7 +1,9 @@
 package com.kidsrec.chatbot.ui.webview
 
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.graphics.Bitmap
+import android.net.Uri
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
@@ -31,6 +33,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -54,6 +57,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -77,7 +81,10 @@ fun YouTubePlayerScreen(
     title: String,
     onBack: (durationSeconds: Long) -> Unit
 ) {
+    val context = LocalContext.current
     val cleanVideoId = videoId.trim()
+    val watchUrl = "https://www.youtube.com/watch?v=$cleanVideoId"
+
     val openedAtMs = remember { System.currentTimeMillis() }
     var isLoading by remember { mutableStateOf(true) }
     var loadError by remember { mutableStateOf(false) }
@@ -239,10 +246,19 @@ fun YouTubePlayerScreen(
         Scaffold(
             topBar = {
                 CenterAlignedTopAppBar(
-                    title = { Text(decodedTitle, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    title = {
+                        Text(
+                            decodedTitle,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    },
                     navigationIcon = {
                         IconButton(onClick = { exitPlayer() }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                            Icon(
+                                Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Back"
+                            )
                         }
                     }
                 )
@@ -289,31 +305,49 @@ fun YouTubePlayerScreen(
                                     color = Color.White,
                                     fontWeight = FontWeight.Bold
                                 )
+
                                 Spacer(modifier = Modifier.size(8.dp))
+
                                 Text(
                                     text = "Video ID: $cleanVideoId",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = Color.White.copy(alpha = 0.6f),
                                     fontSize = 11.sp
                                 )
+
                                 Spacer(modifier = Modifier.size(12.dp))
+
                                 Text(
-                                    text = "This video may be unavailable or restricted.",
+                                    text = "This video may be unavailable, restricted, or not embeddable.",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = Color.White.copy(alpha = 0.7f),
                                     textAlign = TextAlign.Center
                                 )
                             }
                         }
+
                         Spacer(modifier = Modifier.size(16.dp))
+
+                        Button(
+                            onClick = {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(watchUrl))
+                                context.startActivity(intent)
+                            }
+                        ) {
+                            Icon(Icons.Default.PlayArrow, contentDescription = null)
+                            Text(" Open on YouTube")
+                        }
+
+                        Spacer(modifier = Modifier.size(8.dp))
+
                         Button(onClick = { exitPlayer() }) {
                             Text("Go Back")
                         }
                     }
                 } else {
                     AndroidView(
-                        factory = { context ->
-                            WebView(context).apply {
+                        factory = { webContext ->
+                            WebView(webContext).apply {
                                 @SuppressLint("SetJavaScriptEnabled")
                                 settings.apply {
                                     javaScriptEnabled = true

@@ -610,7 +610,72 @@ class AccountManager @Inject constructor(
             Result.failure(e)
         }
     }
+    private suspend fun detectSuspiciousActivity(email: String) {
+        try {
+            val cutoffMillis = System.currentTimeMillis() - 5 * 60 * 1000
+            val cutoffTimestamp = Timestamp(java.util.Date(cutoffMillis))
 
+            // Simpler query: only by email, then filter in app code
+            val recentAttemptsSnapshot = firestore.collection("loginAttempts")
+                .whereEqualTo("email", email)
+                .get()
+                .await()
+
+            val failedAttempts = recentAttemptsSnapshot.documents.filter { doc ->
+                val success = doc.getBoolean("success") ?: false
+                val ts = doc.getTimestamp("timestamp")
+                !success && ts != null && ts.toDate().time >= cutoffMillis
+            }
+
+            if (failedAttempts.size < 5) {
+                Log.d("SECURITY", "Not enough failed attempts for $email: ${failedAttempts.size}")
+                return
+            }
+
+            // Prevent duplicates: only one unresolved brute-force alert in the last 5 minutes
+            val existingAlertsSnapshot = firestore.collection("suspiciousActivities")
+                .whereEqualTo("email", email)
+                .get()
+                .await()
+
+            val hasRecentOpenAlert = existingAlertsSnapshot.documents.any { doc ->
+                val resolved = doc.getBoolean("resolved") ?: false
+                val activityType = doc.getString("activityType") ?: ""
+                val ts = doc.getTimestamp("timestamp")
+                !resolved &&
+                        activityType == "ACCOUNT_BRUTE_FORCE" &&
+                        ts != null &&
+                        ts.toDate().time >= cutoffMillis
+            }
+
+            if (hasRecentOpenAlert) {
+                Log.d("SECURITY", "Existing unresolved brute-force alert already exists for $email")
+                return
+            }
+
+            val activity = hashMapOf(
+                "id" to "",
+                "userId" to "",
+                "email" to email,
+                "type" to "SECURITY_ALERT",
+                "description" to "Multiple failed login attempts detected",
+                "details" to "User/email had ${failedAttempts.size} failed logins in 5 minutes",
+                "ipAddress" to "",
+                "severity" to "HIGH",
+                "activityType" to "ACCOUNT_BRUTE_FORCE",
+                "timestamp" to Timestamp.now(),
+                "resolved" to false
+            )
+
+            firestore.collection("suspiciousActivities")
+                .add(activity)
+                .await()
+
+            Log.d("SECURITY", "Created suspicious activity for $email")
+        } catch (e: Exception) {
+            Log.e("SECURITY", "Detection failed", e)
+        }
+    }
     private suspend fun trackLoginAttempt(
         email: String,
         userId: String,
@@ -624,9 +689,16 @@ class AccountManager @Inject constructor(
                 success = success,
                 failureReason = if (success) "" else failureReason
             )
+
             firestore.collection("loginAttempts")
                 .add(loginAttempt)
                 .await()
+
+            Log.d("SECURITY", "Login attempt saved for $email success=$success")
+
+            if (!success) {
+                detectSuspiciousActivity(email)
+            }
         } catch (e: Exception) {
             Log.w("AccountManager", "Failed to track login attempt", e)
         }

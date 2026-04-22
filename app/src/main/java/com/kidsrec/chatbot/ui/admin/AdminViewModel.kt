@@ -633,29 +633,46 @@ class AdminViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoadingSecurityData.value = true
             try {
-                // Load recent login attempts (last 7 days)
-                val sevenDaysAgo = Timestamp(Date(System.currentTimeMillis() - 7 * 24 * 60 * 60 * 1000))
-                val loginAttempts = firestore.collection("loginAttempts")
+                val sevenDaysAgo = Timestamp(Date(System.currentTimeMillis() - 7L * 24 * 60 * 60 * 1000))
+                val thirtyDaysAgo = Timestamp(Date(System.currentTimeMillis() - 30L * 24 * 60 * 60 * 1000))
+
+                val loginAttemptsSnapshot = firestore.collection("loginAttempts")
                     .whereGreaterThan("timestamp", sevenDaysAgo)
                     .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
                     .limit(100)
                     .get()
                     .await()
-                    .toObjects(LoginAttempt::class.java)
+
+                val loginAttempts = loginAttemptsSnapshot.documents.mapNotNull { doc ->
+                    try {
+                        doc.toObject(LoginAttempt::class.java)?.copy(id = doc.id)
+                    } catch (e: Exception) {
+                        Log.e("AdminVM", "Failed to parse login attempt ${doc.id}", e)
+                        null
+                    }
+                }
 
                 _loginAttempts.value = loginAttempts
+                Log.d("AdminVM", "Loaded ${loginAttempts.size} login attempts")
 
-                // Load suspicious activities (last 30 days)
-                val thirtyDaysAgo = Timestamp(Date(System.currentTimeMillis() - 30 * 24 * 60 * 60 * 1000))
-                val suspiciousActivities = firestore.collection("suspiciousActivities")
+                val suspiciousSnapshot = firestore.collection("suspiciousActivities")
                     .whereGreaterThan("timestamp", thirtyDaysAgo)
                     .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
                     .limit(50)
                     .get()
                     .await()
-                    .toObjects(SuspiciousActivity::class.java)
+
+                val suspiciousActivities = suspiciousSnapshot.documents.mapNotNull { doc ->
+                    try {
+                        doc.toObject(SuspiciousActivity::class.java)?.copy(id = doc.id)
+                    } catch (e: Exception) {
+                        Log.e("AdminVM", "Failed to parse suspicious activity ${doc.id}", e)
+                        null
+                    }
+                }
 
                 _suspiciousActivities.value = suspiciousActivities
+                Log.d("AdminVM", "Loaded ${suspiciousActivities.size} suspicious activities")
 
             } catch (e: Exception) {
                 Log.e("AdminVM", "Failed to load security data", e)
@@ -668,6 +685,11 @@ class AdminViewModel @Inject constructor(
     }
 
     fun markSuspiciousActivityResolved(activityId: String) {
+        if (activityId.isBlank()) {
+            Log.e("AdminVM", "Cannot resolve suspicious activity because activityId is blank")
+            return
+        }
+
         viewModelScope.launch {
             try {
                 firestore.collection("suspiciousActivities")
@@ -675,7 +697,6 @@ class AdminViewModel @Inject constructor(
                     .update("resolved", true)
                     .await()
 
-                // Update local state
                 _suspiciousActivities.value = _suspiciousActivities.value.map {
                     if (it.id == activityId) it.copy(resolved = true) else it
                 }
