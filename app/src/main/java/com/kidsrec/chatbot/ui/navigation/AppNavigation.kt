@@ -95,7 +95,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
     object ParentDashboard : Screen("parent_dashboard", "Dashboard", Icons.Default.Person)
     object ParentInterestSelection : Screen("parent_interest_selection", "Set Child Interests")
     object ParentalControls : Screen("parental_controls", "Parental Controls")
-    object Reader : Screen("reader/{url}", "Reader")
+    object Reader : Screen("reader?url={url}&title={title}", "Reader")
     object SafeWebView : Screen(
         "webview?url={url}&title={title}&isVideo={isVideo}&itemId={itemId}&imageUrl={imageUrl}&description={description}",
         "WebView"
@@ -193,8 +193,9 @@ private fun buildContentRoute(
 
     if (!finalIsVideo && isKnownBookUrl(cleanUrl)) {
         val encodedUrl = URLEncoder.encode(cleanUrl, "UTF-8")
+        val encodedTitle = URLEncoder.encode(title, "UTF-8")
         Log.d("KidsRecNav", "Routing to BookReaderScreen")
-        return "reader/$encodedUrl"
+        return "reader?url=$encodedUrl&title=$encodedTitle"
     }
 
     val encodedUrl = URLEncoder.encode(cleanUrl, "UTF-8")
@@ -409,24 +410,40 @@ fun MainScreen(
                 composable(Screen.Chat.route) {
                     val chatViewModel: ChatViewModel = hiltViewModel()
                     val searchViewModel: SmartSearchViewModel = hiltViewModel()
+                    val libraryViewModel: LibraryViewModel = hiltViewModel()
 
                     DinoChatPage(
                         viewModel = chatViewModel,
                         favoritesViewModel = favoritesViewModel,
                         searchViewModel = searchViewModel,
                         onOpenRecommendation = { url, title, isVideo, itemId, imageUrl, description ->
+
+                            val analyticsId = when {
+                                itemId.isNotBlank() -> itemId
+                                url.isNotBlank() -> url
+                                else -> title
+                            }
+
+                            Log.d("ANALYTICS_TEST", "Chat open -> title=$title analyticsId=$analyticsId")
+
+                            libraryViewModel.trackBookView(
+                                bookTitle = title,
+                                bookId = analyticsId
+                            )
+
                             profileViewModel.trackReading(
                                 title = title,
                                 url = url,
                                 coverUrl = imageUrl,
                                 isVideo = isVideo
                             )
+
                             navController.navigate(
                                 buildContentRoute(
                                     url = url,
                                     title = title,
                                     isVideo = isVideo,
-                                    itemId = itemId,
+                                    itemId = analyticsId,
                                     imageUrl = imageUrl,
                                     description = description
                                 )
@@ -444,18 +461,33 @@ fun MainScreen(
                         favoritesViewModel = favoritesViewModel,
                         searchViewModel = searchViewModel,
                         onOpenRecommendation = { url, title, isVideo, itemId, imageUrl, description ->
+
+                            val analyticsId = when {
+                                itemId.isNotBlank() -> itemId
+                                url.isNotBlank() -> url
+                                else -> title
+                            }
+
+                            Log.d("ANALYTICS_TEST", "Library open -> title=$title analyticsId=$analyticsId")
+
+                            libraryViewModel.trackBookView(
+                                bookTitle = title,
+                                bookId = analyticsId
+                            )
+
                             profileViewModel.trackReading(
                                 title = title,
                                 url = url,
                                 coverUrl = imageUrl,
                                 isVideo = isVideo
                             )
+
                             navController.navigate(
                                 buildContentRoute(
                                     url = url,
                                     title = title,
                                     isVideo = isVideo,
-                                    itemId = itemId,
+                                    itemId = analyticsId,
                                     imageUrl = imageUrl,
                                     description = description
                                 )
@@ -465,21 +497,38 @@ fun MainScreen(
                 }
 
                 composable(Screen.Favorites.route) {
+                    val libraryViewModel: LibraryViewModel = hiltViewModel()
+
                     FavoritesScreen(
                         viewModel = favoritesViewModel,
                         onOpenFavorite = { url, title, isVideo, itemId, imageUrl, description ->
+
+                            val analyticsId = when {
+                                itemId.isNotBlank() -> itemId
+                                url.isNotBlank() -> url
+                                else -> title
+                            }
+
+                            Log.d("ANALYTICS_TEST", "Favorites open -> title=$title analyticsId=$analyticsId")
+
+                            libraryViewModel.trackBookView(
+                                bookTitle = title,
+                                bookId = analyticsId
+                            )
+
                             profileViewModel.trackReading(
                                 title = title,
                                 url = url,
                                 coverUrl = imageUrl,
                                 isVideo = isVideo
                             )
+
                             navController.navigate(
                                 buildContentRoute(
                                     url = url,
                                     title = title,
                                     isVideo = isVideo,
-                                    itemId = itemId,
+                                    itemId = analyticsId,
                                     imageUrl = imageUrl,
                                     description = description
                                 )
@@ -653,8 +702,8 @@ fun MainScreen(
 
                                 scope.launch {
                                     analyticsRepository.trackDropOffPoint(
-                                        itemId = itemId,
-                                        itemTitle = title.ifBlank { url },
+                                        itemId = if (url.isNotBlank()) url else title,
+                                        itemTitle = if (title.isNotBlank()) title else url,
                                         userId = userId,
                                         openedAt = openedAt,
                                         closedAt = closeTimestamp,
@@ -728,10 +777,16 @@ fun MainScreen(
                     arguments = listOf(
                         navArgument("url") {
                             type = NavType.StringType
+                            defaultValue = ""
+                        },
+                        navArgument("title") {
+                            type = NavType.StringType
+                            defaultValue = ""
                         }
                     )
                 ) { bse ->
                     val url = bse.arguments?.getString("url") ?: ""
+                    val title = bse.arguments?.getString("title") ?: ""
 
                     if (url.isBlank()) {
                         LaunchedEffect(Unit) {
@@ -756,8 +811,8 @@ fun MainScreen(
 
                                 scope.launch {
                                     analyticsRepository.trackDropOffPoint(
-                                        itemId = url,
-                                        itemTitle = url,
+                                        itemId = if (title.isNotBlank()) title else url,
+                                        itemTitle = if (title.isNotBlank()) title else url,
                                         userId = userId,
                                         openedAt = openedAt,
                                         closedAt = closeTimestamp,

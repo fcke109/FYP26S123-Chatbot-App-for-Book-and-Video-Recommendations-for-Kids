@@ -177,8 +177,16 @@ class LibraryViewModel @Inject constructor(
 
     fun trackBookView(bookTitle: String, bookId: String = "") {
         viewModelScope.launch {
-            val currentUserId = accountManager.getCurrentUserId() ?: "unknown"
-            analyticsRepository.trackBookView(bookId, bookTitle, currentUserId)
+            try {
+                val currentUserId = accountManager.getCurrentUserId() ?: "unknown"
+                Log.d(
+                    "ANALYTICS_TEST",
+                    "trackBookView called -> title=$bookTitle bookId=$bookId userId=$currentUserId"
+                )
+                analyticsRepository.trackBookView(bookId, bookTitle, currentUserId)
+            } catch (e: Exception) {
+                Log.e("ANALYTICS_TEST", "trackBookView failed", e)
+            }
         }
     }
 }

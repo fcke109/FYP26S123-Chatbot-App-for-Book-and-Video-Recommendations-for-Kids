@@ -8,6 +8,8 @@ import com.kidsrec.chatbot.data.model.Book
 import com.kidsrec.chatbot.data.model.ChatMessage
 import com.kidsrec.chatbot.data.model.Conversation
 import com.kidsrec.chatbot.data.model.MessageRole
+import com.kidsrec.chatbot.data.model.Recommendation
+import com.kidsrec.chatbot.data.model.RecommendationType
 import com.kidsrec.chatbot.data.model.User
 import com.kidsrec.chatbot.data.remote.GeminiService
 import com.kidsrec.chatbot.data.remote.OpenAIMessage
@@ -21,12 +23,10 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
-import kotlin.math.sqrt
 import org.json.JSONArray
 import javax.inject.Inject
 import javax.inject.Singleton
-import com.kidsrec.chatbot.data.model.Recommendation
-import com.kidsrec.chatbot.data.model.RecommendationType
+import kotlin.math.sqrt
 
 @Singleton
 class ChatDataManager @Inject constructor(
@@ -40,7 +40,8 @@ class ChatDataManager @Inject constructor(
     private val openLibraryService: OpenLibraryService,
     private val youTubeService: YouTubeService,
     private val learningProgressManager: LearningProgressManager,
-    private val gamificationManager: GamificationManager
+    private val gamificationManager: GamificationManager,
+    private val analyticsRepository: AnalyticsRepository
 ) {
 
     private data class ApprovedVideo(
@@ -55,9 +56,6 @@ class ChatDataManager @Inject constructor(
     )
 
     private val approvedVideos = listOf(
-        // =========================
-        // ANIMALS
-        // =========================
         ApprovedVideo(
             id = "vid_baby_shark",
             title = "Baby Shark Dance",
@@ -84,7 +82,7 @@ class ChatDataManager @Inject constructor(
             description = "Discover fun facts about amazing sea creatures.",
             reason = "A great pick for children who love ocean life.",
             url = "https://www.youtube.com/watch?v=NCq8AedHvZQ",
-            imageUrl = "https://www.youtube.com/watch?v=NCq8AedHvZQ/hqdefault.jpg",
+            imageUrl = "https://img.youtube.com/vi/NCq8AedHvZQ/hqdefault.jpg",
             category = "animals",
             tags = listOf("ocean", "sea", "marine", "animals", "dolphin", "whale", "fish")
         ),
@@ -94,7 +92,7 @@ class ChatDataManager @Inject constructor(
             description = "A fun learning video about dinosaurs and prehistoric life.",
             reason = "Perfect for children who love dinosaurs.",
             url = "https://www.youtube.com/watch?v=dktnOPfE7Dc",
-            imageUrl = "https://www.youtube.com/watch?v=dktnOPfE7Dc/hqdefault.jpg",
+            imageUrl = "https://img.youtube.com/vi/dktnOPfE7Dc/hqdefault.jpg",
             category = "animals",
             tags = listOf("dinosaurs", "dinosaur", "t-rex", "prehistoric", "animals", "science")
         ),
@@ -134,7 +132,7 @@ class ChatDataManager @Inject constructor(
             description = "Learn about sea animals in a simple kid-friendly way.",
             reason = "A fun choice for children who love the ocean.",
             url = "https://www.youtube.com/watch?v=Oxw6FoUNeT4",
-            imageUrl = "https://www.youtube.com/watch?v=Oxw6FoUNeT4/hqdefault.jpg",
+            imageUrl = "https://img.youtube.com/vi/Oxw6FoUNeT4/hqdefault.jpg",
             category = "animals",
             tags = listOf("marine", "ocean", "animals", "sea", "fish", "whale", "vocabulary")
         ),
@@ -144,9 +142,9 @@ class ChatDataManager @Inject constructor(
             description = "Explore giant creatures from long ago.",
             reason = "A fun pick for children interested in prehistoric life.",
             url = "https://www.youtube.com/watch?v=KZ55sIWY_Gc",
-            imageUrl = "https://www.youtube.com/watch?v=KZ55sIWY_Gc/hqdefault.jpg",
+            imageUrl = "https://img.youtube.com/vi/KZ55sIWY_Gc/hqdefault.jpg",
             category = "animals",
-            tags = listOf("prehistoric", "dinosaurs", "animals", "science", "Educational")
+            tags = listOf("prehistoric", "dinosaurs", "animals", "science", "educational")
         ),
         ApprovedVideo(
             id = "vid_farm_song_animals",
@@ -159,9 +157,6 @@ class ChatDataManager @Inject constructor(
             tags = listOf("farm", "song", "animals", "nursery rhyme")
         ),
 
-        // =========================
-        // SPACE
-        // =========================
         ApprovedVideo(
             id = "vid_solar_system",
             title = "Solar System for Kids",
@@ -177,8 +172,8 @@ class ChatDataManager @Inject constructor(
             title = "Planets Song for Kids",
             description = "A fun song to help children remember the planets.",
             reason = "Makes planet learning easier and more memorable.",
-            url = "https://www.youtube.com/watch?v=mQrlgH97v94&list=RDmQrlgH97v94&start_radio=1",
-            imageUrl = "https://www.youtube.com/watch?v=mQrlgH97v94&list=RDmQrlgH97v94&start_radio=1/hqdefault.jpg",
+            url = "https://www.youtube.com/watch?v=mQrlgH97v94",
+            imageUrl = "https://img.youtube.com/vi/mQrlgH97v94/hqdefault.jpg",
             category = "space",
             tags = listOf("planets", "space", "song", "solar system", "learning")
         ),
@@ -198,7 +193,7 @@ class ChatDataManager @Inject constructor(
             description = "A simple learning video about rockets and space travel.",
             reason = "A fun choice for children who love rockets.",
             url = "https://www.youtube.com/watch?v=QCj66nGiKpU",
-            imageUrl = "https://www.youtube.com/watch?v=QCj66nGiKpU/hqdefault.jpg",
+            imageUrl = "https://img.youtube.com/vi/QCj66nGiKpU/hqdefault.jpg",
             category = "space",
             tags = listOf("rocket", "space", "science", "planets", "astronaut")
         ),
@@ -208,7 +203,7 @@ class ChatDataManager @Inject constructor(
             description = "A child-friendly introduction to astronauts and space missions.",
             reason = "Great for curious children who dream about space travel.",
             url = "https://www.youtube.com/watch?v=lndTOMgdRAU",
-            imageUrl = "https://www.youtube.com/watch?v=lndTOMgdRAU/hqdefault.jpg",
+            imageUrl = "https://img.youtube.com/vi/lndTOMgdRAU/hqdefault.jpg",
             category = "space",
             tags = listOf("astronaut", "space", "rocket", "science", "learning")
         ),
@@ -218,7 +213,7 @@ class ChatDataManager @Inject constructor(
             description = "Learn about Earth as part of the solar system.",
             reason = "Helps children understand where we live in space.",
             url = "https://www.youtube.com/watch?v=uAwTWAC0vt0",
-            imageUrl = "https://www.youtube.com/watch?v=uAwTWAC0vt0/hqdefault.jpg",
+            imageUrl = "https://img.youtube.com/vi/uAwTWAC0vt0/hqdefault.jpg",
             category = "space",
             tags = listOf("earth", "planet", "space", "solar system", "science")
         ),
@@ -228,7 +223,7 @@ class ChatDataManager @Inject constructor(
             description = "A simple and fun introduction to planets and stars.",
             reason = "Good for children who want an exciting space video.",
             url = "https://www.youtube.com/watch?v=osSkJuohjM8",
-            imageUrl = "https://www.youtube.com/watch?v=osSkJuohjM8/hqdefault.jpg",
+            imageUrl = "https://img.youtube.com/vi/osSkJuohjM8/hqdefault.jpg",
             category = "space",
             tags = listOf("space", "adventure", "stars", "planets", "science")
         ),
@@ -237,15 +232,12 @@ class ChatDataManager @Inject constructor(
             title = "Space Science for Kids",
             description = "A child-friendly science video about space.",
             reason = "A great pick for curious young learners.",
-            url = "https://www.youtube.com/watch?v=7XseVrmpkUUw",
-            imageUrl = "https://www.youtube.com/watch?v=7XseVrmpkUU/hqdefault.jpg",
+            url = "https://www.youtube.com/watch?v=7XseVrmpkUU",
+            imageUrl = "https://img.youtube.com/vi/7XseVrmpkUU/hqdefault.jpg",
             category = "space",
             tags = listOf("space", "science", "planets", "solar system")
         ),
 
-        // =========================
-        // BEDTIME
-        // =========================
         ApprovedVideo(
             id = "vid_twinkle",
             title = "Twinkle Twinkle Little Star",
@@ -291,8 +283,8 @@ class ChatDataManager @Inject constructor(
             title = "Star Light, Star Bright",
             description = "A calm star-themed song for bedtime.",
             reason = "A soothing option for nighttime routines.",
-            url = "https://www.youtube.com/watch?v=OWip7yvXukI&list=RDOWip7yvXukI&start_radio=1",
-            imageUrl = "https://www.youtube.com/watch?v=OWip7yvXukI&list=RDOWip7yvXukI&start_radio=1/hqdefault.jpg",
+            url = "https://www.youtube.com/watch?v=OWip7yvXukI",
+            imageUrl = "https://img.youtube.com/vi/OWip7yvXukI/hqdefault.jpg",
             category = "bedtime",
             tags = listOf("lullaby", "bedtime", "star", "moon", "sleep")
         ),
@@ -327,16 +319,13 @@ class ChatDataManager @Inject constructor(
             tags = listOf("abc", "alphabet", "bedtime", "song", "calm")
         ),
 
-        // =========================
-        // LEARNING
-        // =========================
         ApprovedVideo(
             id = "vid_abc_song",
             title = "ABC Song for Kids",
             description = "A cheerful alphabet song for early learners.",
             reason = "Great for learning letters in a fun way.",
-            url = "https://www.youtube.com/watch?v=ccEpTTZW34g&list=RDccEpTTZW34g&start_radio=1",
-            imageUrl = "https://www.youtube.com/watch?v=ccEpTTZW34g&list=RDccEpTTZW34g&start_radio=1/hqdefault.jpg",
+            url = "https://www.youtube.com/watch?v=ccEpTTZW34g",
+            imageUrl = "https://img.youtube.com/vi/ccEpTTZW34g/hqdefault.jpg",
             category = "learning",
             tags = listOf("alphabet", "abc", "letters", "phonics", "preschool")
         ),
@@ -365,8 +354,8 @@ class ChatDataManager @Inject constructor(
             title = "Colors Song for Children",
             description = "A colorful learning video for early learners.",
             reason = "Helps children learn color names in a fun way.",
-            url = "https://www.youtube.com/watch?v=zxIpA5nF_LY&list=RDzxIpA5nF_LY&start_radio=1",
-            imageUrl = "https://www.youtube.com/watch?v=zxIpA5nF_LY&list=RDzxIpA5nF_LY&start_radio=1/hqdefault.jpg",
+            url = "https://www.youtube.com/watch?v=zxIpA5nF_LY",
+            imageUrl = "https://img.youtube.com/vi/zxIpA5nF_LY/hqdefault.jpg",
             category = "learning",
             tags = listOf("colors", "learning", "preschool", "school")
         ),
@@ -396,7 +385,7 @@ class ChatDataManager @Inject constructor(
             description = "A simple introduction to body part names.",
             reason = "Useful for very young learners.",
             url = "https://www.youtube.com/watch?v=SUt8q0EKbms",
-            imageUrl = "https://www.youtube.com/watch?v=SUt8q0EKbms/hqdefault.jpg",
+            imageUrl = "https://img.youtube.com/vi/SUt8q0EKbms/hqdefault.jpg",
             category = "learning",
             tags = listOf("body parts", "body", "learning", "science", "kids")
         ),
@@ -405,8 +394,8 @@ class ChatDataManager @Inject constructor(
             title = "Numbers Practice for Kids",
             description = "A simple number learning video for children.",
             reason = "Good for practicing counting and number recognition.",
-            url = "https://www.youtube.com/watch?v=Yt8GFgxlITs&list=RDYt8GFgxlITs&start_radio=1",
-            imageUrl = "https://www.youtube.com/watch?v=Yt8GFgxlITs&list=RDYt8GFgxlITs&start_radio=1/hqdefault.jpg",
+            url = "https://www.youtube.com/watch?v=Yt8GFgxlITs",
+            imageUrl = "https://img.youtube.com/vi/Yt8GFgxlITs/hqdefault.jpg",
             category = "learning",
             tags = listOf("numbers", "counting", "math", "school", "learning")
         ),
@@ -416,7 +405,7 @@ class ChatDataManager @Inject constructor(
             description = "A playful alphabet video for early learners.",
             reason = "A great way to practice letters again and again.",
             url = "https://www.youtube.com/watch?v=EVTB8xIHWU0",
-            imageUrl = "https://www.youtube.com/watch?v=EVTB8xIHWU0/hqdefault.jpg",
+            imageUrl = "https://img.youtube.com/vi/EVTB8xIHWU0/hqdefault.jpg",
             category = "learning",
             tags = listOf("alphabet", "letters", "abc", "phonics")
         ),
@@ -426,14 +415,11 @@ class ChatDataManager @Inject constructor(
             description = "A bright and simple video about basic colors.",
             reason = "Useful for preschool children learning color names.",
             url = "https://www.youtube.com/watch?v=HrDl_1Ov8gc",
-            imageUrl = "https://www.youtube.com/watch?v=HrDl_1Ov8gc/hqdefault.jpg",
+            imageUrl = "https://img.youtube.com/vi/HrDl_1Ov8gc/hqdefault.jpg",
             category = "learning",
             tags = listOf("colors", "preschool", "learning", "school")
         ),
 
-        // =========================
-        // SONGS & NURSERY RHYMES
-        // =========================
         ApprovedVideo(
             id = "vid_wheels_bus",
             title = "Wheels on the Bus",
@@ -449,8 +435,8 @@ class ChatDataManager @Inject constructor(
             title = "Driving In My Car",
             description = "A simple song about buses and transport.",
             reason = "Nice for children who love vehicles.",
-            url = "https://www.youtube.com/watch?v=BdrZWu2dZ4c&list=RDBdrZWu2dZ4c&start_radio=1",
-            imageUrl = "https://www.youtube.com/watch?v=BdrZWu2dZ4c&list=RDBdrZWu2dZ4c&start_radio=1/hqdefault.jpg",
+            url = "https://www.youtube.com/watch?v=BdrZWu2dZ4c",
+            imageUrl = "https://img.youtube.com/vi/BdrZWu2dZ4c/hqdefault.jpg",
             category = "songs",
             tags = listOf("transport", "vehicles", "bus", "song", "kids")
         ),
@@ -459,8 +445,8 @@ class ChatDataManager @Inject constructor(
             title = "Happy Music for Kids",
             description = "A bright and cheerful children’s music video.",
             reason = "Fun for movement, dancing, and smiles.",
-            url = "https://www.youtube.com/watch?v=FiXCxfWWwPo&list=RDFiXCxfWWwPo&start_radio=1",
-            imageUrl = "https://www.youtube.com/watch?v=FiXCxfWWwPo&list=RDFiXCxfWWwPo&start_radio=1/hqdefault.jpg",
+            url = "https://www.youtube.com/watch?v=FiXCxfWWwPo",
+            imageUrl = "https://img.youtube.com/vi/FiXCxfWWwPo/hqdefault.jpg",
             category = "songs",
             tags = listOf("music", "dance", "happy", "kids songs")
         ),
@@ -469,8 +455,8 @@ class ChatDataManager @Inject constructor(
             title = "Star Nursery Rhyme",
             description = "A gentle nursery rhyme with a star theme.",
             reason = "A classic choice many children already know.",
-            url = "https://www.youtube.com/watch?v=SNeI2PMcRdA&list=RDSNeI2PMcRdA&start_radio=1",
-            imageUrl = "https://www.youtube.com/watch?v=SNeI2PMcRdA&list=RDSNeI2PMcRdA&start_radio=1/hqdefault.jpg",
+            url = "https://www.youtube.com/watch?v=SNeI2PMcRdA",
+            imageUrl = "https://img.youtube.com/vi/SNeI2PMcRdA/hqdefault.jpg",
             category = "songs",
             tags = listOf("nursery rhyme", "star", "song", "bedtime")
         ),
@@ -479,8 +465,8 @@ class ChatDataManager @Inject constructor(
             title = "Counting Music for Kids",
             description = "A sing-along style counting video.",
             reason = "Combines music with early number practice.",
-            url = "https://www.youtube.com/watch?v=S84fcGdEULk&list=RDS84fcGdEULk&start_radio=1",
-            imageUrl = "https://www.youtube.com/watch?v=S84fcGdEULk&list=RDS84fcGdEULk&start_radio=1/hqdefault.jpg",
+            url = "https://www.youtube.com/watch?v=S84fcGdEULk",
+            imageUrl = "https://img.youtube.com/vi/S84fcGdEULk/hqdefault.jpg",
             category = "songs",
             tags = listOf("counting", "music", "numbers", "song")
         ),
@@ -489,22 +475,19 @@ class ChatDataManager @Inject constructor(
             title = "Alphabet Music for Kids",
             description = "An alphabet sing-along for younger children.",
             reason = "Good for combining music and learning.",
-            url = "https://www.youtube.com/watch?v=-1jxqVy5SlA&list=RD-1jxqVy5SlA&start_radio=1",
-            imageUrl = "https://www.youtube.com/watch?v=-1jxqVy5SlA&list=RD-1jxqVy5SlA&start_radio=1/hqdefault.jpg",
+            url = "https://www.youtube.com/watch?v=-1jxqVy5SlA",
+            imageUrl = "https://img.youtube.com/vi/-1jxqVy5SlA/hqdefault.jpg",
             category = "songs",
             tags = listOf("alphabet", "abc", "music", "song")
         ),
 
-        // =========================
-        // STORIES
-        // =========================
         ApprovedVideo(
             id = "vid_story_animals",
             title = "Animal Story for Kids",
             description = "A story-style animal video for children.",
             reason = "Nice for kids who want a simple animal story.",
             url = "https://www.youtube.com/watch?v=tUjOL_Nk6uo",
-            imageUrl = "https://www.youtube.com/watch?v=tUjOL_Nk6uo/hqdefault.jpg",
+            imageUrl = "https://img.youtube.com/vi/tUjOL_Nk6uo/hqdefault.jpg",
             category = "stories",
             tags = listOf("story", "animals", "kids story", "farm")
         ),
@@ -514,7 +497,7 @@ class ChatDataManager @Inject constructor(
             description = "A story-style learning video about space.",
             reason = "A fun choice for children who like planets and stars.",
             url = "https://www.youtube.com/watch?v=PqrZ-Q38xuc",
-            imageUrl = "https://www.youtube.com/watch?v=PqrZ-Q38xuc/hqdefault.jpg",
+            imageUrl = "https://img.youtube.com/vi/PqrZ-Q38xuc/hqdefault.jpg",
             category = "stories",
             tags = listOf("story", "space", "planets", "stars")
         ),
@@ -523,8 +506,8 @@ class ChatDataManager @Inject constructor(
             title = "Dinosaur Story for Kids",
             description = "A child-friendly dinosaur-themed story video.",
             reason = "Great for children who enjoy dinosaurs and adventures.",
-            url = "http://youtube.com/watch?v=msFtC8qyrsQ",
-            imageUrl = "http://youtube.com/watch?v=msFtC8qyrsQ/hqdefault.jpg",
+            url = "https://www.youtube.com/watch?v=msFtC8qyrsQ",
+            imageUrl = "https://img.youtube.com/vi/msFtC8qyrsQ/hqdefault.jpg",
             category = "stories",
             tags = listOf("story", "dinosaurs", "adventure", "kids")
         ),
@@ -534,7 +517,7 @@ class ChatDataManager @Inject constructor(
             description = "A story-style ocean learning video for children.",
             reason = "Good for children who want a sea-themed story.",
             url = "https://www.youtube.com/watch?v=-F0ANWRHkQ0",
-            imageUrl = "https://www.youtube.com/watch?v=-F0ANWRHkQ0/hqdefault.jpg",
+            imageUrl = "https://img.youtube.com/vi/-F0ANWRHkQ0/hqdefault.jpg",
             category = "stories",
             tags = listOf("story", "ocean", "sea", "animals")
         ),
@@ -543,8 +526,8 @@ class ChatDataManager @Inject constructor(
             title = "Bedtime Story Song",
             description = "A calmer story-style song for bedtime.",
             reason = "Useful when children want a softer video before sleep.",
-            url = "https://www.youtube.com/watch?v=zmUzTZhbNh4&list=RDzmUzTZhbNh4&start_radio=1",
-            imageUrl = "https://www.youtube.com/watch?v=zmUzTZhbNh4&list=RDzmUzTZhbNh4&start_radio=1/hqdefault.jpg",
+            url = "https://www.youtube.com/watch?v=zmUzTZhbNh4",
+            imageUrl = "https://img.youtube.com/vi/zmUzTZhbNh4/hqdefault.jpg",
             category = "stories",
             tags = listOf("story", "bedtime", "sleep", "calm")
         ),
@@ -554,14 +537,11 @@ class ChatDataManager @Inject constructor(
             description = "A simple story-style educational video.",
             reason = "A nice mix of learning and storytelling.",
             url = "https://www.youtube.com/watch?v=uwzViw-T0-A",
-            imageUrl = "https://www.youtube.com/watch?v=uwzViw-T0-A/hqdefault.jpg",
+            imageUrl = "https://img.youtube.com/vi/uwzViw-T0-A/hqdefault.jpg",
             category = "stories",
             tags = listOf("story", "learning", "abc", "kids")
         ),
 
-        // =========================
-        // SCIENCE
-        // =========================
         ApprovedVideo(
             id = "vid_science_body",
             title = "Science About the Body for Kids",
@@ -578,7 +558,7 @@ class ChatDataManager @Inject constructor(
             description = "Learn about sea creatures in a simple kid-friendly way.",
             reason = "A strong choice for children who like science and animals.",
             url = "https://www.youtube.com/watch?v=BiElE2aNDTk",
-            imageUrl = "https://www.youtube.com/watch?v=BiElE2aNDTk/hqdefault.jpg",
+            imageUrl = "https://img.youtube.com/vi/BiElE2aNDTk/hqdefault.jpg",
             category = "science",
             tags = listOf("science", "ocean", "animals", "marine", "nature")
         ),
@@ -587,8 +567,8 @@ class ChatDataManager @Inject constructor(
             title = "Science About Dinosaurs",
             description = "A simple dinosaur learning video for children.",
             reason = "Good for kids who enjoy science and prehistoric creatures.",
-            url = "https://www.youtube.com/watch?v=XinAZXVlgkcQ",
-            imageUrl = "https://www.youtube.com/watch?v=XinAZXVlgkc/hqdefault.jpg",
+            url = "https://www.youtube.com/watch?v=XinAZXVlgkc",
+            imageUrl = "https://img.youtube.com/vi/XinAZXVlgkc/hqdefault.jpg",
             category = "science",
             tags = listOf("science", "dinosaurs", "prehistoric", "animals", "learning")
         ),
@@ -598,7 +578,7 @@ class ChatDataManager @Inject constructor(
             description = "A child-friendly introduction to planets and space science.",
             reason = "Perfect for curious young learners.",
             url = "https://www.youtube.com/watch?v=oHahGWzLpl0",
-            imageUrl = "https://www.youtube.com/watch?v=oHahGWzLpl0/hqdefault.jpg",
+            imageUrl = "https://img.youtube.com/vi/oHahGWzLpl0/hqdefault.jpg",
             category = "science",
             tags = listOf("science", "space", "solar system", "planets", "learning")
         ),
@@ -607,8 +587,8 @@ class ChatDataManager @Inject constructor(
             title = "Science Shapes for Kids",
             description = "A simple video that helps children learn shapes.",
             reason = "A useful early-learning science-style video.",
-            url = "https://www.youtube.com/watch?v=0B6Ge0FzHG0&list=RD0B6Ge0FzHG0&start_radio=1",
-            imageUrl = "https://www.youtube.com/watch?v=0B6Ge0FzHG0&list=RD0B6Ge0FzHG0&start_radio=1/hqdefault.jpg",
+            url = "https://www.youtube.com/watch?v=0B6Ge0FzHG0",
+            imageUrl = "https://img.youtube.com/vi/0B6Ge0FzHG0/hqdefault.jpg",
             category = "science",
             tags = listOf("science", "shapes", "geometry", "learning")
         ),
@@ -618,7 +598,7 @@ class ChatDataManager @Inject constructor(
             description = "A colorful learning video for young children.",
             reason = "Great for children practicing color recognition.",
             url = "https://www.youtube.com/watch?v=o0ukljOhV-c",
-            imageUrl = "https://www.youtube.com/watch?v=o0ukljOhV-c/hqdefault.jpg",
+            imageUrl = "https://img.youtube.com/vi/o0ukljOhV-c/hqdefault.jpg",
             category = "science",
             tags = listOf("science", "colors", "learning", "preschool")
         )
@@ -637,11 +617,21 @@ class ChatDataManager @Inject constructor(
 
             val sanitizedMessage = com.kidsrec.chatbot.util.InputSanitizer.sanitizeChatMessage(message)
 
+            // Analytics tracking for real user searches
+            try {
+                if (sanitizedMessage.trim().length > 2) {
+                    analyticsRepository.trackSearch(sanitizedMessage.trim(), userId)
+                }
+            } catch (e: Exception) {
+                Log.e("ChatDataManager", "Analytics search tracking failed", e)
+            }
+
             val exploredTopic = TopicExtractor.extractTopic(sanitizedMessage)
             val trackingResult = learningProgressManager.trackTopicExplored(
                 childUserId = userId,
                 topic = exploredTopic
             )
+
             if (trackingResult.isFailure) {
                 Log.e(
                     "ChatDataManager",
@@ -1188,7 +1178,6 @@ RULES FOR JSON:
             .trim()
     }
 
-
     private data class UserItemInteraction(
         val userId: String,
         val itemKey: String,
@@ -1234,7 +1223,6 @@ RULES FOR JSON:
                     val userScore = userBasedScores[key] ?: 0.0
                     val itemScore = itemBasedScores[key] ?: 0.0
 
-                    // Give slightly more weight to user-based similarity for a clearer demo effect.
                     val collaborativeScore = (0.6 * userScore) + (0.4 * itemScore)
 
                     val cfReason = when {
@@ -1270,7 +1258,6 @@ RULES FOR JSON:
                 val path = doc.reference.path
                 val segments = path.split("/")
 
-                // Only use favorites/{userId}/items/{itemId}
                 if (!(segments.size >= 4 && segments[0] == "favorites" && segments[2] == "items")) {
                     continue
                 }
@@ -1307,7 +1294,6 @@ RULES FOR JSON:
                 val path = doc.reference.path
                 val segments = path.split("/")
 
-                // Only use readingHistory/{userId}/sessions/{sessionId}
                 if (!(segments.size >= 4 && segments[0] == "readingHistory" && segments[2] == "sessions")) {
                     continue
                 }
@@ -1494,8 +1480,6 @@ RULES FOR JSON:
                 }
 
                 val cfNormalized = (rec.relevanceScore / maxCfScore).coerceIn(0.0, 1.0)
-
-                // Important: combine ANN + CF instead of overwriting CF.
                 val finalScore = ((0.45 * annScore) + (0.55 * cfNormalized)).coerceIn(0.0, 1.0)
 
                 val updatedReason = when {

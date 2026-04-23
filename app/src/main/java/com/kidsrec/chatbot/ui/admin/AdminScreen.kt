@@ -441,6 +441,30 @@ fun AnalyticsTab(
     topViewedBooks: List<TopViewedBook>,
     topDropOffs: List<TopDropOff>
 ) {
+    val totalSearches = topSearchedTopics.sumOf { it.count }
+    val totalViews = topViewedBooks.sumOf { it.viewCount }
+    val totalDropOffs = topDropOffs.sumOf { it.dropOffCount }
+
+    val trendingTopic = topSearchedTopics.maxByOrNull { it.count }?.query ?: "No data yet"
+    val mostViewedBook = topViewedBooks.maxByOrNull { it.viewCount }?.bookTitle ?: "No data yet"
+    val highestDropOff = topDropOffs.maxByOrNull { it.dropOffCount }?.itemTitle ?: "No data yet"
+
+    val engagementScore = when {
+        totalViews == 0L -> 0
+        else -> (((totalViews - totalDropOffs).coerceAtLeast(0).toDouble() / totalViews.toDouble()) * 100).toInt()
+    }
+
+    val recommendationInsight = when {
+        totalViews == 0L && totalSearches == 0L ->
+            "Not enough analytics data yet."
+        totalSearches > totalViews ->
+            "Users are searching a lot, but fewer books are being opened. Improve recommendation relevance."
+        totalViews > totalDropOffs ->
+            "Users are opening content and staying engaged. Recommendation quality looks healthy."
+        else ->
+            "Drop-offs are relatively high. Try improving content matching and first-click relevance."
+    }
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -450,12 +474,12 @@ fun AnalyticsTab(
         item {
             Column {
                 Text(
-                    "Analytics",
+                    "Analytics Dashboard",
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.SemiBold
                 )
                 Text(
-                    "Search trends, engagement, and content performance",
+                    "Insights into search behaviour, engagement, and recommendation quality",
                     style = MaterialTheme.typography.bodyMedium,
                     color = AdminTextSecondary
                 )
@@ -463,47 +487,42 @@ fun AnalyticsTab(
         }
 
         item {
-            ElevatedCard(
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.elevatedCardColors(containerColor = AdminCard)
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Top Searched Topics", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    Spacer(modifier = Modifier.height(12.dp))
+                StatCard(
+                    label = "Total Searches",
+                    value = totalSearches.toString(),
+                    color = AdminPrimary,
+                    modifier = Modifier.weight(1f)
+                )
+                StatCard(
+                    label = "Book Views",
+                    value = totalViews.toString(),
+                    color = AdminInfo,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
 
-                    if (topSearchedTopics.isEmpty()) {
-                        Text("No search data yet.", color = AdminTextSecondary)
-                    } else {
-                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            topSearchedTopics.take(10).forEachIndexed { index, topic ->
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            "${index + 1}. ${topic.query}",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            fontWeight = FontWeight.SemiBold,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                        Text(
-                                            "Searched ${topic.count} times",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = AdminTextSecondary
-                                        )
-                                    }
-                                }
-                                if (index < topSearchedTopics.take(10).lastIndex) {
-                                    HorizontalDivider(color = AdminBorder)
-                                }
-                            }
-                        }
-                    }
-                }
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                StatCard(
+                    label = "Drop-Offs",
+                    value = totalDropOffs.toString(),
+                    color = AdminDanger,
+                    modifier = Modifier.weight(1f)
+                )
+                StatCard(
+                    label = "Engagement",
+                    value = "$engagementScore%",
+                    color = AdminSuccess,
+                    modifier = Modifier.weight(1f)
+                )
             }
         }
 
@@ -514,42 +533,50 @@ fun AnalyticsTab(
                 colors = CardDefaults.elevatedCardColors(containerColor = AdminCard)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Top Viewed Books", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        "Key Insights",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    if (topViewedBooks.isEmpty()) {
-                        Text("No book view data yet.", color = AdminTextSecondary)
-                    } else {
-                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            topViewedBooks.take(10).forEachIndexed { index, book ->
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            "${index + 1}. ${book.bookTitle}",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            fontWeight = FontWeight.SemiBold,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                        Text(
-                                            "Viewed ${book.count} times",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = AdminTextSecondary
-                                        )
-                                    }
-                                }
-                                if (index < topViewedBooks.take(10).lastIndex) {
-                                    HorizontalDivider(color = AdminBorder)
-                                }
-                            }
-                        }
-                    }
+                    InsightRow("🔥 Trending Topic", trendingTopic)
+                    Spacer(modifier = Modifier.height(10.dp))
+                    InsightRow("📚 Most Viewed Content", mostViewedBook)
+                    Spacer(modifier = Modifier.height(10.dp))
+                    InsightRow("⚠️ Highest Drop-Off", highestDropOff)
+                    Spacer(modifier = Modifier.height(10.dp))
+                    InsightRow("🧠 Recommendation Insight", recommendationInsight)
                 }
             }
+        }
+
+        item {
+            AnalyticsBarCard(
+                title = "Top Searched Topics",
+                emptyText = "No search data yet.",
+                items = topSearchedTopics.take(8).map { it.query to it.count }
+            )
+        }
+
+        item {
+            AnalyticsBarCard(
+                title = "Top Viewed Books",
+                emptyText = "No book view data yet.",
+                items = topViewedBooks.take(8).map { it.bookTitle to it.viewCount }
+            )
+        }
+
+        item {
+            AnalyticsBarCard(
+                title = "Top Drop-Off Points",
+                emptyText = "No drop-off data yet.",
+                items = topDropOffs.take(8).map { it.itemTitle to it.dropOffCount },
+                suffixProvider = { label ->
+                    val matched = topDropOffs.firstOrNull { it.itemTitle == label }
+                    if (matched != null) " • Avg ${matched.avgDurationSeconds}s" else ""
+                }
+            )
         }
 
         item {
@@ -559,37 +586,116 @@ fun AnalyticsTab(
                 colors = CardDefaults.elevatedCardColors(containerColor = AdminCard)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Top Drop-Off Points", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        "Recommendation Intelligence",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    if (topDropOffs.isEmpty()) {
-                        Text("No drop-off data yet.", color = AdminTextSecondary)
-                    } else {
-                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            topDropOffs.take(10).forEachIndexed { index, item ->
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            "${index + 1}. ${item.itemTitle}",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            fontWeight = FontWeight.SemiBold,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                        Text(
-                                            "Dropped off ${item.count} times • Avg ${item.averageDurationSeconds}s",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = AdminTextSecondary
-                                        )
-                                    }
-                                }
-                                if (index < topDropOffs.take(10).lastIndex) {
-                                    HorizontalDivider(color = AdminBorder)
-                                }
+                    val recommendationHealth = when {
+                        totalSearches == 0L && totalViews == 0L -> "No Data"
+                        totalViews >= totalSearches / 2 -> "Strong"
+                        totalViews >= totalSearches / 3 -> "Moderate"
+                        else -> "Weak"
+                    }
+
+                    val retentionHealth = when {
+                        totalViews == 0L -> "No Data"
+                        engagementScore >= 70 -> "Strong"
+                        engagementScore >= 40 -> "Moderate"
+                        else -> "Needs Improvement"
+                    }
+
+                    InsightRow("Recommendation Conversion", recommendationHealth)
+                    Spacer(modifier = Modifier.height(10.dp))
+                    InsightRow("Content Retention", retentionHealth)
+                    Spacer(modifier = Modifier.height(10.dp))
+                    InsightRow(
+                        "Suggested Action",
+                        when {
+                            recommendationHealth == "Weak" ->
+                                "Improve search-to-content matching and highlight more relevant books first."
+                            retentionHealth == "Needs Improvement" ->
+                                "Reduce mismatched content and improve opening recommendations for children."
+                            else ->
+                                "Analytics suggest your recommendation flow is performing well."
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun AnalyticsBarCard(
+    title: String,
+    emptyText: String,
+    items: List<Pair<String, Long>>,
+    suffixProvider: (String) -> String = { "" }
+) {
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.elevatedCardColors(containerColor = AdminCard)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+
+            if (items.isEmpty()) {
+                Text(emptyText, color = AdminTextSecondary)
+            } else {
+                val maxValue = items.maxOfOrNull { it.second }?.coerceAtLeast(1L) ?: 1L
+
+                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    items.forEachIndexed { index, (label, value) ->
+                        val ratio = value.toFloat() / maxValue.toFloat()
+
+                        Column {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "${index + 1}. $label",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "$value${suffixProvider(label)}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = AdminTextSecondary,
+                                    textAlign = TextAlign.End
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(6.dp))
+
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(10.dp)
+                                    .clip(RoundedCornerShape(100.dp))
+                                    .background(AdminBorder)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxHeight()
+                                        .fillMaxWidth(ratio.coerceIn(0.08f, 1f))
+                                        .clip(RoundedCornerShape(100.dp))
+                                        .background(AdminPrimary)
+                                )
                             }
                         }
                     }
@@ -599,6 +705,22 @@ fun AnalyticsTab(
     }
 }
 
+@Composable
+fun InsightRow(label: String, value: String) {
+    Column {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = AdminTextSecondary
+        )
+        Spacer(modifier = Modifier.height(2.dp))
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold
+        )
+    }
+}
 @Composable
 fun StatCard(label: String, value: String, color: Color, modifier: Modifier = Modifier) {
     Card(
