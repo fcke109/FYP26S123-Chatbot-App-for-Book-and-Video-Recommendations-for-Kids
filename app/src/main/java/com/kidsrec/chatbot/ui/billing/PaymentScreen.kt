@@ -136,7 +136,7 @@ fun PaymentScreen(
                             Spacer(modifier = Modifier.height(16.dp))
 
                             Text(
-                                text = "$4.99 / month",
+                                text = "$9.99 / month",
                                 color = Color.White,
                                 fontSize = 28.sp,
                                 fontWeight = FontWeight.Bold
