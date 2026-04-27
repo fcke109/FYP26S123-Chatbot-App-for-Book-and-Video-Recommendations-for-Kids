@@ -1237,7 +1237,10 @@ RULES FOR JSON:
 
                     rec.copy(
                         relevanceScore = collaborativeScore,
-                        reason = if (rec.reason.isBlank()) cfReason else rec.reason
+                        reason = if (rec.reason.isBlank()) cfReason else rec.reason,
+                        userBasedScore = userScore,
+                        itemBasedScore = itemScore,
+                        cfBlendedScore = collaborativeScore
                     )
                 }
                 .sortedByDescending { it.relevanceScore }

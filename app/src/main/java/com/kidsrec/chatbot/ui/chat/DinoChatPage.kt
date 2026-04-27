@@ -1189,20 +1189,51 @@ fun RecommendationCard(
                 }
 
                 if (recommendation.relevanceScore > 0) {
-                    Surface(
+                    Column(
                         modifier = Modifier
                             .padding(8.dp)
                             .align(Alignment.TopEnd),
-                        color = Color(0xFF43A047),
-                        shape = RoundedCornerShape(50)
+                        horizontalAlignment = Alignment.End
                     ) {
-                        Text(
-                            text = "${(recommendation.relevanceScore * 100).toInt()}% Match",
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                            fontSize = 10.sp,
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Surface(
+                            color = Color(0xFF43A047),
+                            shape = RoundedCornerShape(50)
+                        ) {
+                            Text(
+                                text = "${(recommendation.relevanceScore * 100).toInt()}% Match",
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                fontSize = 10.sp,
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        val hasCfSignal = recommendation.userBasedScore > 0 ||
+                                recommendation.itemBasedScore > 0
+                        if (hasCfSignal) {
+                            val (cfLabel, cfColor) = when {
+                                recommendation.userBasedScore > 0 &&
+                                        recommendation.itemBasedScore > 0 ->
+                                    "CF • Hybrid" to Color(0xFF6A1B9A)
+                                recommendation.userBasedScore > 0 ->
+                                    "CF • Users like you" to Color(0xFF1565C0)
+                                else ->
+                                    "CF • Similar picks" to Color(0xFFAD1457)
+                            }
+                            Spacer(modifier = Modifier.height(3.dp))
+                            Surface(
+                                color = cfColor,
+                                shape = RoundedCornerShape(50)
+                            ) {
+                                Text(
+                                    text = cfLabel,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                    fontSize = 9.sp,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -1228,6 +1259,37 @@ fun RecommendationCard(
                     overflow = TextOverflow.Ellipsis,
                     color = Color(0xFF6A7985)
                 )
+
+                if (recommendation.userBasedScore > 0 || recommendation.itemBasedScore > 0) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Surface(
+                        color = Color(0xFFF3E5F5),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
+                        ) {
+                            Text(
+                                text = "Collaborative Filtering",
+                                fontSize = 9.sp,
+                                color = Color(0xFF6A1B9A),
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            val u = (recommendation.userBasedScore * 100).toInt()
+                            val i = (recommendation.itemBasedScore * 100).toInt()
+                            val cf = (recommendation.cfBlendedScore * 100).toInt()
+                            Text(
+                                text = "User $u% × 0.6 + Item $i% × 0.4 = $cf%",
+                                fontSize = 9.sp,
+                                color = Color(0xFF4A148C),
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
 
                 if (recommendation.reason.isNotBlank()) {
                     Spacer(modifier = Modifier.height(6.dp))
