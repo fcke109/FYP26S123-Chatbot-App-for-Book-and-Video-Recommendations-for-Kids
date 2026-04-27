@@ -161,9 +161,18 @@ fun DinoChatPage(
     val error by viewModel.error.collectAsState()
     val conversations by viewModel.conversations.collectAsState()
     val favoriteItems by favoritesViewModel.favorites.collectAsState()
+    val favoritesError by favoritesViewModel.errorMessage.collectAsState()
     val quota by viewModel.quota.collectAsState()
     val searchUiState by searchViewModel.uiState.collectAsState()
     val isFreeUser = quota?.planType == PlanType.FREE
+
+    val context = LocalContext.current
+    LaunchedEffect(favoritesError) {
+        favoritesError?.let { msg ->
+            Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+            favoritesViewModel.clearError()
+        }
+    }
 
     var messageText by remember { mutableStateOf("") }
     var inputWarning by remember { mutableStateOf<String?>(null) }
@@ -179,7 +188,6 @@ fun DinoChatPage(
         showHistorySheet = false
     }
 
-    val context = LocalContext.current
     var isListening by remember { mutableStateOf(false) }
 
     val speechLauncher = rememberLauncherForActivityResult(
