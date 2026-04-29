@@ -14,6 +14,7 @@ import com.kidsrec.chatbot.data.model.PlanType
 import com.kidsrec.chatbot.data.model.User
 import com.kidsrec.chatbot.data.repository.AccountManager
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -50,6 +51,8 @@ class AuthViewModel @Inject constructor(
 
     private val _verificationMessage = MutableStateFlow<String?>(null)
     val verificationMessage: StateFlow<String?> = _verificationMessage.asStateFlow()
+
+    private var userObserverJob: Job? = null
 
     init {
         checkAuthState()
@@ -107,14 +110,19 @@ class AuthViewModel @Inject constructor(
     }
 
     private fun observeUserData(userId: String) {
-        viewModelScope.launch {
+        Log.d("AuthVM", "Subscribing to user doc uid=$userId")
+        userObserverJob?.cancel()
+        userObserverJob = viewModelScope.launch {
             accountManager.getUserFlow(userId)
                 .catch { e ->
                     Log.e("AuthVM", "Failed to observe user data", e)
                 }
                 .collect { user ->
                     if (user != null) {
+                        Log.d("AuthVM", "User snapshot uid=$userId name=${user.name} planType=${user.planType}")
                         _currentUser.value = user
+                    } else {
+                        Log.w("AuthVM", "User snapshot was null for uid=$userId")
                     }
                 }
         }
@@ -392,6 +400,8 @@ class AuthViewModel @Inject constructor(
     }
 
     fun signOut() {
+        userObserverJob?.cancel()
+        userObserverJob = null
         _currentUser.value = null
         _verificationMessage.value = null
         _authState.value = AuthState.Unauthenticated
