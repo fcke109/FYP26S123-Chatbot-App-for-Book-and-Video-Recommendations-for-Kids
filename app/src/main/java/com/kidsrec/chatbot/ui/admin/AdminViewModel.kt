@@ -671,7 +671,7 @@ class AdminViewModel @Inject constructor(
                 val loginAttemptsSnapshot = firestore.collection("loginAttempts")
                     .whereGreaterThan("timestamp", sevenDaysAgo)
                     .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
-                    .limit(100)
+                    .limit(500)
                     .get()
                     .await()
 
@@ -845,5 +845,14 @@ class AdminViewModel @Inject constructor(
             accountManager.signOut()
             onSuccess()
         }
+    }
+
+    fun updateBookCategoryAndAge(
+        bookId: String,
+        category: String,
+        categoryTags: List<String>,
+        ageMin: Int,
+        ageMax: Int
+    ) {
     }
 }

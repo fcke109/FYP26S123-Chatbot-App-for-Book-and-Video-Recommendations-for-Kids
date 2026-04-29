@@ -16,6 +16,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kidsrec.chatbot.ui.auth.AuthViewModel
+import androidx.compose.runtime.saveable.rememberSaveable
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -25,18 +26,16 @@ fun ParentalControlsScreen(
 ) {
     val user by authViewModel.currentUser.collectAsState()
 
-    var isPinVerified by remember { mutableStateOf(false) }
-    var enteredPin by remember { mutableStateOf("") }
-    var pinError by remember { mutableStateOf(false) }
+    var isPinVerified by rememberSaveable { mutableStateOf(false) }
+    var enteredPin by rememberSaveable { mutableStateOf("") }
+    var pinError by rememberSaveable { mutableStateOf(false) }
     var maxAgeRating by remember { mutableStateOf(13) }
     var allowVideos by remember { mutableStateOf(true) }
 
-    LaunchedEffect(user) {
+    LaunchedEffect(user?.id) {
         user?.let {
             maxAgeRating = it.contentFilters.maxAgeRating
             allowVideos = it.contentFilters.allowVideos
-            isPinVerified = false
-            enteredPin = ""
             pinError = false
         }
     }

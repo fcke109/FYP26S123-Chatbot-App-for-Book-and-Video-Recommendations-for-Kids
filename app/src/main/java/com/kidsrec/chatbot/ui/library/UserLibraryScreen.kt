@@ -1,9 +1,6 @@
 package com.kidsrec.chatbot.ui.library
 
-// ------------------------------
-// Compose foundation imports
-// These are used for layout, clicking, backgrounds, lists, and borders.
-// ------------------------------
+// layout imports
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -28,9 +25,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 
-// ------------------------------
-// Material icons used in the library screen.
-// ------------------------------
+// icons
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Favorite
@@ -38,10 +33,7 @@ import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.PlayCircle
 
-// ------------------------------
-// Material 3 UI components.
-// The dropdown imports were added for the category dropdown.
-// ------------------------------
+// material ui
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -57,9 +49,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 
-// ------------------------------
-// Compose runtime imports for state handling.
-// ------------------------------
+// state imports
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -67,9 +57,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 
-// ------------------------------
-// Compose UI imports for styling.
-// ------------------------------
+// ui imports
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -80,43 +68,32 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-// ------------------------------
-// Coil loads book cover images from URLs.
-// ------------------------------
+// image loading
 import coil.compose.AsyncImage
 
-// ------------------------------
-// Project model and ViewModel imports.
-// ------------------------------
+// app imports
 import com.kidsrec.chatbot.data.model.Book
 import com.kidsrec.chatbot.data.model.Favorite
 import com.kidsrec.chatbot.data.model.Recommendation
 import com.kidsrec.chatbot.data.model.RecommendationType
+import com.kidsrec.chatbot.data.model.User
 import com.kidsrec.chatbot.ui.common.AgeUiMode
 import com.kidsrec.chatbot.ui.common.getAgeUiMode
 import com.kidsrec.chatbot.ui.favorites.FavoritesViewModel
 
-// ------------------------------
-// Small private UI model used to style each category.
-// ------------------------------
+// category style
 private data class CategoryUi(
     val emoji: String,
     val container: Color,
     val content: Color
 )
 
-// ------------------------------
-// Cleans category text so blank categories become "General".
-// This prevents empty category chips/badges from showing.
-// ------------------------------
+// clean category name
 private fun normalizedCategory(category: String): String {
     return category.trim().ifBlank { "General" }
 }
 
-// ------------------------------
-// Returns colours and emoji based on the category name.
-// This keeps categories kid-friendly and visually different.
-// ------------------------------
+// category colours and emoji
 private fun categoryUi(category: String): CategoryUi {
     val name = normalizedCategory(category).lowercase()
 
@@ -171,12 +148,7 @@ private fun categoryUi(category: String): CategoryUi {
     }
 }
 
-// ------------------------------
-// Builds the category list shown to the user.
-// UPDATED: This now includes both:
-// 1. book.category      -> main category
-// 2. book.categoryTags  -> extra categories selected by admin
-// ------------------------------
+// build category list
 private fun buildCategoryList(books: List<Book>): List<String> {
     val mainCategories = books.map { normalizedCategory(it.category) }
 
@@ -190,13 +162,7 @@ private fun buildCategoryList(books: List<Book>): List<String> {
         .sorted()
 }
 
-// ------------------------------
-// Checks whether a book belongs to a selected category.
-// UPDATED: A book now matches if:
-// 1. selected category is "All"
-// 2. selected category matches book.category
-// 3. selected category matches one of book.categoryTags
-// ------------------------------
+// check selected category
 private fun bookMatchesCategory(book: Book, selectedCategory: String): Boolean {
     if (selectedCategory == "All") return true
 
@@ -210,11 +176,7 @@ private fun bookMatchesCategory(book: Book, selectedCategory: String): Boolean {
     return mainCategoryMatches || extraTagMatches
 }
 
-// ------------------------------
-// Main user library screen.
-// Shows books, recommendations, search bar, category dropdown,
-// category chips, favorites, and age-adaptive layouts.
-// ------------------------------
+// main library screen
 @Composable
 fun UserLibraryScreen(
     viewModel: LibraryViewModel,
@@ -227,36 +189,36 @@ fun UserLibraryScreen(
         itemId: String,
         imageUrl: String,
         description: String
-    ) -> Unit
+    ) -> Unit,
+    currentUser: User?
 ) {
-    // Books loaded from Firestore curated library
+    // books
     val books by viewModel.curatedBooks.collectAsState()
 
-    // Recommended content shown at the top
+    // recommendations
     val topPicks by viewModel.topPicks.collectAsState()
 
-    // User's saved favorites
+    // favorites
     val favoriteItems by favoritesViewModel.favorites.collectAsState()
 
-    // Smart search state: query, suggestions, expanded state
+    // search state
     val searchUiState by searchViewModel.uiState.collectAsState()
 
-    // User age is used to adjust UI style
+    // user age
     val userAge by viewModel.userAge.collectAsState()
 
-    // Decides whether UI should be early-child, young-child, or older-child
+    // age mode
     val ageUiMode = getAgeUiMode(userAge)
 
-    // Currently selected category filter
+    // selected category
     var selectedCategory by remember { mutableStateOf("All") }
 
-    // UPDATED: Categories now come from both main category and categoryTags
+    // categories
     val categories = remember(books) {
         buildCategoryList(books)
     }
 
-    // Search filter.
-    // UPDATED: Search now also checks categoryTags.
+    // search filter
     val filteredBooksBySearch = if (searchUiState.query.isNotBlank() && !searchUiState.expanded) {
         books.filter { book ->
             book.title.contains(searchUiState.query, ignoreCase = true) ||
@@ -270,8 +232,7 @@ fun UserLibraryScreen(
         books
     }
 
-    // Final filter after search + category selection.
-    // UPDATED: Category filter now checks both book.category and book.categoryTags.
+    // final filter
     val finalFilteredBooks = filteredBooksBySearch.filter { book ->
         bookMatchesCategory(book, selectedCategory)
     }
@@ -281,7 +242,7 @@ fun UserLibraryScreen(
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        // Page title changes based on user's age group
+        // title
         Text(
             text = when (ageUiMode) {
                 AgeUiMode.EARLY_CHILD -> "My Books"
@@ -293,7 +254,7 @@ fun UserLibraryScreen(
             color = MaterialTheme.colorScheme.primary
         )
 
-        // Subtitle also changes based on age group
+        // subtitle
         Text(
             text = when (ageUiMode) {
                 AgeUiMode.EARLY_CHILD -> "Tap a book to start reading."
@@ -305,8 +266,7 @@ fun UserLibraryScreen(
         )
 
         Spacer(modifier = Modifier.height(16.dp))
-
-        // Search bar for title, author, main category, and extra category tags
+        // search bar
         SmartSearchBar(
             uiState = searchUiState,
             onQueryChange = { searchViewModel.onQueryChange(it) },
@@ -328,7 +288,7 @@ fun UserLibraryScreen(
             Spacer(modifier = Modifier.height(16.dp))
         }
 
-        // Empty library state
+        // empty state
         if (books.isEmpty()) {
             Box(
                 modifier = Modifier.fillMaxSize(),
@@ -337,12 +297,12 @@ fun UserLibraryScreen(
                 Text("No books here yet. Check back soon!")
             }
         } else {
-            // Main content list
+            // book list
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Top recommendations section only appears when there is no active search
+                // top picks
                 if (topPicks.isNotEmpty() && searchUiState.query.isBlank()) {
                     item {
                         TopPicksSection(
@@ -355,7 +315,7 @@ fun UserLibraryScreen(
                             favoriteItems = favoriteItems,
                             ageUiMode = ageUiMode,
 
-                            // Add/remove recommendation from favorites
+                            // favorite toggle
                             onToggleFavorite = { rec ->
                                 val isFav = favoriteItems.any { it.itemId == rec.id }
                                 if (isFav) {
@@ -372,9 +332,10 @@ fun UserLibraryScreen(
                                 }
                             },
 
-                            // Open recommended book/video
+                            // open recommended item
                             onPickClick = { rec ->
                                 viewModel.addClickedItem(rec.title)
+
                                 if (rec.url.isNotBlank()) {
                                     onOpenRecommendation(
                                         rec.url,
@@ -391,7 +352,7 @@ fun UserLibraryScreen(
                     }
                 }
 
-                // Section title for search/category result
+                // section title
                 item {
                     Text(
                         text = when {
@@ -415,7 +376,7 @@ fun UserLibraryScreen(
                     Spacer(modifier = Modifier.height(8.dp))
                 }
 
-                // No books matched the selected search/category
+                // no result
                 if (finalFilteredBooks.isEmpty()) {
                     item {
                         Surface(
@@ -432,7 +393,7 @@ fun UserLibraryScreen(
                     }
                 }
 
-                // Early child layout uses bigger tiles in a grid
+                // grid for younger kids
                 else if (ageUiMode == AgeUiMode.EARLY_CHILD) {
                     item {
                         LazyVerticalGrid(
@@ -451,7 +412,7 @@ fun UserLibraryScreen(
                                     isFavorited = isFavorited,
                                     showFavoriteButton = true,
 
-                                    // Add/remove book from favorites
+                                    // favorite toggle
                                     onFavoriteClick = {
                                         if (isFavorited) {
                                             favoritesViewModel.removeFavorite(book.id)
@@ -468,9 +429,10 @@ fun UserLibraryScreen(
                                         }
                                     },
 
-                                    // Open book reader
+                                    // open book
                                     onClick = {
                                         viewModel.addClickedItem(book.title)
+
                                         val url = book.readerUrl.ifBlank { book.bookUrl }
                                         if (url.isNotBlank()) {
                                             onOpenRecommendation(
@@ -489,7 +451,7 @@ fun UserLibraryScreen(
                     }
                 }
 
-                // Older child and young child layout uses list cards
+                // list for older kids
                 else {
                     items(finalFilteredBooks) { book ->
                         val isFavorited = favoriteItems.any { it.itemId == book.id }
@@ -500,7 +462,7 @@ fun UserLibraryScreen(
                             showFavoriteButton = true,
                             ageUiMode = ageUiMode,
 
-                            // Add/remove book from favorites
+                            // favorite toggle
                             onFavoriteClick = {
                                 if (isFavorited) {
                                     favoritesViewModel.removeFavorite(book.id)
@@ -517,9 +479,10 @@ fun UserLibraryScreen(
                                 }
                             },
 
-                            // Open selected book
+                            // open selected book
                             onClick = {
                                 viewModel.addClickedItem(book.title)
+
                                 val url = book.readerUrl.ifBlank { book.bookUrl }
                                 if (url.isNotBlank()) {
                                     onOpenRecommendation(

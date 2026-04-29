@@ -705,40 +705,29 @@ class ChatDataManager @Inject constructor(
     }
 
     // make the chatbot reply nicer
+    // make the chatbot reply nicer for kids
     private fun buildFriendlyContent(
         cleanContent: String,
         matchedCategories: List<String>,
         recommendations: List<Recommendation>
     ): String {
-        val categoryText = matchedCategories.firstOrNull()
         val dailyTitles = recommendations
             .take(3)
-            .mapIndexed { index, rec -> (index + 1).toString() + ". " + rec.title }
+            .mapIndexed { index, rec -> "${index + 1}. ${rec.title}" }
             .joinToString("\n")
 
-        val becauseText = if (categoryText != null) {
-            "Because you liked " + categoryText + ", I picked these for you."
-        } else {
-            "I picked these because they match what you asked for."
-        }
-
         val baseText = cleanContent.ifBlank {
-            "Here are some fun picks for you!"
+            "Hey there! 🦖 I found some fun books for you!"
         }
 
         return buildString {
             appendLine(baseText)
-            appendLine()
-            appendLine(becauseText)
 
             if (dailyTitles.isNotBlank()) {
                 appendLine()
-                appendLine("Daily recommendations:")
+                appendLine("Here are some you might like:")
                 appendLine(dailyTitles)
             }
-
-            appendLine()
-            appendLine("Why these match: I used your message, the book categories, and the safe video list.")
         }.trim()
     }
 

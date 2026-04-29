@@ -21,6 +21,7 @@ import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
 @HiltViewModel
+// viewmodel for parent dashboard
 class ParentDashboardViewModel @Inject constructor(
     private val accountManager: AccountManager,
     private val screenTimeManager: ScreenTimeManager,
@@ -29,15 +30,18 @@ class ParentDashboardViewModel @Inject constructor(
     private val firestore: com.google.firebase.firestore.FirebaseFirestore
 ) : ViewModel() {
 
+    // check parent owns this child
     private suspend fun isMyChild(childId: String): Boolean {
         val parentId = accountManager.getCurrentUserId() ?: return false
         val parent = accountManager.getUser(parentId) ?: return false
         return childId in parent.childIds
     }
 
+    // linked children
     private val _children = MutableStateFlow<List<User>>(emptyList())
     val children: StateFlow<List<User>> = _children.asStateFlow()
 
+    // selected child
     private val _selectedChild = MutableStateFlow<User?>(null)
     val selectedChild: StateFlow<User?> = _selectedChild.asStateFlow()
 
@@ -79,6 +83,7 @@ class ParentDashboardViewModel @Inject constructor(
         loadPendingApprovals()
     }
 
+    // load children linked to parent
     private fun loadChildren() {
         val parentId = accountManager.getCurrentUserId() ?: return
         viewModelScope.launch {
@@ -109,11 +114,13 @@ class ParentDashboardViewModel @Inject constructor(
         }
     }
 
+    // open child details
     fun selectChild(child: User) {
         _selectedChild.value = child
         loadChildData(child.id)
     }
 
+    // go back to parent home
     fun clearSelectedChild() {
         _selectedChild.value = null
         _childFavorites.value = emptyList()
@@ -125,6 +132,7 @@ class ParentDashboardViewModel @Inject constructor(
         _weeklyScreenTime.value = emptyList()
     }
 
+    // load child activity data
     private fun loadChildData(childId: String) {
         viewModelScope.launch {
             launch {
@@ -288,23 +296,39 @@ class ParentDashboardViewModel @Inject constructor(
         }
     }
 
+    // update daily screen time limit
     fun updateScreenTimeLimit(childId: String, minutes: Int) {
         viewModelScope.launch {
             if (!isMyChild(childId)) {
                 _errorMessage.value = "Unauthorized action."
                 return@launch
             }
+
+            val safeMinutes = minutes.coerceIn(1, 600)
+            val warningMinutes = (safeMinutes - 5).coerceAtLeast(1)
+
             try {
                 firestore.collection("users")
                     .document(childId)
-                    .update("screenTimeConfig.dailyLimitMinutes", minutes)
+                    .update(
+                        mapOf(
+                            "screenTimeConfig.dailyLimitMinutes" to safeMinutes,
+                            "screenTimeConfig.enabled" to true,
+                            "screenTimeConfig.warningThresholdMinutes" to warningMinutes
+                        )
+                    )
                     .await()
+
                 val updated = accountManager.getUser(childId)
                 if (updated != null) {
                     _selectedChild.value = updated
                 }
+
+                _errorMessage.value = null
+                Log.d("ParentDashVM", "Screen time updated for $childId")
             } catch (e: Exception) {
                 Log.e("ParentDashVM", "Failed to update screen time limit", e)
+                _errorMessage.value = "Failed to update screen time limit."
             }
         }
     }

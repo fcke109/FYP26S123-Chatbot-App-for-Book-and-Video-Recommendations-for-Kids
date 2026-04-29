@@ -1,7 +1,7 @@
 package com.kidsrec.chatbot.ui.parent
 
+import android.util.Log
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -55,8 +55,8 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -107,6 +107,7 @@ private val ParentPinkSoft = Color(0xFFFFEEF5)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+// main parent screen
 fun ParentDashboardScreen(
     viewModel: ParentDashboardViewModel,
     parentProgressViewModel: ParentProgressViewModel,
@@ -188,6 +189,7 @@ fun ParentDashboardScreen(
                 messages = childMessages,
                 selectedConversationId = selectedConversationId,
                 parentProgressViewModel = parentProgressViewModel,
+                parentDashboardViewModel = viewModel,
                 onSelectConversation = { conversationId ->
                     viewModel.selectConversation(selectedChild!!.id, conversationId)
                 },
@@ -217,6 +219,7 @@ fun ParentDashboardScreen(
 }
 
 @Composable
+// parent home page
 private fun ParentHomeView(
     children: List<User>,
     inviteCode: String?,
@@ -657,6 +660,7 @@ private fun ChildCard(
 }
 
 @Composable
+// selected child details
 private fun ChildDetailView(
     child: User,
     favorites: List<Favorite>,
@@ -665,6 +669,7 @@ private fun ChildDetailView(
     messages: List<ChatMessage>,
     selectedConversationId: String?,
     parentProgressViewModel: ParentProgressViewModel,
+    parentDashboardViewModel: ParentDashboardViewModel,
     onSelectConversation: (String) -> Unit,
     onClearConversation: () -> Unit,
     onUpdateFilters: (maxAgeRating: Int, allowVideos: Boolean) -> Unit,
@@ -718,6 +723,7 @@ private fun ChildDetailView(
             )
             3 -> ControlsTab(
                 child = child,
+                parentDashboardViewModel = parentDashboardViewModel,
                 onUpdateFilters = onUpdateFilters,
                 onUpdatePin = onUpdatePin
             )
@@ -871,6 +877,7 @@ private fun ProgressTab(
 }
 
 @Composable
+// child activity tab
 private fun ActivityTab(history: List<ReadingHistory>) {
     if (history.isEmpty()) {
         EmptyState(
@@ -939,6 +946,7 @@ private fun ActivityTab(history: List<ReadingHistory>) {
 }
 
 @Composable
+// child favorites tab
 private fun FavoritesTab(favorites: List<Favorite>) {
     if (favorites.isEmpty()) {
         EmptyState(
@@ -1007,25 +1015,69 @@ private fun FavoritesTab(favorites: List<Favorite>) {
 @Composable
 private fun ControlsTab(
     child: User,
+    parentDashboardViewModel: ParentDashboardViewModel,
     onUpdateFilters: (maxAgeRating: Int, allowVideos: Boolean) -> Unit,
     onUpdatePin: (String) -> Unit
 ) {
+    // content filter value
     var maxAgeRating by remember(child.id) {
         mutableFloatStateOf(child.contentFilters.maxAgeRating.toFloat())
     }
+
+    // video toggle
     var allowVideos by remember(child.id) {
         mutableStateOf(child.contentFilters.allowVideos)
     }
+
+    // split existing limit into hours and minutes
+    val initialHours = child.screenTimeConfig.dailyLimitMinutes / 60
+    val initialMinutes = child.screenTimeConfig.dailyLimitMinutes % 60
+
+    // hours input
+    var hoursInput by remember(child.id) {
+        mutableStateOf(initialHours.toString())
+    }
+
+    // minutes input
+    var minutesInput by remember(child.id) {
+        mutableStateOf(initialMinutes.toString())
+    }
+
+    // pin input
     var pinInput by remember(child.id) {
         mutableStateOf("")
     }
+
+    // pin error text
     var pinError by remember(child.id) {
         mutableStateOf<String?>(null)
     }
-    var hasChanges by remember(child.id) { mutableStateOf(false) }
 
+    // track unsaved filter changes
+    var hasChanges by remember(child.id) {
+        mutableStateOf(false)
+    }
+
+    // check if pin already exists
     val hasExistingPin = child.parentalPin?.matches(Regex("^\\d{4}$")) == true
+
+    // save button enabled state
     val canSave = hasChanges || pinInput.isNotEmpty()
+
+    // total limit for display
+    val totalLimitMinutes = child.screenTimeConfig.dailyLimitMinutes.coerceAtLeast(1)
+
+    // remaining time
+    val remainingMinutes = (child.screenTimeConfig.dailyLimitMinutes - child.todayUsageMinutes)
+        .coerceAtLeast(0)
+
+    val remainingHoursDisplay = remainingMinutes / 60
+    val remainingMinsDisplay = remainingMinutes % 60
+
+    // progress bar value
+    val screenTimeProgress = remember(child.todayUsageMinutes, child.screenTimeConfig.dailyLimitMinutes) {
+        (child.todayUsageMinutes.toFloat() / totalLimitMinutes.toFloat()).coerceIn(0f, 1f)
+    }
 
     Column(
         modifier = Modifier
@@ -1035,11 +1087,144 @@ private fun ControlsTab(
     ) {
         SectionHeader(
             title = "Parental Controls",
-            subtitle = "Manage content visibility and parent approval settings"
+            subtitle = "Manage content, PIN, and screen time settings"
         )
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        // screen time card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(22.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White)
+        ) {
+            Column(modifier = Modifier.padding(18.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.Lock,
+                        contentDescription = null,
+                        tint = ParentBlue
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Screen Time Limit",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = "Set how long your child can use the app each day.",
+                    fontSize = 13.sp,
+                    lineHeight = 20.sp,
+                    color = ParentTextSoft
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // hours and minutes input
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    // hours input
+                    OutlinedTextField(
+                        value = hoursInput,
+                        onValueChange = { value ->
+                            Log.d("TIME_LIMIT_DEBUG", "Hours typed = '$value'")
+
+                            if (value.all { it.isDigit() } || value.isEmpty()) {
+                                hoursInput = value
+                                Log.d("TIME_LIMIT_DEBUG", "Hours accepted = '$hoursInput'")
+                            } else {
+                                Log.d("TIME_LIMIT_DEBUG", "Hours rejected = '$value'")
+                            }
+                        },
+                        label = { Text("Hours") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    // minutes input
+                    OutlinedTextField(
+                        value = minutesInput,
+                        onValueChange = { value ->
+                            Log.d("TIME_LIMIT_DEBUG", "Minutes typed = '$value'")
+
+                            if (value.all { it.isDigit() } || value.isEmpty()) {
+                                minutesInput = value
+                                Log.d("TIME_LIMIT_DEBUG", "Minutes accepted = '$minutesInput'")
+                            } else {
+                                Log.d("TIME_LIMIT_DEBUG", "Minutes rejected = '$value'")
+                            }
+                        },
+                        label = { Text("Minutes") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Text(
+                    text = "Used today: ${child.todayUsageMinutes} mins",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = ParentTextSoft
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Text(
+                    text = "Time left: ${remainingHoursDisplay}h ${remainingMinsDisplay}m",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = ParentBlueDark
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                LinearProgressIndicator(
+                    progress = { screenTimeProgress },
+                    modifier = Modifier.fillMaxWidth(),
+                    color = ParentBlue,
+                    trackColor = ParentSoftBlue
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // save time limit
+                Button(
+                    onClick = {
+                        Log.d("TIME_LIMIT_DEBUG", "Save clicked")
+                        Log.d("TIME_LIMIT_DEBUG", "hoursInput=$hoursInput minutesInput=$minutesInput")
+
+                        val hours = hoursInput.toIntOrNull() ?: 0
+                        val mins = minutesInput.toIntOrNull() ?: 0
+                        val totalMinutes = ((hours * 60) + mins).coerceAtLeast(1)
+
+                        Log.d("TIME_LIMIT_DEBUG", "totalMinutes=$totalMinutes")
+
+                        parentDashboardViewModel.updateScreenTimeLimit(child.id, totalMinutes)
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = ParentBlue)
+                ) {
+                    Icon(Icons.Default.Save, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Save Time Limit")
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // content filter card
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(22.dp),
@@ -1146,6 +1331,7 @@ private fun ControlsTab(
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        // pin card
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(22.dp),
@@ -1210,6 +1396,7 @@ private fun ControlsTab(
 
         Spacer(modifier = Modifier.height(20.dp))
 
+        // save filters and pin
         Button(
             onClick = {
                 if (pinInput.isNotEmpty() && pinInput.length != 4) {
@@ -1242,6 +1429,7 @@ private fun ControlsTab(
 }
 
 @Composable
+// child chat history tab
 private fun ChatHistoryTab(
     conversations: List<Conversation>,
     messages: List<ChatMessage>,
@@ -1403,6 +1591,7 @@ private fun ChatHistoryTab(
 }
 
 @Composable
+// empty state UI
 private fun EmptyState(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     title: String,

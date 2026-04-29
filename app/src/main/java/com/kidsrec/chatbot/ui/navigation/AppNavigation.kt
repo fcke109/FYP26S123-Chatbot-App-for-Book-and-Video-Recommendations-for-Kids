@@ -460,6 +460,7 @@ fun MainScreen(
                         viewModel = libraryViewModel,
                         favoritesViewModel = favoritesViewModel,
                         searchViewModel = searchViewModel,
+                        currentUser = currentUser,
                         onOpenRecommendation = { url, title, isVideo, itemId, imageUrl, description ->
 
                             val analyticsId = when {

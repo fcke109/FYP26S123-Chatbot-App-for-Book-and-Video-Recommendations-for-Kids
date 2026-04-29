@@ -9,6 +9,7 @@ import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthInvalidUserException
 import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.FirebaseAuthWeakPasswordException
+import com.google.firebase.firestore.FirebaseFirestore
 import com.kidsrec.chatbot.data.model.AccountType
 import com.kidsrec.chatbot.data.model.PlanType
 import com.kidsrec.chatbot.data.model.User
@@ -23,16 +24,20 @@ import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 import javax.inject.Inject
 
 @HiltViewModel
+// handles login and current user
 class AuthViewModel @Inject constructor(
     private val accountManager: AccountManager
 ) : ViewModel() {
 
+    // login state
     private val _authState = MutableStateFlow<AuthState>(AuthState.Initial)
     val authState: StateFlow<AuthState> = _authState.asStateFlow()
 
+    // logged in user
     private val _currentUser = MutableStateFlow<User?>(null)
     val currentUser: StateFlow<User?> = _currentUser.asStateFlow()
 
@@ -55,6 +60,7 @@ class AuthViewModel @Inject constructor(
         checkAuthState()
     }
 
+    // check if user already logged in
     private fun checkAuthState() {
         val userId = accountManager.getCurrentUserId()
 
@@ -67,6 +73,7 @@ class AuthViewModel @Inject constructor(
         }
     }
 
+    // load user data from firestore
     private fun refreshSignedInUser(userId: String) {
         viewModelScope.launch {
             try {
@@ -80,6 +87,7 @@ class AuthViewModel @Inject constructor(
                 }
 
                 _currentUser.value = userData
+                resetUsageIfNewDay(userData)
                 observeUserData(userId)
 
                 val isAdminUser = userData.planType == PlanType.ADMIN
@@ -106,6 +114,7 @@ class AuthViewModel @Inject constructor(
         }
     }
 
+    // listen for user profile changes
     private fun observeUserData(userId: String) {
         viewModelScope.launch {
             accountManager.getUserFlow(userId)
@@ -115,6 +124,7 @@ class AuthViewModel @Inject constructor(
                 .collect { user ->
                     if (user != null) {
                         _currentUser.value = user
+                        resetUsageIfNewDay(user)
                     }
                 }
         }
@@ -142,6 +152,7 @@ class AuthViewModel @Inject constructor(
         }
     }
 
+    // sign in user
     fun signIn(email: String, password: String) {
         val cleanEmail = email.trim()
 
@@ -163,6 +174,7 @@ class AuthViewModel @Inject constructor(
                         }
 
                         _currentUser.value = userData
+                        resetUsageIfNewDay(userData)
                         observeUserData(firebaseUser.uid)
 
                         val isAdminUser = userData.planType == PlanType.ADMIN
@@ -234,6 +246,7 @@ class AuthViewModel @Inject constructor(
                     }
 
                     _currentUser.value = userDoc
+                    resetUsageIfNewDay(userDoc)
                     observeUserData(user.uid)
                     _authState.value = AuthState.Authenticated(user.uid)
                 },
@@ -260,6 +273,7 @@ class AuthViewModel @Inject constructor(
                             ?: accountManager.getUserFlow(user.uid).firstOrNull()
 
                         _currentUser.value = userData
+                        userData?.let { resetUsageIfNewDay(it) }
                         observeUserData(user.uid)
 
                         if (userData?.planType == PlanType.ADMIN) {
@@ -391,6 +405,7 @@ class AuthViewModel @Inject constructor(
         }
     }
 
+    // sign out user
     fun signOut() {
         _currentUser.value = null
         _verificationMessage.value = null
@@ -401,6 +416,7 @@ class AuthViewModel @Inject constructor(
         }
     }
 
+    // update user profile
     fun updateUser(user: User) {
         viewModelScope.launch {
             val current = _currentUser.value
@@ -412,6 +428,48 @@ class AuthViewModel @Inject constructor(
 
             accountManager.updateUser(user)
         }
+    }
+
+
+    // reset screen time if new day
+    private fun resetUsageIfNewDay(user: User) {
+        val todayDate = LocalDate.now().toString()
+
+        if (user.lastUsageDate == todayDate) return
+        if (user.id.isBlank()) return
+
+        viewModelScope.launch {
+            try {
+                // only update these two fields
+                FirebaseFirestore.getInstance()
+                    .collection("users")
+                    .document(user.id)
+                    .update(
+                        mapOf(
+                            "todayUsageMinutes" to 0,
+                            "lastUsageDate" to todayDate
+                        )
+                    )
+
+                // update local state also
+                _currentUser.value = user.copy(
+                    todayUsageMinutes = 0,
+                    lastUsageDate = todayDate
+                )
+
+                Log.d("AuthVM", "Screen time reset for ${user.id}")
+            } catch (e: Exception) {
+                Log.e("AuthVM", "Failed to reset screen time", e)
+            }
+        }
+    }
+
+    // check if screen time is blocked
+    fun isScreenTimeBlocked(user: User?): Boolean {
+        if (user == null) return false
+        if (!user.screenTimeConfig.enabled) return false
+
+        return user.todayUsageMinutes >= user.screenTimeConfig.dailyLimitMinutes
     }
 
     private fun mapFirebaseError(error: Throwable): String {

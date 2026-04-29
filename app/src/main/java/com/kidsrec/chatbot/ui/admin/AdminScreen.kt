@@ -786,6 +786,10 @@ fun CuratorSearchTab(
     // category dropdown state
     var expanded by remember { mutableStateOf(false) }
 
+    // age range input
+    var ageMinInput by remember { mutableStateOf("3") }
+    var ageMaxInput by remember { mutableStateOf("12") }
+
     // use firestore categories, fallback if empty
     val categoryList =
         if (categories.isNotEmpty()) {
@@ -793,6 +797,7 @@ fun CuratorSearchTab(
         } else {
             listOf("Dinosaurs", "Space", "Animals")
         }
+
 
     // select first category by default
     LaunchedEffect(categoryList) {
@@ -894,6 +899,39 @@ fun CuratorSearchTab(
 
         Spacer(modifier = Modifier.height(16.dp))
 
+// age input
+        Text(
+            text = "Age Suitable For",
+            fontWeight = FontWeight.SemiBold
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            OutlinedTextField(
+                value = ageMinInput,
+                onValueChange = { ageMinInput = it.filter { c -> c.isDigit() } },
+                label = { Text("From Age") },
+                modifier = Modifier.weight(1f),
+                singleLine = true
+            )
+
+            OutlinedTextField(
+                value = ageMaxInput,
+                onValueChange = { ageMaxInput = it.filter { c -> c.isDigit() } },
+                label = { Text("Until Age") },
+                modifier = Modifier.weight(1f),
+                singleLine = true
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Spacer(modifier = Modifier.height(16.dp))
+
         if (isSearching) {
             Box(
                 modifier = Modifier.fillMaxSize(),
@@ -913,9 +951,14 @@ fun CuratorSearchTab(
 
                             // first category = main category
                             // others = extra categories
+                            val minAge = ageMinInput.toIntOrNull() ?: 3
+                            val maxAge = ageMaxInput.toIntOrNull() ?: 12
+
                             val bookWithCategory = book.copy(
                                 category = selectedList.firstOrNull() ?: "General",
-                                categoryTags = selectedList.drop(1)
+                                categoryTags = selectedList.drop(1),
+                                ageMin = minAge,
+                                ageMax = maxAge
                             )
 
                             viewModel.addBookToLibrary(bookWithCategory)
@@ -1191,17 +1234,20 @@ fun BookLibraryTab(
             book = bookToEditCategories!!,
             categories = categories.map { it.name }.filter { it.isNotBlank() }.distinct().sorted(),
             onDismiss = { bookToEditCategories = null },
-            onSave = { selectedCategories ->
+            onSave = { selectedCategories, minAge, maxAge ->
+
                 val selectedList = selectedCategories.toList()
 
-                viewModel.updateBookCategories(
+                viewModel.updateBookCategoryAndAge(
                     bookId = bookToEditCategories!!.id,
                     category = selectedList.firstOrNull() ?: "General",
-                    categoryTags = selectedList.drop(1)
+                    categoryTags = selectedList.drop(1),
+                    ageMin = minAge,
+                    ageMax = maxAge
                 )
 
                 scope.launch {
-                    snackbarHostState.showSnackbar("Categories updated")
+                    snackbarHostState.showSnackbar("Updated category & age")
                 }
 
                 bookToEditCategories = null
@@ -1361,6 +1407,14 @@ fun BookLibraryTab(
                                     text = book.category.ifBlank { "General" }
                                 )
 
+                                Spacer(modifier = Modifier.height(6.dp))
+
+                                Text(
+                                    text = "Age: ${book.ageMin}-${book.ageMax} yrs",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = AdminTextSecondary
+                                )
+
                                 // extra categories
                                 if (book.categoryTags.isNotEmpty()) {
                                     Spacer(modifier = Modifier.height(6.dp))
@@ -1406,14 +1460,13 @@ fun BookLibraryTab(
     }
 }
 
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditBookCategoriesDialog(
     book: Book,
     categories: List<String>,
     onDismiss: () -> Unit,
-    onSave: (Set<String>) -> Unit
+    onSave: (Set<String>, Int, Int) -> Unit
 ) {
     // selected categories for this book
     var selectedCategories by remember(book.id) {
@@ -1423,6 +1476,9 @@ fun EditBookCategoriesDialog(
                 .toSet()
         )
     }
+    // age input (for editing old books)
+    var ageMinInput by remember { mutableStateOf(book.ageMin.toString()) }
+    var ageMaxInput by remember { mutableStateOf(book.ageMax.toString()) }
 
     // fallback if no category exists yet
     val categoryList = if (categories.isNotEmpty()) categories else listOf("General")
@@ -1502,11 +1558,39 @@ fun EditBookCategoriesDialog(
                     style = MaterialTheme.typography.bodySmall,
                     color = AdminTextSecondary
                 )
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text("Age Suitable For")
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(
+                        value = ageMinInput,
+                        onValueChange = { ageMinInput = it.filter { c -> c.isDigit() } },
+                        label = { Text("From Age") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
+                    )
+
+                    OutlinedTextField(
+                        value = ageMaxInput,
+                        onValueChange = { ageMaxInput = it.filter { c -> c.isDigit() } },
+                        label = { Text("Until Age") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
+                    )
+                }
             }
         },
         confirmButton = {
             Button(
-                onClick = { onSave(selectedCategories) },
+                onClick = {
+                    val minAge = ageMinInput.toIntOrNull() ?: 3
+                    val maxAge = ageMaxInput.toIntOrNull() ?: 12
+
+                    onSave(selectedCategories, minAge, maxAge)
+                },
                 enabled = selectedCategories.isNotEmpty(),
                 colors = ButtonDefaults.buttonColors(containerColor = AdminPrimary)
             ) {

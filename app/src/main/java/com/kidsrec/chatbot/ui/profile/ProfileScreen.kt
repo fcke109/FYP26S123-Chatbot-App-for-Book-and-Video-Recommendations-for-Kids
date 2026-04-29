@@ -22,6 +22,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import android.util.Log
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.kidsrec.chatbot.data.model.PlanType
@@ -52,10 +53,6 @@ fun ProfileScreen(
 
     var showEditLockGate by remember { mutableStateOf(false) }
     var isParentalUnlocked by remember { mutableStateOf(false) }
-
-    fun requestEditAccess() {
-        showEditLockGate = true
-    }
 
     fun grantEditAccess() {
         showEditLockGate = false
@@ -88,27 +85,13 @@ fun ProfileScreen(
         }
     }
 
-    if (showEditLockGate) {
-        ChildSafetyLockGate(
-            isLocked = user?.parentalPin?.isNotEmpty() == true,
-            onAccessGranted = {
-                grantEditAccess()
-            },
-            content = {
-                LaunchedEffect(Unit) {
-                    grantEditAccess()
-                }
-            }
-        )
-    }
-
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Profile") },
                 actions = {
                     if (!isEditing && user?.planType != PlanType.FREE) {
-                        IconButton(onClick = { requestEditAccess() }) {
+                        IconButton(onClick = { isEditing = true }) {
                             Icon(Icons.Default.Edit, contentDescription = "Edit Profile")
                         }
                     }
@@ -423,7 +406,7 @@ fun ProfileScreen(
 
                         ChildSettingsEntry(
                             lockEnabled = currentUser.parentalPin?.isNotEmpty() == true,
-                            isUnlocked = isParentalUnlocked,
+                            isUnlocked = false,
                             onRequestUnlock = {
                                 onNavigateToParentalControls()
                             }
@@ -435,7 +418,7 @@ fun ProfileScreen(
                             ) {
                                 Icon(Icons.Default.Settings, contentDescription = null)
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("Parental Controls")
+                                Text("Unlock Parental Controls")
                             }
                         }
 
