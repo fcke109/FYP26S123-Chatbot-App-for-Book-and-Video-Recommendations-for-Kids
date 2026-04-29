@@ -1,5 +1,10 @@
 package com.kidsrec.chatbot.ui.library
 
+// ------------------------------
+// Compose foundation imports
+// These are used for layout, clicking, backgrounds, lists, and borders.
+// ------------------------------
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -20,32 +25,51 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+
+// ------------------------------
+// Material icons used in the library screen.
+// ------------------------------
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.PlayCircle
+
+// ------------------------------
+// Material 3 UI components.
+// The dropdown imports were added for the category dropdown.
+// ------------------------------
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+
+// ------------------------------
+// Compose runtime imports for state handling.
+// ------------------------------
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+
+// ------------------------------
+// Compose UI imports for styling.
+// ------------------------------
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -55,7 +79,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+
+// ------------------------------
+// Coil loads book cover images from URLs.
+// ------------------------------
 import coil.compose.AsyncImage
+
+// ------------------------------
+// Project model and ViewModel imports.
+// ------------------------------
 import com.kidsrec.chatbot.data.model.Book
 import com.kidsrec.chatbot.data.model.Favorite
 import com.kidsrec.chatbot.data.model.Recommendation
@@ -64,16 +96,27 @@ import com.kidsrec.chatbot.ui.common.AgeUiMode
 import com.kidsrec.chatbot.ui.common.getAgeUiMode
 import com.kidsrec.chatbot.ui.favorites.FavoritesViewModel
 
+// ------------------------------
+// Small private UI model used to style each category.
+// ------------------------------
 private data class CategoryUi(
     val emoji: String,
     val container: Color,
     val content: Color
 )
 
+// ------------------------------
+// Cleans category text so blank categories become "General".
+// This prevents empty category chips/badges from showing.
+// ------------------------------
 private fun normalizedCategory(category: String): String {
     return category.trim().ifBlank { "General" }
 }
 
+// ------------------------------
+// Returns colours and emoji based on the category name.
+// This keeps categories kid-friendly and visually different.
+// ------------------------------
 private fun categoryUi(category: String): CategoryUi {
     val name = normalizedCategory(category).lowercase()
 
@@ -128,6 +171,50 @@ private fun categoryUi(category: String): CategoryUi {
     }
 }
 
+// ------------------------------
+// Builds the category list shown to the user.
+// UPDATED: This now includes both:
+// 1. book.category      -> main category
+// 2. book.categoryTags  -> extra categories selected by admin
+// ------------------------------
+private fun buildCategoryList(books: List<Book>): List<String> {
+    val mainCategories = books.map { normalizedCategory(it.category) }
+
+    val extraCategories = books.flatMap { book ->
+        book.categoryTags.map { tag -> normalizedCategory(tag) }
+    }
+
+    return listOf("All") + (mainCategories + extraCategories)
+        .filter { it.isNotBlank() }
+        .distinct()
+        .sorted()
+}
+
+// ------------------------------
+// Checks whether a book belongs to a selected category.
+// UPDATED: A book now matches if:
+// 1. selected category is "All"
+// 2. selected category matches book.category
+// 3. selected category matches one of book.categoryTags
+// ------------------------------
+private fun bookMatchesCategory(book: Book, selectedCategory: String): Boolean {
+    if (selectedCategory == "All") return true
+
+    val mainCategoryMatches =
+        normalizedCategory(book.category).equals(selectedCategory, ignoreCase = true)
+
+    val extraTagMatches = book.categoryTags.any { tag ->
+        normalizedCategory(tag).equals(selectedCategory, ignoreCase = true)
+    }
+
+    return mainCategoryMatches || extraTagMatches
+}
+
+// ------------------------------
+// Main user library screen.
+// Shows books, recommendations, search bar, category dropdown,
+// category chips, favorites, and age-adaptive layouts.
+// ------------------------------
 @Composable
 fun UserLibraryScreen(
     viewModel: LibraryViewModel,
@@ -142,37 +229,51 @@ fun UserLibraryScreen(
         description: String
     ) -> Unit
 ) {
+    // Books loaded from Firestore curated library
     val books by viewModel.curatedBooks.collectAsState()
+
+    // Recommended content shown at the top
     val topPicks by viewModel.topPicks.collectAsState()
+
+    // User's saved favorites
     val favoriteItems by favoritesViewModel.favorites.collectAsState()
+
+    // Smart search state: query, suggestions, expanded state
     val searchUiState by searchViewModel.uiState.collectAsState()
+
+    // User age is used to adjust UI style
     val userAge by viewModel.userAge.collectAsState()
 
+    // Decides whether UI should be early-child, young-child, or older-child
     val ageUiMode = getAgeUiMode(userAge)
 
+    // Currently selected category filter
     var selectedCategory by remember { mutableStateOf("All") }
 
+    // UPDATED: Categories now come from both main category and categoryTags
     val categories = remember(books) {
-        listOf("All") + books
-            .map { normalizedCategory(it.category) }
-            .distinct()
-            .sorted()
+        buildCategoryList(books)
     }
 
+    // Search filter.
+    // UPDATED: Search now also checks categoryTags.
     val filteredBooksBySearch = if (searchUiState.query.isNotBlank() && !searchUiState.expanded) {
-        books.filter {
-            it.title.contains(searchUiState.query, ignoreCase = true) ||
-                    it.author.contains(searchUiState.query, ignoreCase = true) ||
-                    normalizedCategory(it.category).contains(searchUiState.query, ignoreCase = true)
+        books.filter { book ->
+            book.title.contains(searchUiState.query, ignoreCase = true) ||
+                    book.author.contains(searchUiState.query, ignoreCase = true) ||
+                    normalizedCategory(book.category).contains(searchUiState.query, ignoreCase = true) ||
+                    book.categoryTags.any { tag ->
+                        normalizedCategory(tag).contains(searchUiState.query, ignoreCase = true)
+                    }
         }
     } else {
         books
     }
 
-    val finalFilteredBooks = if (selectedCategory != "All") {
-        filteredBooksBySearch.filter { normalizedCategory(it.category) == selectedCategory }
-    } else {
-        filteredBooksBySearch
+    // Final filter after search + category selection.
+    // UPDATED: Category filter now checks both book.category and book.categoryTags.
+    val finalFilteredBooks = filteredBooksBySearch.filter { book ->
+        bookMatchesCategory(book, selectedCategory)
     }
 
     Column(
@@ -180,6 +281,7 @@ fun UserLibraryScreen(
             .fillMaxSize()
             .padding(16.dp)
     ) {
+        // Page title changes based on user's age group
         Text(
             text = when (ageUiMode) {
                 AgeUiMode.EARLY_CHILD -> "My Books"
@@ -191,6 +293,7 @@ fun UserLibraryScreen(
             color = MaterialTheme.colorScheme.primary
         )
 
+        // Subtitle also changes based on age group
         Text(
             text = when (ageUiMode) {
                 AgeUiMode.EARLY_CHILD -> "Tap a book to start reading."
@@ -203,6 +306,7 @@ fun UserLibraryScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        // Search bar for title, author, main category, and extra category tags
         SmartSearchBar(
             uiState = searchUiState,
             onQueryChange = { searchViewModel.onQueryChange(it) },
@@ -212,6 +316,9 @@ fun UserLibraryScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        // Category dropdown + horizontal chips.
+        // Dropdown helps users quickly choose a category.
+        // Chips remain for easy scrolling/tapping.
         if (categories.size > 1) {
             CategorySection(
                 categories = categories,
@@ -221,6 +328,7 @@ fun UserLibraryScreen(
             Spacer(modifier = Modifier.height(16.dp))
         }
 
+        // Empty library state
         if (books.isEmpty()) {
             Box(
                 modifier = Modifier.fillMaxSize(),
@@ -229,10 +337,12 @@ fun UserLibraryScreen(
                 Text("No books here yet. Check back soon!")
             }
         } else {
+            // Main content list
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
+                // Top recommendations section only appears when there is no active search
                 if (topPicks.isNotEmpty() && searchUiState.query.isBlank()) {
                     item {
                         TopPicksSection(
@@ -244,6 +354,8 @@ fun UserLibraryScreen(
                             picks = topPicks,
                             favoriteItems = favoriteItems,
                             ageUiMode = ageUiMode,
+
+                            // Add/remove recommendation from favorites
                             onToggleFavorite = { rec ->
                                 val isFav = favoriteItems.any { it.itemId == rec.id }
                                 if (isFav) {
@@ -259,6 +371,8 @@ fun UserLibraryScreen(
                                     )
                                 }
                             },
+
+                            // Open recommended book/video
                             onPickClick = { rec ->
                                 viewModel.addClickedItem(rec.title)
                                 if (rec.url.isNotBlank()) {
@@ -277,6 +391,7 @@ fun UserLibraryScreen(
                     }
                 }
 
+                // Section title for search/category result
                 item {
                     Text(
                         text = when {
@@ -300,6 +415,7 @@ fun UserLibraryScreen(
                     Spacer(modifier = Modifier.height(8.dp))
                 }
 
+                // No books matched the selected search/category
                 if (finalFilteredBooks.isEmpty()) {
                     item {
                         Surface(
@@ -314,7 +430,10 @@ fun UserLibraryScreen(
                             )
                         }
                     }
-                } else if (ageUiMode == AgeUiMode.EARLY_CHILD) {
+                }
+
+                // Early child layout uses bigger tiles in a grid
+                else if (ageUiMode == AgeUiMode.EARLY_CHILD) {
                     item {
                         LazyVerticalGrid(
                             columns = GridCells.Fixed(2),
@@ -326,10 +445,13 @@ fun UserLibraryScreen(
                         ) {
                             items(finalFilteredBooks) { book ->
                                 val isFavorited = favoriteItems.any { it.itemId == book.id }
+
                                 BigBookTile(
                                     book = book,
                                     isFavorited = isFavorited,
                                     showFavoriteButton = true,
+
+                                    // Add/remove book from favorites
                                     onFavoriteClick = {
                                         if (isFavorited) {
                                             favoritesViewModel.removeFavorite(book.id)
@@ -345,6 +467,8 @@ fun UserLibraryScreen(
                                             )
                                         }
                                     },
+
+                                    // Open book reader
                                     onClick = {
                                         viewModel.addClickedItem(book.title)
                                         val url = book.readerUrl.ifBlank { book.bookUrl }
@@ -363,7 +487,10 @@ fun UserLibraryScreen(
                             }
                         }
                     }
-                } else {
+                }
+
+                // Older child and young child layout uses list cards
+                else {
                     items(finalFilteredBooks) { book ->
                         val isFavorited = favoriteItems.any { it.itemId == book.id }
 
@@ -372,6 +499,8 @@ fun UserLibraryScreen(
                             isFavorited = isFavorited,
                             showFavoriteButton = true,
                             ageUiMode = ageUiMode,
+
+                            // Add/remove book from favorites
                             onFavoriteClick = {
                                 if (isFavorited) {
                                     favoritesViewModel.removeFavorite(book.id)
@@ -387,6 +516,8 @@ fun UserLibraryScreen(
                                     )
                                 }
                             },
+
+                            // Open selected book
                             onClick = {
                                 viewModel.addClickedItem(book.title)
                                 val url = book.readerUrl.ifBlank { book.bookUrl }
@@ -409,6 +540,10 @@ fun UserLibraryScreen(
     }
 }
 
+// ------------------------------
+// Returns a simple emoji for category names.
+// Used by category chips, dropdowns, and badges.
+// ------------------------------
 @Composable
 fun getEmoji(category: String): String {
     return when (category.trim().lowercase()) {
@@ -422,12 +557,23 @@ fun getEmoji(category: String): String {
         else -> "✨"
     }
 }
+
+// ------------------------------
+// Category filter area.
+// UPDATED: Now has both:
+// 1. Dropdown for quick selection
+// 2. Horizontal scroll chips for visual browsing
+// ------------------------------
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CategorySection(
     categories: List<String>,
     selectedCategory: String,
     onCategorySelected: (String) -> Unit
 ) {
+    // Controls whether dropdown is open or closed
+    var expanded by remember { mutableStateOf(false) }
+
     Column {
         Text(
             text = "Categories",
@@ -438,6 +584,48 @@ fun CategorySection(
 
         Spacer(modifier = Modifier.height(10.dp))
 
+        // Dropdown category selector.
+        // This is useful when there are many categories and scrolling is slow.
+        ExposedDropdownMenuBox(
+            expanded = expanded,
+            onExpandedChange = { expanded = it }
+        ) {
+            OutlinedTextField(
+                value = "${getEmoji(selectedCategory)} $selectedCategory",
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Choose Category") },
+                trailingIcon = {
+                    ExposedDropdownMenuDefaults.TrailingIcon(expanded)
+                },
+                modifier = Modifier
+                    .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                    .fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp)
+            )
+
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                categories.forEach { category ->
+                    DropdownMenuItem(
+                        text = {
+                            Text("${getEmoji(category)} $category")
+                        },
+                        onClick = {
+                            onCategorySelected(category)
+                            expanded = false
+                        }
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Horizontal category chips.
+        // Kept because they look friendly and are fast for common categories.
         LazyRow(
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
@@ -478,6 +666,11 @@ fun CategorySection(
     }
 }
 
+// ------------------------------
+// Small badge shown on book cards.
+// This displays the main category only.
+// Extra categoryTags are shown separately in UserBookCardAdaptive.
+// ------------------------------
 @Composable
 fun CategoryBadge(
     category: String,
@@ -513,6 +706,9 @@ fun CategoryBadge(
     }
 }
 
+// ------------------------------
+// Displays recommended books/videos at the top of the library.
+// ------------------------------
 @Composable
 fun TopPicksSection(
     title: String,
@@ -545,6 +741,7 @@ fun TopPicksSection(
         LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             items(picks) { pick ->
                 val isFavorited = favoriteItems.any { it.itemId == pick.id }
+
                 TopPickCardAdaptive(
                     pick = pick,
                     isFavorited = isFavorited,
@@ -558,6 +755,10 @@ fun TopPicksSection(
     }
 }
 
+// ------------------------------
+// Card used inside the Top Picks section.
+// It supports both books and videos.
+// ------------------------------
 @Composable
 fun TopPickCardAdaptive(
     pick: Recommendation,
@@ -567,12 +768,14 @@ fun TopPickCardAdaptive(
     onFavoriteClick: () -> Unit,
     onClick: () -> Unit
 ) {
+    // Card size changes by age group
     val cardWidth = when (ageUiMode) {
         AgeUiMode.EARLY_CHILD -> 190.dp
         AgeUiMode.YOUNG_CHILD -> 170.dp
         AgeUiMode.OLDER_CHILD -> 160.dp
     }
 
+    // Image size changes by age group
     val imageHeight = when (ageUiMode) {
         AgeUiMode.EARLY_CHILD -> 140.dp
         AgeUiMode.YOUNG_CHILD -> 125.dp
@@ -592,6 +795,7 @@ fun TopPickCardAdaptive(
                     .height(imageHeight)
                     .fillMaxWidth()
             ) {
+                // Show image if available
                 if (pick.imageUrl.isNotEmpty()) {
                     AsyncImage(
                         model = pick.imageUrl,
@@ -602,6 +806,7 @@ fun TopPickCardAdaptive(
                         contentScale = ContentScale.Crop
                     )
                 } else {
+                    // Fallback if image is missing
                     val isVideo = pick.type == RecommendationType.VIDEO
                     Box(
                         modifier = Modifier
@@ -618,6 +823,7 @@ fun TopPickCardAdaptive(
                     }
                 }
 
+                // Match badge is hidden for early-child mode to keep UI simple
                 if (pick.relevanceScore > 0 && ageUiMode != AgeUiMode.EARLY_CHILD) {
                     Surface(
                         modifier = Modifier
@@ -636,6 +842,7 @@ fun TopPickCardAdaptive(
                     }
                 }
 
+                // Favorite button
                 if (showFavoriteButton) {
                     IconButton(
                         onClick = onFavoriteClick,
@@ -655,6 +862,7 @@ fun TopPickCardAdaptive(
                 }
             }
 
+            // Pick title and reason
             Column(modifier = Modifier.padding(10.dp)) {
                 Text(
                     text = pick.title,
@@ -683,6 +891,10 @@ fun TopPickCardAdaptive(
     }
 }
 
+// ------------------------------
+// Large grid tile used for younger children.
+// Bigger image + simpler UI.
+// ------------------------------
 @Composable
 fun BigBookTile(
     book: Book,
@@ -700,6 +912,7 @@ fun BigBookTile(
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
+            // Book cover image
             AsyncImage(
                 model = book.coverUrl,
                 contentDescription = book.title,
@@ -707,12 +920,14 @@ fun BigBookTile(
                 contentScale = ContentScale.Crop
             )
 
+            // Dark overlay so title is readable
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(Color.Black.copy(alpha = 0.20f))
             )
 
+            // Main category badge
             CategoryBadge(
                 category = book.category,
                 modifier = Modifier
@@ -720,6 +935,7 @@ fun BigBookTile(
                     .padding(10.dp)
             )
 
+            // Book title
             Text(
                 text = book.title,
                 color = Color.White,
@@ -731,6 +947,7 @@ fun BigBookTile(
                 maxLines = 2
             )
 
+            // Favorite button
             if (showFavoriteButton) {
                 IconButton(
                     onClick = onFavoriteClick,
@@ -750,6 +967,10 @@ fun BigBookTile(
     }
 }
 
+// ------------------------------
+// Adaptive list card used for young-child and older-child layouts.
+// UPDATED: It now shows extra categoryTags below the main category.
+// ------------------------------
 @Composable
 fun UserBookCardAdaptive(
     book: Book,
@@ -759,12 +980,14 @@ fun UserBookCardAdaptive(
     onFavoriteClick: () -> Unit,
     onClick: () -> Unit
 ) {
+    // Image size adapts based on age mode
     val imageSize = when (ageUiMode) {
         AgeUiMode.EARLY_CHILD -> 90.dp
         AgeUiMode.YOUNG_CHILD -> 76.dp
         AgeUiMode.OLDER_CHILD -> 70.dp
     }
 
+    // Title text size adapts based on age mode
     val titleSize = when (ageUiMode) {
         AgeUiMode.EARLY_CHILD -> 18.sp
         AgeUiMode.YOUNG_CHILD -> 16.sp
@@ -782,6 +1005,7 @@ fun UserBookCardAdaptive(
             modifier = Modifier.padding(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Book cover
             AsyncImage(
                 model = book.coverUrl,
                 contentDescription = book.title,
@@ -794,7 +1018,9 @@ fun UserBookCardAdaptive(
 
             Spacer(modifier = Modifier.width(12.dp))
 
+            // Book information
             Column(modifier = Modifier.weight(1f)) {
+                // Title
                 Text(
                     text = book.title,
                     fontWeight = FontWeight.Bold,
@@ -805,10 +1031,27 @@ fun UserBookCardAdaptive(
 
                 Spacer(modifier = Modifier.height(6.dp))
 
+                // Main category badge
                 CategoryBadge(category = book.category)
+
+                // Extra category tags selected by admin.
+                // Example: A book can be main category "Animals"
+                // but also appear under "Adventure" and "Education".
+                if (book.categoryTags.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Text(
+                        text = "Also: ${book.categoryTags.joinToString(", ")}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(6.dp))
 
+                // Content shown depends on child age group
                 when (ageUiMode) {
                     AgeUiMode.EARLY_CHILD -> {
                         AssistChip(
@@ -841,6 +1084,8 @@ fun UserBookCardAdaptive(
                     }
                 }
 
+                // Age rating and difficulty chips.
+                // Hidden for early-child mode to keep interface simple.
                 if (ageUiMode != AgeUiMode.EARLY_CHILD) {
                     Row(
                         modifier = Modifier.padding(top = 4.dp),
@@ -876,6 +1121,7 @@ fun UserBookCardAdaptive(
                 }
             }
 
+            // Favorite button on right side of card
             if (showFavoriteButton) {
                 IconButton(onClick = onFavoriteClick) {
                     Icon(

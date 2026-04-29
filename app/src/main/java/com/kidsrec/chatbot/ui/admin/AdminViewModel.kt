@@ -50,6 +50,7 @@ private fun extractNormalizedInterests(
 }
 
 @HiltViewModel
+// viewmodel for admin screen
 class AdminViewModel @Inject constructor(
     private val accountManager: AccountManager,
     private val bookDataManager: BookDataManager,
@@ -60,21 +61,26 @@ class AdminViewModel @Inject constructor(
     private val analyticsRepository: AnalyticsRepository
 ) : ViewModel() {
 
+    // users list
     private val _users = MutableStateFlow<List<User>>(emptyList())
     val users: StateFlow<List<User>> = _users.asStateFlow()
 
+    // book categories
     private val _categories = MutableStateFlow<List<BookCategory>>(emptyList())
     val categories: StateFlow<List<BookCategory>> = _categories.asStateFlow()
 
+    // curated books
     private val _curatedBooks = MutableStateFlow<List<Book>>(emptyList())
     val curatedBooks: StateFlow<List<Book>> = _curatedBooks.asStateFlow()
 
+    // search results from open library
     private val _searchResults = MutableStateFlow<List<Book>>(emptyList())
     val searchResults: StateFlow<List<Book>> = _searchResults.asStateFlow()
 
     private val _isSearching = MutableStateFlow(false)
     val isSearching: StateFlow<Boolean> = _isSearching.asStateFlow()
 
+    // dashboard stats
     private val _adminStats = MutableStateFlow(AdminStats())
     val adminStats: StateFlow<AdminStats> = _adminStats.asStateFlow()
 
@@ -90,6 +96,7 @@ class AdminViewModel @Inject constructor(
     private val _isLoadingUserActivity = MutableStateFlow(false)
     val isLoadingUserActivity: StateFlow<Boolean> = _isLoadingUserActivity.asStateFlow()
 
+    // security data
     private val _loginAttempts = MutableStateFlow<List<LoginAttempt>>(emptyList())
     val loginAttempts: StateFlow<List<LoginAttempt>> = _loginAttempts.asStateFlow()
 
@@ -302,7 +309,7 @@ class AdminViewModel @Inject constructor(
                         .toLong()
                 }
 
-                // Count all stored chatbot messages so existing Firestore history appears in the dashboard.
+                // count chatbot messages
                 val chatbotUsageCount = try {
                     firestore.collectionGroup("messages")
                         .get()
@@ -389,7 +396,7 @@ class AdminViewModel @Inject constructor(
         viewModelScope.launch {
             _isSearching.value = true
             try {
-                // Track search analytics
+                // track search
                 val currentUserId = accountManager.getCurrentUserId() ?: "unknown"
                 analyticsRepository.trackSearch(lowerQuery, currentUserId)
 
@@ -401,13 +408,13 @@ class AdminViewModel @Inject constructor(
                     val title = doc.title
                     val author = doc.author_name?.firstOrNull() ?: "Unknown"
 
-                    // Basic Scoring
+                    // simple score
                     var score = 0
                     if (title.lowercase().contains(lowerQuery)) score += 60
                     if (author.lowercase().contains(lowerQuery)) score += 20
                     if (title.lowercase() == lowerQuery) score += 40
 
-                    // Cap score at 100
+                    // max score 100
                     val finalScore = score.coerceAtMost(100)
 
                     if (finalScore > 0) {
@@ -444,14 +451,12 @@ class AdminViewModel @Inject constructor(
 
     fun addBookToLibrary(book: Book) {
         viewModelScope.launch {
-            // The DataManager will now automatically pick the next sequential ID
+            // data manager creates the book id
             bookDataManager.addBook(book.copy(id = ""))
         }
     }
 
-    /**
-     * Re-assigns numeric IDs to all books in the library to clean them up.
-     */
+    // clean book ids
     @SuppressLint("DefaultLocale")
     fun cleanLibraryIds() {
         viewModelScope.launch {
@@ -459,11 +464,38 @@ class AdminViewModel @Inject constructor(
             currentBooks.forEachIndexed { index, book ->
                 val newId = String.format("%03d", index + 1)
                 if (book.id != newId) {
-                    // Delete the old record
+                    // delete old book
                     bookDataManager.deleteBook(book.id)
-                    // Save it with the new numeric ID
+                    // save with new id
                     bookDataManager.addBook(book.copy(id = newId))
                 }
+            }
+        }
+    }
+
+
+    // update book categories
+    fun updateBookCategories(
+        bookId: String,
+        category: String,
+        categoryTags: List<String>
+    ) {
+        viewModelScope.launch {
+            try {
+                firestore.collection("content_books")
+                    .document(bookId)
+                    .update(
+                        mapOf(
+                            "category" to category,
+                            "categoryTags" to categoryTags,
+                            "updatedAt" to Timestamp.now()
+                        )
+                    )
+                    .await()
+
+                Log.d("AdminVM", "Book categories updated: $bookId")
+            } catch (e: Exception) {
+                Log.e("AdminVM", "Failed to update book categories", e)
             }
         }
     }
@@ -490,24 +522,24 @@ class AdminViewModel @Inject constructor(
     fun deleteUser(userId: String) {
         viewModelScope.launch {
             try {
-                // Delete user's Firestore document
+                // delete user profile
                 firestore.collection("users").document(userId).delete().await()
 
-                // Delete user's favorites
+                // delete favorites
                 val favItems = firestore.collection("favorites")
                     .document(userId).collection("items").get().await()
                 for (doc in favItems.documents) {
                     doc.reference.delete().await()
                 }
 
-                // Delete user's reading history
+                // delete reading history
                 val sessions = firestore.collection("readingHistory")
                     .document(userId).collection("sessions").get().await()
                 for (doc in sessions.documents) {
                     doc.reference.delete().await()
                 }
 
-                // Delete user's chat history conversations and messages
+                // delete chat history
                 val convos = firestore.collection("chatHistory")
                     .document(userId).collection("conversations").get().await()
                 for (convo in convos.documents) {
@@ -518,7 +550,7 @@ class AdminViewModel @Inject constructor(
                     convo.reference.delete().await()
                 }
 
-                // Also delete the Firebase Auth account via Cloud Function
+                // delete auth account
                 try {
                     functions.getHttpsCallable("deleteAuthUser")
                         .call(hashMapOf("uid" to userId))
@@ -589,7 +621,7 @@ class AdminViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoadingUserActivity.value = true
             try {
-                // Load reading history
+                // load reading history
                 val readingHistory = firestore.collection("readingHistory")
                     .document(userId)
                     .collection("sessions")
@@ -601,7 +633,7 @@ class AdminViewModel @Inject constructor(
 
                 _userReadingHistory.value = readingHistory
 
-                // Load chat history (recent messages from all conversations)
+                // load chat history
                 val chatMessages = firestore.collection("chatHistory")
                     .document(userId)
                     .collection("conversations")
@@ -618,7 +650,7 @@ class AdminViewModel @Inject constructor(
                     }
                     .sortedByDescending { it.timestamp }
 
-                _userChatHistory.value = chatMessages.take(20) // Take most recent 20 messages
+                _userChatHistory.value = chatMessages.take(20) // latest 20 messages
 
             } catch (e: Exception) {
                 Log.e("AdminVM", "Failed to load user activity for $userId", e)
@@ -719,11 +751,11 @@ class AdminViewModel @Inject constructor(
             try {
                 when (type) {
                     NotificationType.ANNOUNCEMENT -> {
-                        // Send announcement to all users
+                        // send to all users
                         sendAnnouncementToAllUsers(title, body)
                     }
                     NotificationType.PERSONALIZED -> {
-                        // Send personalized alert based on interest category
+                        // send by interest
                         sendPersonalizedAlert(title, body, targetValue)
                     }
                 }

@@ -5,6 +5,7 @@ import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.kidsrec.chatbot.data.model.Book
+import com.kidsrec.chatbot.data.model.BookCategory
 import com.kidsrec.chatbot.data.model.ChatMessage
 import com.kidsrec.chatbot.data.model.Conversation
 import com.kidsrec.chatbot.data.model.MessageRole
@@ -44,6 +45,8 @@ class ChatDataManager @Inject constructor(
     private val analyticsRepository: AnalyticsRepository
 ) {
 
+    // approved videos are hardcoded safe fallback videos
+    // chatbot can only recommend videos from this list
     private data class ApprovedVideo(
         val id: String,
         val title: String,
@@ -604,6 +607,141 @@ class ChatDataManager @Inject constructor(
         )
     )
 
+
+    // get categories from Firestore
+    // these category tags help chatbot understand words like dog, rocket, planet, etc.
+    private suspend fun loadBookCategories(): List<BookCategory> {
+        return try {
+            val snapshot = firestore.collection("categories").get().await()
+
+            snapshot.documents.mapNotNull { doc ->
+                doc.toObject(BookCategory::class.java)?.copy(id = doc.id)
+            }
+        } catch (e: Exception) {
+            Log.e("ChatDataManager", "Failed to load categories", e)
+            emptyList()
+        }
+    }
+
+    // match user message to category name or category tags
+    // example: user says "dog story" -> matches Animals if Animals has tag "dog"
+    private fun findMatchingCategoryNames(
+        message: String,
+        categories: List<BookCategory>
+    ): List<String> {
+        val cleanMessage = normalizeText(message)
+
+        return categories.filter { category ->
+            val categoryName = normalizeText(category.name)
+
+            val nameMatch = categoryName.isNotBlank() && cleanMessage.contains(categoryName)
+
+            val tagMatch = category.tags.any { tag ->
+                val cleanTag = normalizeText(tag)
+                cleanTag.isNotBlank() && cleanMessage.contains(cleanTag)
+            }
+
+            nameMatch || tagMatch
+        }.map { it.name }
+    }
+
+    // check if a book belongs to one of the matched categories
+    // this checks both main category and extra categoryTags
+    private fun bookMatchesAnyCategory(
+        book: Book,
+        matchedCategories: List<String>
+    ): Boolean {
+        if (matchedCategories.isEmpty()) return false
+
+        return matchedCategories.any { category ->
+            book.category.equals(category, ignoreCase = true) ||
+                    book.categoryTags.any { tag -> tag.equals(category, ignoreCase = true) }
+        }
+    }
+
+    // choose a better fallback book using category tags
+    // if no match is found, it returns the first curated book
+    private fun pickBestFallbackBook(
+        message: String,
+        curatedBooks: List<Book>,
+        categories: List<BookCategory>
+    ): Book? {
+        if (curatedBooks.isEmpty()) return null
+
+        val matchedCategories = findMatchingCategoryNames(message, categories)
+
+        val categoryMatchedBook = curatedBooks.firstOrNull { book ->
+            bookMatchesAnyCategory(book, matchedCategories)
+        }
+
+        if (categoryMatchedBook != null) return categoryMatchedBook
+
+        val cleanMessage = normalizeText(message)
+        val messageWords = cleanMessage.split(Regex("\\s+")).filter { it.length > 2 }
+
+        val scoredBooks = curatedBooks.map { book ->
+            var score = 0
+
+            score += messageWords.count { word -> normalizeText(book.title).contains(word) } * 3
+            score += messageWords.count { word -> normalizeText(book.description).contains(word) } * 2
+            score += messageWords.count { word -> normalizeText(book.category).contains(word) } * 2
+            score += book.categoryTags.count { tag -> cleanMessage.contains(normalizeText(tag)) } * 3
+            score += book.tags.count { tag -> cleanMessage.contains(normalizeText(tag)) } * 2
+
+            book to score
+        }
+
+        val best = scoredBooks.maxByOrNull { it.second }
+        return if (best != null && best.second > 0) best.first else curatedBooks.first()
+    }
+
+    // simple text cleanup for matching
+    private fun normalizeText(value: String): String {
+        return value
+            .lowercase()
+            .replace(Regex("[^a-z0-9 ]"), " ")
+            .replace(Regex("\\s+"), " ")
+            .trim()
+    }
+
+    // make the chatbot reply nicer
+    private fun buildFriendlyContent(
+        cleanContent: String,
+        matchedCategories: List<String>,
+        recommendations: List<Recommendation>
+    ): String {
+        val categoryText = matchedCategories.firstOrNull()
+        val dailyTitles = recommendations
+            .take(3)
+            .mapIndexed { index, rec -> (index + 1).toString() + ". " + rec.title }
+            .joinToString("\n")
+
+        val becauseText = if (categoryText != null) {
+            "Because you liked " + categoryText + ", I picked these for you."
+        } else {
+            "I picked these because they match what you asked for."
+        }
+
+        val baseText = cleanContent.ifBlank {
+            "Here are some fun picks for you!"
+        }
+
+        return buildString {
+            appendLine(baseText)
+            appendLine()
+            appendLine(becauseText)
+
+            if (dailyTitles.isNotBlank()) {
+                appendLine()
+                appendLine("Daily recommendations:")
+                appendLine(dailyTitles)
+            }
+
+            appendLine()
+            appendLine("Why these match: I used your message, the book categories, and the safe video list.")
+        }.trim()
+    }
+
     suspend fun sendMessage(
         userId: String,
         conversationId: String,
@@ -653,13 +791,29 @@ class ChatDataManager @Inject constructor(
                 }
             }
 
+            // load curated books and categories
+            // categories are used for smarter matching using BookCategory.tags
             val curatedBooks = bookDataManager.getCuratedBooks().getOrDefault(emptyList())
+            val categories = loadBookCategories()
+            val matchedCategoryNames = findMatchingCategoryNames(sanitizedMessage, categories)
+
+            val categoryMatchContext = if (matchedCategoryNames.isNotEmpty()) {
+                "Matched categories from user query: ${matchedCategoryNames.joinToString(", ")}"
+            } else {
+                "No exact category tag match found from the user query."
+            }
 
             val curatedBooksContext = if (curatedBooks.isNotEmpty()) {
                 buildString {
                     appendLine("Available curated books:")
                     curatedBooks.forEachIndexed { index, book ->
-                        appendLine("${index + 1}. ${book.title} by ${book.author}")
+                        val extraCategories = if (book.categoryTags.isNotEmpty()) {
+                            " | also: ${book.categoryTags.joinToString(", ")}"
+                        } else {
+                            ""
+                        }
+
+                        appendLine("${index + 1}. ${book.title} by ${book.author} [${book.category}$extraCategories]")
                     }
                 }
             } else {
@@ -737,18 +891,24 @@ $curatedBooksContext
 
 $approvedVideosContext
 
+$categoryMatchContext
+
 CRITICAL RULES:
 1. ALWAYS recommend content that DIRECTLY matches what the child asked about. Relevance is the #1 priority.
 2. For BOOKS: If a curated book matches the child's topic, use that exact title. Otherwise, suggest a real, well-known children's book about their specific topic.
 3. For VIDEOS: ONLY use titles from the approved kid-safe video list above.
 4. NEVER invent a new video title outside the approved video list.
 5. Prefer approved videos whose title, category, or tags clearly match the child's request.
-6. If there is no perfect video match, choose the closest safe approved video in the same topic area.
-7. For any recommendation, provide a reason why it is fun for the child.
-8. Always include a mix of BOTH:
+6. For BOOKS, also consider the book's main category and extra categoryTags.
+7. If the child asks using related words like dog, rocket, moon, farm, jungle, etc., use the matched category tags above.
+8. If there is no perfect video match, choose the closest safe approved video in the same topic area.
+9. For any recommendation, provide a reason why it is fun for the child.
+10. Always include a mix of BOTH:
    - at least 1 BOOK
    - at least 1 VIDEO
-9. Keep the response friendly and short for children.
+11. Keep the response friendly and short for children.
+12. Explain recommendations in a simple way, like "Because you liked Animals..." when a category matches.
+13. Mention daily recommendations naturally if suitable.
 
 Response format:
 1. Friendly message (1-2 sentences).
@@ -793,14 +953,17 @@ RULES FOR JSON:
             val withContentUrls = attachContentUrls(
                 recommendations = parsedRecs,
                 curatedBooks = curatedBooks,
-                approvedVideos = approvedVideos
+                approvedVideos = approvedVideos,
+                originalMessage = sanitizedMessage,
+                categories = categories
             )
 
             val ensuredMix = ensureBookAndVideoMix(
                 originalMessage = sanitizedMessage,
                 recommendations = withContentUrls,
                 curatedBooks = curatedBooks,
-                approvedVideos = approvedVideos
+                approvedVideos = approvedVideos,
+                categories = categories
             )
 
             val collaborativelyRanked = applyCollaborativeFilteringRanking(
@@ -814,6 +977,13 @@ RULES FOR JSON:
                 userId = userId
             )
 
+            // make the reply nicer for the child
+            val enhancedContent = buildFriendlyContent(
+                cleanContent = cleanContent,
+                matchedCategories = matchedCategoryNames,
+                recommendations = recommendations
+            )
+
             val botMessage = ChatMessage(
                 id = firestore.collection("chatHistory")
                     .document(userId)
@@ -822,7 +992,7 @@ RULES FOR JSON:
                     .collection("messages")
                     .document().id,
                 role = MessageRole.ASSISTANT,
-                content = cleanContent.ifBlank { "Here are some fun picks for you!" },
+                content = enhancedContent,
                 timestamp = Timestamp.now(),
                 recommendations = recommendations
             )
@@ -967,14 +1137,25 @@ RULES FOR JSON:
     private suspend fun attachContentUrls(
         recommendations: List<Recommendation>,
         curatedBooks: List<Book>,
-        approvedVideos: List<ApprovedVideo>
+        approvedVideos: List<ApprovedVideo>,
+        originalMessage: String,
+        categories: List<BookCategory>
     ): List<Recommendation> {
         return recommendations.mapNotNull { rec ->
             when (rec.type) {
                 RecommendationType.BOOK -> {
-                    val matchingBook = curatedBooks.firstOrNull { book ->
+                    val matchedCategories = findMatchingCategoryNames(originalMessage, categories)
+
+                    val titleMatchedBook = curatedBooks.firstOrNull { book ->
                         titlesMatch(book.title, rec.title)
                     }
+
+                    // if title does not match, use category tags
+                    val categoryMatchedBook = curatedBooks.firstOrNull { book ->
+                        bookMatchesAnyCategory(book, matchedCategories)
+                    }
+
+                    val matchingBook = titleMatchedBook ?: categoryMatchedBook
 
                     if (matchingBook != null) {
                         val bookUrl = matchingBook.readerUrl.ifBlank { matchingBook.bookUrl }
@@ -1033,7 +1214,7 @@ RULES FOR JSON:
                             isCurated = true
                         )
                     } else {
-                        val fallbackVideo = pickBestFallbackVideo(rec.title, approvedVideos)
+                        val fallbackVideo = pickBestFallbackVideo("$originalMessage ${rec.title}", approvedVideos)
                         if (fallbackVideo != null) {
                             rec.copy(
                                 id = fallbackVideo.id,
@@ -1076,7 +1257,8 @@ RULES FOR JSON:
         originalMessage: String,
         recommendations: List<Recommendation>,
         curatedBooks: List<Book>,
-        approvedVideos: List<ApprovedVideo>
+        approvedVideos: List<ApprovedVideo>,
+        categories: List<BookCategory>
     ): List<Recommendation> {
         val mutable = recommendations.toMutableList()
 
@@ -1084,7 +1266,9 @@ RULES FOR JSON:
         val hasVideo = mutable.any { it.type == RecommendationType.VIDEO && it.url.isNotBlank() }
 
         if (!hasBook && curatedBooks.isNotEmpty()) {
-            val fallbackBook = curatedBooks.first()
+            // use category tags to choose a better fallback book
+            val fallbackBook = pickBestFallbackBook(originalMessage, curatedBooks, categories)
+                ?: curatedBooks.first()
             val fallbackUrl = fallbackBook.readerUrl.ifBlank { fallbackBook.bookUrl }
 
             mutable.add(
