@@ -768,7 +768,10 @@ fun CuratorSearchTab(
     snackbarHostState: SnackbarHostState,
     onViewBook: (String, String, Boolean) -> Unit
 ) {
+    // search text
     var query by remember { mutableStateOf("") }
+
+    // data from viewmodel
     val searchResults by viewModel.searchResults.collectAsState()
     val isSearching by viewModel.isSearching.collectAsState()
     val categories by viewModel.categories.collectAsState()
@@ -777,9 +780,28 @@ fun CuratorSearchTab(
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
 
-    var selectedCategory by remember { mutableStateOf("Dinosaurs") }
+    // selected categories for the book
+    var selectedCategories by remember { mutableStateOf(setOf<String>()) }
+
+    // category dropdown state
     var expanded by remember { mutableStateOf(false) }
 
+    // use firestore categories, fallback if empty
+    val categoryList =
+        if (categories.isNotEmpty()) {
+            categories.map { it.name }.filter { it.isNotBlank() }.distinct().sorted()
+        } else {
+            listOf("Dinosaurs", "Space", "Animals")
+        }
+
+    // select first category by default
+    LaunchedEffect(categoryList) {
+        if (selectedCategories.isEmpty() && categoryList.isNotEmpty()) {
+            selectedCategories = setOf(categoryList.first())
+        }
+    }
+
+    // run book search
     val onSearch = {
         if (query.isNotBlank()) {
             viewModel.searchBooks(query)
@@ -793,8 +815,7 @@ fun CuratorSearchTab(
             .fillMaxSize()
             .padding(16.dp)
     ) {
-
-        // 🔍 SEARCH BAR
+        // search bar
         OutlinedTextField(
             value = query,
             onValueChange = { query = it },
@@ -802,7 +823,7 @@ fun CuratorSearchTab(
             placeholder = { Text("Search books (e.g. dinosaurs, space...)") },
             trailingIcon = {
                 IconButton(onClick = onSearch) {
-                    Icon(Icons.Default.Search, null)
+                    Icon(Icons.Default.Search, contentDescription = "Search")
                 }
             },
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
@@ -813,53 +834,60 @@ fun CuratorSearchTab(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // 🦖 CATEGORY DROPDOWN
+        // multi category box
         ExposedDropdownMenuBox(
             expanded = expanded,
             onExpandedChange = { expanded = it }
         ) {
             OutlinedTextField(
-                value = selectedCategory,
+                value = if (selectedCategories.isEmpty()) {
+                    "Select categories"
+                } else {
+                    selectedCategories.joinToString(", ")
+                },
                 onValueChange = {},
                 readOnly = true,
-                label = { Text("Select Category") },
+                label = { Text("Categories") },
                 trailingIcon = {
                     ExposedDropdownMenuDefaults.TrailingIcon(expanded)
                 },
                 modifier = Modifier
                     .menuAnchor(MenuAnchorType.PrimaryNotEditable)
-                    .fillMaxWidth()
+                    .fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
             )
 
             ExposedDropdownMenu(
                 expanded = expanded,
                 onDismissRequest = { expanded = false }
             ) {
+                categoryList.forEach { categoryName ->
+                    val isSelected = selectedCategories.contains(categoryName)
 
-                // Use Firestore categories if available
-                if (categories.isNotEmpty()) {
-                    categories.forEach { category ->
-                        DropdownMenuItem(
-                            text = {
-                                Text("${getEmoji(category.name)} ${category.name}")
-                            },
-                            onClick = {
-                                selectedCategory = category.name
-                                expanded = false
+                    DropdownMenuItem(
+                        text = {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Checkbox(
+                                    checked = isSelected,
+                                    onCheckedChange = null
+                                )
+
+                                Spacer(modifier = Modifier.width(8.dp))
+
+                                Text("${getEmoji(categoryName)} $categoryName")
                             }
-                        )
-                    }
-                } else {
-                    // fallback
-                    listOf("Dinosaurs", "Space", "Animals").forEach {
-                        DropdownMenuItem(
-                            text = { Text("${getEmoji(it)} $it") },
-                            onClick = {
-                                selectedCategory = it
-                                expanded = false
-                            }
-                        )
-                    }
+                        },
+                        onClick = {
+                            selectedCategories =
+                                if (isSelected) {
+                                    selectedCategories - categoryName
+                                } else {
+                                    selectedCategories + categoryName
+                                }
+                        }
+                    )
                 }
             }
         }
@@ -867,32 +895,43 @@ fun CuratorSearchTab(
         Spacer(modifier = Modifier.height(16.dp))
 
         if (isSearching) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
                 CircularProgressIndicator()
             }
         } else {
+            // search results
             LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(searchResults) { book ->
-
                     BookAdminCard(
                         book = book,
 
-                        // 🔥 IMPORTANT FIX HERE
                         onAction = {
+                            val selectedList = selectedCategories.toList()
+
+                            // first category = main category
+                            // others = extra categories
                             val bookWithCategory = book.copy(
-                                category = selectedCategory
+                                category = selectedList.firstOrNull() ?: "General",
+                                categoryTags = selectedList.drop(1)
                             )
 
                             viewModel.addBookToLibrary(bookWithCategory)
 
                             scope.launch {
-                                snackbarHostState.showSnackbar("Added to $selectedCategory 🦖")
+                                snackbarHostState.showSnackbar(
+                                    "Added to ${selectedList.joinToString(", ")} 🦖"
+                                )
                             }
                         },
 
                         onCardClick = {
                             val url = book.readerUrl.ifBlank { book.bookUrl }
-                            if (url.isNotBlank()) onViewBook(book.title, url, false)
+                            if (url.isNotBlank()) {
+                                onViewBook(book.title, url, false)
+                            }
                         },
 
                         actionIcon = Icons.Default.Add
@@ -1118,6 +1157,7 @@ fun CategoryDialog(
 }
 
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BookLibraryTab(
     books: List<Book>,
@@ -1129,58 +1169,42 @@ fun BookLibraryTab(
     val categories by viewModel.categories.collectAsState()
 
     var selectedCategory by remember { mutableStateOf("All") }
-    var bookToRemoveUnsafe by remember { mutableStateOf<Book?>(null) }
+    var bookToEditCategories by remember { mutableStateOf<Book?>(null) }
+    var libraryCategoryExpanded by remember { mutableStateOf(false) }
 
+    // filter by main category + extra category tags
     val filteredBooks = remember(books, selectedCategory) {
         if (selectedCategory == "All") {
             books
         } else {
-            books.filter { it.category.equals(selectedCategory, ignoreCase = true) }
+            books.filter { book ->
+                book.category.equals(selectedCategory, ignoreCase = true) ||
+                        book.categoryTags.any { tag ->
+                            tag.equals(selectedCategory, ignoreCase = true)
+                        }
+            }
         }
     }
 
-    if (bookToRemoveUnsafe != null) {
-        var reason by remember { mutableStateOf("") }
+    if (bookToEditCategories != null) {
+        EditBookCategoriesDialog(
+            book = bookToEditCategories!!,
+            categories = categories.map { it.name }.filter { it.isNotBlank() }.distinct().sorted(),
+            onDismiss = { bookToEditCategories = null },
+            onSave = { selectedCategories ->
+                val selectedList = selectedCategories.toList()
 
-        AlertDialog(
-            onDismissRequest = { bookToRemoveUnsafe = null },
-            icon = {
-                Icon(Icons.Default.Warning, null, tint = AdminDanger)
-            },
-            title = { Text("Remove Unsafe Content") },
-            text = {
-                Column {
-                    Text("This will permanently remove the book.")
-                    Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = reason,
-                        onValueChange = { reason = it },
-                        label = { Text("Reason") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                viewModel.updateBookCategories(
+                    bookId = bookToEditCategories!!.id,
+                    category = selectedList.firstOrNull() ?: "General",
+                    categoryTags = selectedList.drop(1)
+                )
+
+                scope.launch {
+                    snackbarHostState.showSnackbar("Categories updated")
                 }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.removeUnsafeContent(
-                            bookToRemoveUnsafe!!.id,
-                            reason
-                        )
-                        scope.launch {
-                            snackbarHostState.showSnackbar("Removed as unsafe")
-                        }
-                        bookToRemoveUnsafe = null
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = AdminDanger)
-                ) {
-                    Text("Remove")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { bookToRemoveUnsafe = null }) {
-                    Text("Cancel")
-                }
+
+                bookToEditCategories = null
             }
         )
     }
@@ -1206,6 +1230,52 @@ fun BookLibraryTab(
 
         Spacer(modifier = Modifier.height(14.dp))
 
+        // dropdown for category filter
+        ExposedDropdownMenuBox(
+            expanded = libraryCategoryExpanded,
+            onExpandedChange = { libraryCategoryExpanded = it }
+        ) {
+            OutlinedTextField(
+                value = selectedCategory,
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Choose Category") },
+                trailingIcon = {
+                    ExposedDropdownMenuDefaults.TrailingIcon(libraryCategoryExpanded)
+                },
+                modifier = Modifier
+                    .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                    .fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            )
+
+            ExposedDropdownMenu(
+                expanded = libraryCategoryExpanded,
+                onDismissRequest = { libraryCategoryExpanded = false }
+            ) {
+                DropdownMenuItem(
+                    text = { Text("All") },
+                    onClick = {
+                        selectedCategory = "All"
+                        libraryCategoryExpanded = false
+                    }
+                )
+
+                categories.forEach { category ->
+                    DropdownMenuItem(
+                        text = { Text("${getEmoji(category.name)} ${category.name}") },
+                        onClick = {
+                            selectedCategory = category.name
+                            libraryCategoryExpanded = false
+                        }
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // scroll category chips
         LazyRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxWidth()
@@ -1286,19 +1356,32 @@ fun BookLibraryTab(
 
                                 Spacer(modifier = Modifier.height(8.dp))
 
+                                // main category
                                 ProfessionalCategoryTag(
                                     text = book.category.ifBlank { "General" }
                                 )
+
+                                // extra categories
+                                if (book.categoryTags.isNotEmpty()) {
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Text(
+                                        text = "Also: ${book.categoryTags.joinToString(", ")}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = AdminTextSecondary,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
                             }
 
                             Row {
                                 IconButton(onClick = {
-                                    bookToRemoveUnsafe = book
+                                    bookToEditCategories = book
                                 }) {
                                     Icon(
-                                        Icons.Default.Warning,
-                                        contentDescription = "Unsafe",
-                                        tint = AdminDanger
+                                        Icons.Default.Edit,
+                                        contentDescription = "Edit Categories",
+                                        tint = AdminPrimary
                                     )
                                 }
 
@@ -1311,7 +1394,7 @@ fun BookLibraryTab(
                                     Icon(
                                         Icons.Default.Delete,
                                         contentDescription = "Delete",
-                                        tint = Color.Gray
+                                        tint = AdminDanger
                                     )
                                 }
                             }
@@ -1321,6 +1404,122 @@ fun BookLibraryTab(
             }
         }
     }
+}
+
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun EditBookCategoriesDialog(
+    book: Book,
+    categories: List<String>,
+    onDismiss: () -> Unit,
+    onSave: (Set<String>) -> Unit
+) {
+    // selected categories for this book
+    var selectedCategories by remember(book.id) {
+        mutableStateOf(
+            (listOf(book.category) + book.categoryTags)
+                .filter { it.isNotBlank() }
+                .toSet()
+        )
+    }
+
+    // fallback if no category exists yet
+    val categoryList = if (categories.isNotEmpty()) categories else listOf("General")
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit Categories") },
+        text = {
+            Column {
+                // book title
+                Text(
+                    text = book.title,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Text(
+                    text = "Choose categories",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = AdminTextSecondary
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // category list
+                LazyColumn(
+                    modifier = Modifier.heightIn(max = 320.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    items(categoryList) { categoryName ->
+                        val isSelected = selectedCategories.contains(categoryName)
+
+                        Surface(
+                            onClick = {
+                                selectedCategories = if (isSelected) {
+                                    selectedCategories - categoryName
+                                } else {
+                                    selectedCategories + categoryName
+                                }
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (isSelected) AdminPrimary.copy(alpha = 0.10f) else Color.White,
+                            border = androidx.compose.foundation.BorderStroke(
+                                width = 1.dp,
+                                color = if (isSelected) AdminPrimary else AdminBorder
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Checkbox(
+                                    checked = isSelected,
+                                    onCheckedChange = null
+                                )
+
+                                Spacer(modifier = Modifier.width(8.dp))
+
+                                Text(
+                                    text = "${getEmoji(categoryName)} $categoryName",
+                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // simple note for admin
+                Text(
+                    text = "First selected category will be saved as main category.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = AdminTextSecondary
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onSave(selectedCategories) },
+                enabled = selectedCategories.isNotEmpty(),
+                colors = ButtonDefaults.buttonColors(containerColor = AdminPrimary)
+            ) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        },
+        containerColor = AdminCard
+    )
 }
 
 @Composable
@@ -2648,13 +2847,15 @@ fun StatusBadge(status: UserStatus) {
 }
 
 fun getEmoji(category: String): String {
-    return when (category.lowercase()) {
-        "dinosaurs" -> "🦖"
-        "space" -> "🚀"
-        "animals" -> "🐶"
-        "adventure" -> "🗺️"
-        "fairy tales" -> "🪄"
-        "education" -> "📚"
+    return when (category.trim().lowercase()) {
+        "dinosaurs", "dinosaur", "prehistoric" -> "🦖"
+        "space", "planet", "rocket", "science" -> "🚀"
+        "animals", "animal", "dog", "pet", "wildlife" -> "🐶"
+        "adventure", "journey" -> "🗺️"
+        "fairy tales", "fairy", "princess", "magic" -> "🪄"
+        "education", "learning", "school", "early learning" -> "📚"
+        "songs & rhymes", "songs", "music" -> "🎵"
+        "bedtime-stories", "bedtime", "moral stories" -> "🌙"
         else -> "⭐"
     }
 }
