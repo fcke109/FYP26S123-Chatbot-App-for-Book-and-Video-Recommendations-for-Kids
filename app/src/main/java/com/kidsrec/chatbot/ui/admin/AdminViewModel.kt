@@ -263,7 +263,8 @@ class AdminViewModel @Inject constructor(
                 val totalUsers = firestore.collection("users")
                     .get()
                     .await()
-                    .size()
+                    .documents
+                    .count { !it.id.startsWith("synthetic_") }
                     .toLong()
 
                 val dailyActiveUsers = try {

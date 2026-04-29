@@ -47,9 +47,12 @@ data class Recommendation(
     val reason: String = "",
     val relevanceScore: Double = 0.0,
     val url: String = "",
-    val isCurated: Boolean = true
+    val isCurated: Boolean = true,
+    val userBasedScore: Double = 0.0,
+    val itemBasedScore: Double = 0.0,
+    val cfBlendedScore: Double = 0.0
 ) {
-    constructor() : this("", RecommendationType.BOOK, "", "", "", "", 0.0, "", true)
+    constructor() : this("", RecommendationType.BOOK, "", "", "", "", 0.0, "", true, 0.0, 0.0, 0.0)
 }
 
 enum class RecommendationType {

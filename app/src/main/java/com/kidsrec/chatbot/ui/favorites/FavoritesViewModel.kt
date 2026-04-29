@@ -78,9 +78,26 @@ class FavoritesViewModel @Inject constructor(
 
     private var currentListeningUserId: String? = null
     private var favoritesJob: Job? = null
+    private var userObserverJob: Job? = null
 
     init {
         loadFavorites()
+        observeUserPlan()
+    }
+
+    private fun observeUserPlan() {
+        userObserverJob?.cancel()
+        userObserverJob = viewModelScope.launch {
+            val userId = accountManager.getCurrentUserId() ?: return@launch
+            accountManager.getUserFlow(userId)
+                .catch { e -> Log.e(TAG, "User plan observer failed", e) }
+                .collect { user ->
+                    if (user != null) {
+                        _isFreePlan.value = user.planType == PlanType.FREE
+                        _isGuest.value = user.isGuest
+                    }
+                }
+        }
     }
 
     fun setFilter(filter: FavoriteFilter) {
@@ -115,13 +132,8 @@ class FavoritesViewModel @Inject constructor(
                     return@launch
                 }
 
-                val user = accountManager.getUser(userId)
-                Log.d(TEST_TAG, "Loaded user for favorites. isGuest=${user?.isGuest} plan=${user?.planType}")
-
-                // Free users can still favorite (within limits), so we continue loading.
-                _isGuest.value = user?.isGuest == true
-                _isFreePlan.value = user?.planType == PlanType.FREE
-
+                // Plan / guest state is owned by observeUserPlan(); doing a one-shot read here
+                // raced with the flow on refreshFavorites() after a plan change.
                 favoritesJob?.cancel()
                 currentListeningUserId = userId
 

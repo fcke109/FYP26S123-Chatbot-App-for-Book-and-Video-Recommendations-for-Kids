@@ -562,7 +562,10 @@ class AccountManager @Inject constructor(
                     trySend(emptyList())
                     return@addSnapshotListener
                 }
-                val users = snapshot?.toObjects(User::class.java) ?: emptyList()
+                val users = snapshot?.documents
+                    ?.filter { !it.id.startsWith("synthetic_") }
+                    ?.mapNotNull { it.toObject(User::class.java) }
+                    ?: emptyList()
                 trySend(users)
             }
         awaitClose { listener.remove() }

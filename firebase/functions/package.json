@@ -9,7 +9,10 @@
     "shell": "npm run build && firebase functions:shell",
     "start": "npm run shell",
     "deploy": "firebase deploy --only functions",
-    "logs": "firebase functions:log"
+    "logs": "firebase functions:log",
+    "seed:synthetic": "npm run build && node lib/scripts/seedSyntheticUsers.js",
+    "cleanup:synthetic": "npm run build && node lib/scripts/cleanupSyntheticUsers.js",
+    "import:books": "npm run build && node lib/scripts/importGoogleBooks.js"
   },
   "engines": {
     "node": "18"

@@ -900,7 +900,11 @@ CRITICAL RULES:
 13. Mention daily recommendations naturally if suitable.
 
 Response format:
-1. Friendly message (1-2 sentences).
+1. Friendly message: ONE short sentence only.
+   - Do NOT list any book or video titles in the friendly message.
+   - Do NOT use the words "Daily recommendations" or "Recommendations:" or numbered lists (1., 2., 3.) in the friendly message.
+   - Do NOT add a closing line summarizing the picks (e.g. "These suggestions are about...").
+   - The titles MUST appear ONLY inside the [RECOMMENDATIONS] JSON block below — never in the friendly message.
 2. End with this EXACT block:
 
 [RECOMMENDATIONS]
@@ -1069,6 +1073,45 @@ RULES FOR JSON:
         awaitClose { listener.remove() }
     }
 
+    private fun stripInlineRecommendationList(text: String): String {
+        if (text.isBlank()) return text
+
+        val headerRegex = Regex(
+            "(?im)^\\s*(daily recommendations|recommendations|here are some.*recommendations|my picks)\\s*[:\\-]?\\s*$"
+        )
+        val numberedItemRegex = Regex("^\\s*(\\d+\\.|[-•*])\\s+.+$")
+        val trailingSummaryRegex = Regex(
+            "(?i)^\\s*(these (suggestions|picks|books|videos)|i hope you enjoy|enjoy(!|\\.)?|hope you (love|like|enjoy)).*$"
+        )
+
+        val lines = text.lines().toMutableList()
+        val kept = mutableListOf<String>()
+        var skipping = false
+
+        for (line in lines) {
+            when {
+                headerRegex.matches(line) -> {
+                    skipping = true
+                }
+                skipping && (numberedItemRegex.matches(line) || line.isBlank()) -> {
+                    // keep skipping while we're inside the numbered list
+                }
+                skipping -> {
+                    skipping = false
+                    if (!trailingSummaryRegex.matches(line)) kept.add(line)
+                }
+                trailingSummaryRegex.matches(line) -> {
+                    // drop trailing wrap-up sentences
+                }
+                else -> kept.add(line)
+            }
+        }
+
+        return kept.joinToString("\n")
+            .replace(Regex("\\n{3,}"), "\n\n")
+            .trim()
+    }
+
     private suspend fun parseRecommendations(response: String): Pair<String, List<Recommendation>> {
         val recommendations = mutableListOf<Recommendation>()
         var cleanContent = response
@@ -1084,7 +1127,9 @@ RULES FOR JSON:
                     .substring(startIndex + startTag.length, endIndex)
                     .trim()
 
-                cleanContent = response.substring(0, startIndex).trim()
+                cleanContent = stripInlineRecommendationList(
+                    response.substring(0, startIndex).trim()
+                )
 
                 val jsonArray = JSONArray(jsonString)
 
@@ -1410,7 +1455,10 @@ RULES FOR JSON:
 
                     rec.copy(
                         relevanceScore = collaborativeScore,
-                        reason = if (rec.reason.isBlank()) cfReason else rec.reason
+                        reason = if (rec.reason.isBlank()) cfReason else rec.reason,
+                        userBasedScore = userScore,
+                        itemBasedScore = itemScore,
+                        cfBlendedScore = collaborativeScore
                     )
                 }
                 .sortedByDescending { it.relevanceScore }

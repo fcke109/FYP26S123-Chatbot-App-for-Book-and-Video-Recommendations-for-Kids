@@ -15,10 +15,13 @@ import com.kidsrec.chatbot.data.repository.ChatQuotaStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
 import android.util.Log
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -60,12 +63,14 @@ class ChatViewModel @Inject constructor(
         loadQuota()
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     private fun loadQuota() {
         quotaJob?.cancel()
         quotaJob = viewModelScope.launch {
             val userId = accountManager.getCurrentUserId() ?: return@launch
-            val user = accountManager.getUser(userId) ?: return@launch
-            chatQuotaManager.statusFlow(user)
+            accountManager.getUserFlow(userId)
+                .filterNotNull()
+                .flatMapLatest { user -> chatQuotaManager.statusFlow(user) }
                 .catch { e -> Log.e("ChatVM", "Quota flow failed", e) }
                 .collect { status -> _quota.value = status }
         }

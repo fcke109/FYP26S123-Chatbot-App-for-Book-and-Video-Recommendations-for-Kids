@@ -50,14 +50,23 @@ service cloud.firestore {
     }
 
     // Favorites
+    // Reads are open to any authenticated user so collaborative filtering can
+    // compute cosine similarity across users via collectionGroup("items").
+    // Writes/deletes remain owner-gated.
     match /favorites/{userId}/items/{itemId} {
-      allow read: if isOwner(userId) || isParentOf(userId) || isAdmin();
+      allow read: if isAuthenticated();
       allow write, delete: if isOwner(userId) || isAdmin();
     }
 
-    // Reading history
+    // Reading history (sessions subcollection — what ReadingHistoryManager + CF use)
     match /readingHistory/{userId}/sessions/{sessionId} {
-      allow read: if isOwner(userId) || isParentOf(userId) || isAdmin();
+      allow read: if isAuthenticated();
+      allow write, delete: if isOwner(userId) || isAdmin();
+    }
+
+    // Reading history (items subcollection — written by the synthetic seed script)
+    match /readingHistory/{userId}/items/{itemId} {
+      allow read: if isAuthenticated();
       allow write, delete: if isOwner(userId) || isAdmin();
     }
 
