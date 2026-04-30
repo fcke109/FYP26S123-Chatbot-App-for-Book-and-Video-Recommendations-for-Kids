@@ -101,7 +101,8 @@ class AdminViewModel @Inject constructor(
     val loginAttempts: StateFlow<List<LoginAttempt>> = _loginAttempts.asStateFlow()
 
     private val _suspiciousActivities = MutableStateFlow<List<SuspiciousActivity>>(emptyList())
-    val suspiciousActivities: StateFlow<List<SuspiciousActivity>> = _suspiciousActivities.asStateFlow()
+    val suspiciousActivities: StateFlow<List<SuspiciousActivity>> =
+        _suspiciousActivities.asStateFlow()
 
     private val _isLoadingSecurityData = MutableStateFlow(false)
     val isLoadingSecurityData: StateFlow<Boolean> = _isLoadingSecurityData.asStateFlow()
@@ -109,14 +110,20 @@ class AdminViewModel @Inject constructor(
     private val _deleteResult = MutableStateFlow<String?>(null)
     val deleteResult: StateFlow<String?> = _deleteResult.asStateFlow()
 
-    private val _topSearchedTopics = MutableStateFlow<List<com.kidsrec.chatbot.data.model.TopSearchedTopic>>(emptyList())
-    val topSearchedTopics: StateFlow<List<com.kidsrec.chatbot.data.model.TopSearchedTopic>> = _topSearchedTopics.asStateFlow()
+    private val _topSearchedTopics =
+        MutableStateFlow<List<com.kidsrec.chatbot.data.model.TopSearchedTopic>>(emptyList())
+    val topSearchedTopics: StateFlow<List<com.kidsrec.chatbot.data.model.TopSearchedTopic>> =
+        _topSearchedTopics.asStateFlow()
 
-    private val _topViewedBooks = MutableStateFlow<List<com.kidsrec.chatbot.data.model.TopViewedBook>>(emptyList())
-    val topViewedBooks: StateFlow<List<com.kidsrec.chatbot.data.model.TopViewedBook>> = _topViewedBooks.asStateFlow()
+    private val _topViewedBooks =
+        MutableStateFlow<List<com.kidsrec.chatbot.data.model.TopViewedBook>>(emptyList())
+    val topViewedBooks: StateFlow<List<com.kidsrec.chatbot.data.model.TopViewedBook>> =
+        _topViewedBooks.asStateFlow()
 
-    private val _topDropOffs = MutableStateFlow<List<com.kidsrec.chatbot.data.model.TopDropOff>>(emptyList())
-    val topDropOffs: StateFlow<List<com.kidsrec.chatbot.data.model.TopDropOff>> = _topDropOffs.asStateFlow()
+    private val _topDropOffs =
+        MutableStateFlow<List<com.kidsrec.chatbot.data.model.TopDropOff>>(emptyList())
+    val topDropOffs: StateFlow<List<com.kidsrec.chatbot.data.model.TopDropOff>> =
+        _topDropOffs.asStateFlow()
 
     private var usersJob: Job? = null
     private var booksJob: Job? = null
@@ -275,7 +282,11 @@ class AdminViewModel @Inject constructor(
                         .size()
                         .toLong()
                 } catch (e: Exception) {
-                    Log.w("AdminVM", "Failed to query users.lastLoggedInAt for DAU, falling back to loginAttempts", e)
+                    Log.w(
+                        "AdminVM",
+                        "Failed to query users.lastLoggedInAt for DAU, falling back to loginAttempts",
+                        e
+                    )
                     firestore.collection("loginAttempts")
                         .whereEqualTo("success", true)
                         .whereGreaterThan("timestamp", twentyFourHoursAgo)
@@ -296,7 +307,11 @@ class AdminViewModel @Inject constructor(
                         .size()
                         .toLong()
                 } catch (e: Exception) {
-                    Log.w("AdminVM", "Failed to query users.lastLoggedInAt for MAU, falling back to loginAttempts", e)
+                    Log.w(
+                        "AdminVM",
+                        "Failed to query users.lastLoggedInAt for MAU, falling back to loginAttempts",
+                        e
+                    )
                     firestore.collection("loginAttempts")
                         .whereEqualTo("success", true)
                         .whereGreaterThan("timestamp", thirtyDaysAgo)
@@ -318,7 +333,11 @@ class AdminViewModel @Inject constructor(
                         .size
                         .toLong()
                 } catch (e: Exception) {
-                    Log.w("AdminVM", "Failed to query collectionGroup(messages) for chatbot usage, falling back to nested traversal", e)
+                    Log.w(
+                        "AdminVM",
+                        "Failed to query collectionGroup(messages) for chatbot usage, falling back to nested traversal",
+                        e
+                    )
                     try {
                         firestore.collection("chatHistory")
                             .get()
@@ -348,7 +367,11 @@ class AdminViewModel @Inject constructor(
                                 }
                             }
                     } catch (inner: Exception) {
-                        Log.w("AdminVM", "Fallback nested traversal also failed for chatbot usage", inner)
+                        Log.w(
+                            "AdminVM",
+                            "Fallback nested traversal also failed for chatbot usage",
+                            inner
+                        )
                         0L
                     }
                 }
@@ -400,7 +423,8 @@ class AdminViewModel @Inject constructor(
                 val currentUserId = accountManager.getCurrentUserId() ?: "unknown"
                 analyticsRepository.trackSearch(lowerQuery, currentUserId)
 
-                val response = openLibraryService.searchBooks("$query subject:\"Children's fiction\" language:eng")
+                val response =
+                    openLibraryService.searchBooks("$query subject:\"Children's fiction\" language:eng")
                 val results: List<Book> = response.docs.mapNotNull { doc ->
                     val iaId = doc.ia?.firstOrNull() ?: return@mapNotNull null
                     if (doc.cover_i == null) return@mapNotNull null
@@ -557,7 +581,10 @@ class AdminViewModel @Inject constructor(
                         .await()
                     Log.d("AdminVM", "Auth account $userId also deleted")
                 } catch (authErr: Exception) {
-                    Log.w("AdminVM", "Firestore deleted but Auth cleanup failed (deploy functions first): ${authErr.message}")
+                    Log.w(
+                        "AdminVM",
+                        "Firestore deleted but Auth cleanup failed (deploy functions first): ${authErr.message}"
+                    )
                 }
 
                 Log.d("AdminVM", "User $userId deleted from Firestore")
@@ -642,7 +669,10 @@ class AdminViewModel @Inject constructor(
                     .documents
                     .flatMap { convoDoc ->
                         convoDoc.reference.collection("messages")
-                            .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                            .orderBy(
+                                "timestamp",
+                                com.google.firebase.firestore.Query.Direction.DESCENDING
+                            )
                             .limit(10)
                             .get()
                             .await()
@@ -666,8 +696,10 @@ class AdminViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoadingSecurityData.value = true
             try {
-                val sevenDaysAgo = Timestamp(Date(System.currentTimeMillis() - 7L * 24 * 60 * 60 * 1000))
-                val thirtyDaysAgo = Timestamp(Date(System.currentTimeMillis() - 30L * 24 * 60 * 60 * 1000))
+                val sevenDaysAgo =
+                    Timestamp(Date(System.currentTimeMillis() - 7L * 24 * 60 * 60 * 1000))
+                val thirtyDaysAgo =
+                    Timestamp(Date(System.currentTimeMillis() - 30L * 24 * 60 * 60 * 1000))
 
                 val loginAttemptsSnapshot = firestore.collection("loginAttempts")
                     .whereGreaterThan("timestamp", sevenDaysAgo)
@@ -754,6 +786,7 @@ class AdminViewModel @Inject constructor(
                         // send to all users
                         sendAnnouncementToAllUsers(title, body)
                     }
+
                     NotificationType.PERSONALIZED -> {
                         // send by interest
                         sendPersonalizedAlert(title, body, targetValue)
@@ -801,7 +834,11 @@ class AdminViewModel @Inject constructor(
         Log.d("AdminVM", "Announcement sent to ${recipientIds.size} users")
     }
 
-    private suspend fun sendPersonalizedAlert(title: String, body: String, interestCategory: String) {
+    private suspend fun sendPersonalizedAlert(
+        title: String,
+        body: String,
+        interestCategory: String
+    ) {
         val normalizedCategory = interestCategory.trim().lowercase()
 
         val interestedUsers = firestore.collection("users")
@@ -838,7 +875,10 @@ class AdminViewModel @Inject constructor(
         }
 
         batch.commit().await()
-        Log.d("AdminVM", "Personalized alert sent to ${interestedUsers.size} users interested in $interestCategory")
+        Log.d(
+            "AdminVM",
+            "Personalized alert sent to ${interestedUsers.size} users interested in $interestCategory"
+        )
     }
 
     fun logout(onSuccess: () -> Unit) {
@@ -855,5 +895,28 @@ class AdminViewModel @Inject constructor(
         ageMin: Int,
         ageMax: Int
     ) {
+        viewModelScope.launch {
+            try {
+                val safeMinAge = ageMin.coerceIn(1, 15)
+                val safeMaxAge = ageMax.coerceIn(safeMinAge, 15)
+
+                firestore.collection("content_books")
+                    .document(bookId)
+                    .update(
+                        mapOf(
+                            "category" to category,
+                            "categoryTags" to categoryTags,
+                            "ageMin" to safeMinAge,
+                            "ageMax" to safeMaxAge,
+                            "updatedAt" to Timestamp.now()
+                        )
+                    )
+                    .await()
+
+                Log.d("AdminVM", "Book category and age updated: $bookId")
+            } catch (e: Exception) {
+                Log.e("AdminVM", "Failed to update book category and age", e)
+            }
+        }
     }
 }
