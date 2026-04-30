@@ -46,7 +46,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
@@ -70,6 +72,7 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Toys
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FloatingActionButton
@@ -164,6 +167,8 @@ fun DinoChatPage(
     val favoritesError by favoritesViewModel.errorMessage.collectAsState()
     val quota by viewModel.quota.collectAsState()
     val searchUiState by searchViewModel.uiState.collectAsState()
+    val recommendations by viewModel.recommendations.collectAsState()
+    val isLoadingRecommendations by viewModel.isLoadingRecommendations.collectAsState()
     val isFreeUser = quota?.planType == PlanType.FREE
 
     val context = LocalContext.current
@@ -458,6 +463,19 @@ fun DinoChatPage(
                         quickPrompt = { prompt ->
                             messageText = prompt
                             searchViewModel.onQueryChange(prompt)
+                        },
+                        recommendations = recommendations,
+                        isLoadingRecommendations = isLoadingRecommendations,
+                        onOpenRecommendation = { rec ->
+                            viewModel.trackBookView(rec.item.title, rec.item.id)
+                            onOpenRecommendation(
+                                rec.item.url,
+                                rec.item.title,
+                                rec.item.type.equals("VIDEO", ignoreCase = true),
+                                rec.item.id,
+                                rec.item.imageUrl,
+                                rec.item.description
+                            )
                         }
                     )
                 } else {
@@ -801,14 +819,17 @@ fun FreePlanQuotaBanner(status: ChatQuotaStatus) {
 
 @Composable
 fun WelcomeView(
-    quickPrompt: (String) -> Unit
+    quickPrompt: (String) -> Unit,
+    recommendations: List<com.kidsrec.chatbot.data.CFRecommendation> = emptyList(),
+    isLoadingRecommendations: Boolean = false,
+    onOpenRecommendation: (com.kidsrec.chatbot.data.CFRecommendation) -> Unit = {}
 ) {
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(horizontal = 22.dp, vertical = 18.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         DancingDinoHero()
 
@@ -891,6 +912,165 @@ fun WelcomeView(
                     )
                 )
             }
+        }
+
+        if (isLoadingRecommendations || recommendations.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(22.dp))
+
+            UsersLikeYouSection(
+                recommendations = recommendations,
+                isLoading = isLoadingRecommendations,
+                onOpenRecommendation = onOpenRecommendation
+            )
+        }
+    }
+}
+
+@Composable
+private fun UsersLikeYouSection(
+    recommendations: List<com.kidsrec.chatbot.data.CFRecommendation>,
+    isLoading: Boolean,
+    onOpenRecommendation: (com.kidsrec.chatbot.data.CFRecommendation) -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.AutoAwesome,
+                contentDescription = null,
+                tint = SoftOrange,
+                modifier = Modifier.size(20.dp)
+            )
+            Text(
+                text = "Users like you have…",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = PlayBlueDark
+            )
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        if (isLoading && recommendations.isEmpty()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 12.dp),
+                horizontalArrangement = Arrangement.Center
+            ) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(22.dp),
+                    strokeWidth = 2.dp,
+                    color = PlayBlueDark
+                )
+            }
+        } else {
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(recommendations) { rec ->
+                    RecommendationCard(
+                        recommendation = rec,
+                        onClick = { onOpenRecommendation(rec) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RecommendationCard(
+    recommendation: com.kidsrec.chatbot.data.CFRecommendation,
+    onClick: () -> Unit
+) {
+    val isVideo = recommendation.item.type.equals("VIDEO", ignoreCase = true)
+    Surface(
+        modifier = Modifier
+            .width(140.dp)
+            .clickable { onClick() },
+        shape = RoundedCornerShape(18.dp),
+        color = Color.White.copy(alpha = 0.95f),
+        shadowElevation = 3.dp,
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            Color.White.copy(alpha = 0.7f)
+        )
+    ) {
+        Column(modifier = Modifier.padding(10.dp)) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(140.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0xFFEAF1F8))
+            ) {
+                if (recommendation.item.imageUrl.isNotBlank()) {
+                    AsyncImage(
+                        model = recommendation.item.imageUrl,
+                        contentDescription = recommendation.item.title,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Icon(
+                        imageVector = if (isVideo) {
+                            Icons.Default.PlayCircle
+                        } else {
+                            Icons.AutoMirrored.Filled.MenuBook
+                        },
+                        contentDescription = null,
+                        tint = PlayBlueDark.copy(alpha = 0.5f),
+                        modifier = Modifier
+                            .size(56.dp)
+                            .align(Alignment.Center)
+                    )
+                }
+
+                if (isVideo) {
+                    Surface(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(6.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color.Black.copy(alpha = 0.6f)
+                    ) {
+                        Text(
+                            text = "Video",
+                            color = Color.White,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = recommendation.item.title.ifBlank { "Untitled" },
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = PlayBlueDark,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text(
+                text = recommendation.reason,
+                fontSize = 10.sp,
+                lineHeight = 13.sp,
+                color = Color(0xFF6B7782),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }

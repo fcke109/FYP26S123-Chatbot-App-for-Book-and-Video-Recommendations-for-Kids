@@ -1,6 +1,8 @@
 package com.kidsrec.chatbot.di
 
 import com.google.firebase.firestore.FirebaseFirestore
+import com.kidsrec.chatbot.data.ContentRepository
+import com.kidsrec.chatbot.data.CollaborativeFilteringService
 import com.kidsrec.chatbot.data.repository.GamificationManager
 import com.kidsrec.chatbot.data.repository.LearningProgressManager
 import dagger.Module
@@ -28,4 +30,16 @@ object RepositoryModule {
     ): GamificationManager {
         return GamificationManager(firestore)
     }
+
+    @Provides
+    @Singleton
+    fun provideContentRepository(
+        firestore: FirebaseFirestore
+    ): ContentRepository = ContentRepository(firestore)
+
+    @Provides
+    @Singleton
+    fun provideCollaborativeFilteringService(
+        firestore: FirebaseFirestore
+    ): CollaborativeFilteringService = CollaborativeFilteringService(firestore)
 }

@@ -2,6 +2,9 @@ package com.kidsrec.chatbot.ui.chat
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.kidsrec.chatbot.data.CFRecommendation
+import com.kidsrec.chatbot.data.CollaborativeFilteringService
+import com.kidsrec.chatbot.data.ContentRepository
 import com.kidsrec.chatbot.data.model.ChatMessage
 import com.kidsrec.chatbot.data.model.Conversation
 import com.kidsrec.chatbot.data.model.PlanType
@@ -35,7 +38,9 @@ class ChatViewModel @Inject constructor(
     private val bookDataManager: BookDataManager,
     private val openLibraryService: OpenLibraryService,
     private val analyticsRepository: AnalyticsRepository,
-    private val chatQuotaManager: ChatQuotaManager
+    private val chatQuotaManager: ChatQuotaManager,
+    private val contentRepository: ContentRepository,
+    private val cfService: CollaborativeFilteringService
 ) : ViewModel() {
 
     private val _messages = MutableStateFlow<List<ChatMessage>>(emptyList())
@@ -53,6 +58,14 @@ class ChatViewModel @Inject constructor(
     private val _quota = MutableStateFlow<ChatQuotaStatus?>(null)
     val quota: StateFlow<ChatQuotaStatus?> = _quota.asStateFlow()
 
+    // Collaborative-filter recommendations shown on the welcome screen
+    // ("Users like you have...").
+    private val _recommendations = MutableStateFlow<List<CFRecommendation>>(emptyList())
+    val recommendations: StateFlow<List<CFRecommendation>> = _recommendations.asStateFlow()
+
+    private val _isLoadingRecommendations = MutableStateFlow(false)
+    val isLoadingRecommendations: StateFlow<Boolean> = _isLoadingRecommendations.asStateFlow()
+
     private var currentConversationId: String? = null
     private var messagesJob: Job? = null
     private var quotaJob: Job? = null
@@ -61,6 +74,7 @@ class ChatViewModel @Inject constructor(
         initializeConversation()
         loadConversationsList()
         loadQuota()
+        loadRecommendations()
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -81,25 +95,46 @@ class ChatViewModel @Inject constructor(
     }
 
     private fun initializeConversation() {
+        // Always start a fresh conversation when the chatbot opens. Past
+        // conversations remain accessible via the history sheet (top bar).
         viewModelScope.launch {
             val userId = accountManager.getCurrentUserId() ?: return@launch
-            // Resume the most recent conversation if one exists
-            val latestResult = chatDataManager.getLatestConversation(userId)
-            val latestConversation = latestResult.getOrNull()
-            if (latestConversation != null && latestConversation.id.isNotBlank()) {
-                currentConversationId = latestConversation.id
-                loadMessages(userId, latestConversation.id)
-            } else {
-                val result = chatDataManager.createConversation(userId)
-                result.fold(
-                    onSuccess = { conversationId ->
-                        currentConversationId = conversationId
-                        loadMessages(userId, conversationId)
-                    },
-                    onFailure = { error ->
-                        _error.value = error.message
-                    }
+            val result = chatDataManager.createConversation(userId)
+            result.fold(
+                onSuccess = { conversationId ->
+                    currentConversationId = conversationId
+                    _messages.value = emptyList()
+                    loadMessages(userId, conversationId)
+                },
+                onFailure = { error ->
+                    _error.value = error.message
+                }
+            )
+        }
+    }
+
+    private fun loadRecommendations() {
+        viewModelScope.launch {
+            val userId = accountManager.getCurrentUserId() ?: return@launch
+            _isLoadingRecommendations.value = true
+            try {
+                val user = accountManager.getUser(userId)
+                val childAge = user?.age?.takeIf { it > 0 } ?: 8
+
+                val allItems = contentRepository.getAllContentItems()
+                    .filter { it.isKidSafe && childAge in it.ageMin..it.ageMax }
+
+                val recs = cfService.getHybridRecommendations(
+                    targetUserId = userId,
+                    allItems = allItems,
+                    limit = 8
                 )
+                _recommendations.value = recs
+            } catch (e: Exception) {
+                Log.e("ChatVM", "Failed to load CF recommendations", e)
+                _recommendations.value = emptyList()
+            } finally {
+                _isLoadingRecommendations.value = false
             }
         }
     }
