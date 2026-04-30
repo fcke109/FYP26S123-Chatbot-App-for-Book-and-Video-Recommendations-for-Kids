@@ -123,6 +123,20 @@ class AuthViewModel @Inject constructor(
                 }
                 .collect { user ->
                     if (user != null) {
+                        // If a parent (or admin) flipped status to BANNED while this
+                        // session is open, bounce the user out immediately.
+                        if (user.status == com.kidsrec.chatbot.data.model.UserStatus.BANNED) {
+                            Log.w("AuthVM", "User $userId is BANNED — forcing sign-out")
+                            _currentUser.value = null
+                            _verificationMessage.value = null
+                            _authState.value = AuthState.Error("This account has been removed.")
+                            try {
+                                accountManager.signOut()
+                            } catch (e: Exception) {
+                                Log.w("AuthVM", "signOut after BANNED detection failed", e)
+                            }
+                            return@collect
+                        }
                         _currentUser.value = user
                         resetUsageIfNewDay(user)
                     }

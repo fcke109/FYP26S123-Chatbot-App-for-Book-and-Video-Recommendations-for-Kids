@@ -45,6 +45,23 @@ class AccountManager @Inject constructor(
             val result = auth.signInWithEmailAndPassword(email, password).await()
             val user = result.user ?: return Result.failure(Exception("Sign in failed"))
 
+            // Block soft-deleted (BANNED) accounts from completing sign-in.
+            val statusStr = try {
+                firestore.collection("users")
+                    .document(user.uid)
+                    .get()
+                    .await()
+                    .getString("status")
+            } catch (e: Exception) {
+                Log.w("AccountManager", "Failed to read user status during sign-in", e)
+                null
+            }
+            if (statusStr == com.kidsrec.chatbot.data.model.UserStatus.BANNED.name) {
+                auth.signOut()
+                trackLoginAttempt(email, user.uid, false, "ACCOUNT_REMOVED")
+                return Result.failure(Exception("This account has been removed."))
+            }
+
             trackLoginAttempt(email, user.uid, true, "")
             Result.success(user)
         } catch (e: Exception) {
@@ -541,6 +558,74 @@ class AccountManager @Inject constructor(
 
             Result.success(Unit)
         } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Soft-delete a child account.
+     *
+     * Direct Firestore write path (Spark plan: no Cloud Function available).
+     * Authorization is split between client and rule:
+     *   - Server (Firestore rule isValidParentSoftDeleteChild) guarantees
+     *     ONLY the parent of this child can flip status -> BANNED and that
+     *     no other field on the user doc is mutated.
+     *   - Client (this function) verifies the parent typed the correct PIN
+     *     by reading child.parentalPin and comparing locally. The PIN is
+     *     a UX confirmation, not a server-enforced security boundary.
+     */
+    suspend fun softDeleteChild(childId: String, pin: String): Result<Unit> {
+        return try {
+            if (childId.isBlank()) {
+                return Result.failure(Exception("Missing child id."))
+            }
+            if (!pin.matches(Regex("^\\d{4}$"))) {
+                return Result.failure(Exception("PIN must be exactly 4 digits."))
+            }
+
+            val parentId = auth.currentUser?.uid
+                ?: return Result.failure(Exception("You must be signed in."))
+
+            if (childId == parentId) {
+                return Result.failure(Exception("You cannot remove your own account here."))
+            }
+
+            val childSnap = firestore.collection("users").document(childId).get().await()
+            if (!childSnap.exists()) {
+                return Result.failure(Exception("Child account not found."))
+            }
+
+            val storedPin = childSnap.getString("parentalPin")
+            if (storedPin.isNullOrBlank() || !storedPin.matches(Regex("^\\d{4}$"))) {
+                return Result.failure(
+                    Exception("No parental PIN is set for this child. Set a PIN first, then try again.")
+                )
+            }
+            if (storedPin != pin) {
+                return Result.failure(Exception("Incorrect PIN."))
+            }
+
+            // Idempotent: already removed.
+            if (childSnap.getString("status") == com.kidsrec.chatbot.data.model.UserStatus.BANNED.name) {
+                Log.d("AccountManager", "Child $childId already soft-deleted")
+                return Result.success(Unit)
+            }
+
+            firestore.collection("users")
+                .document(childId)
+                .update(
+                    mapOf(
+                        "status" to com.kidsrec.chatbot.data.model.UserStatus.BANNED.name,
+                        "deletedAt" to Timestamp.now(),
+                        "deletedBy" to parentId
+                    )
+                )
+                .await()
+
+            Log.d("AccountManager", "Soft-deleted child $childId")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e("AccountManager", "softDeleteChild failed", e)
             Result.failure(e)
         }
     }

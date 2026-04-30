@@ -103,6 +103,26 @@ service cloud.firestore {
         ]);
     }
 
+    // Lets the parent flip a child's status to BANNED (soft-delete) and stamp
+    // deletedAt/deletedBy. PIN verification happens client-side before this
+    // write fires; the rule guarantees only the parent of the child can
+    // perform it AND that nothing else on the user doc is mutated in the
+    // process.
+    function isValidParentSoftDeleteChild(childId) {
+      return isParentOf(childId)
+        && request.resource.data.id == resource.data.id
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.parentId == resource.data.parentId
+        && request.resource.data.planType == resource.data.planType
+        && request.resource.data.accountType == resource.data.accountType
+        && request.resource.data.status == 'BANNED'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status',
+          'deletedAt',
+          'deletedBy'
+        ]);
+    }
+
     function canManageInviteCodes() {
       return isAuthenticated();
     }
@@ -339,7 +359,8 @@ service cloud.firestore {
         (isOwner(userId) && isValidUserSelfUpdate())
         || (isOwner(userId) && isValidOwnScreenTimeUsageUpdate())
         || isAdmin()
-        || isValidParentChildControlUpdate(userId);
+        || isValidParentChildControlUpdate(userId)
+        || isValidParentSoftDeleteChild(userId);
       allow delete: if isAdmin();
     }
 

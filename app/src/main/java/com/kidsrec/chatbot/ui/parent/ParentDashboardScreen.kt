@@ -1,6 +1,7 @@
 package com.kidsrec.chatbot.ui.parent
 
 import android.util.Log
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,6 +33,7 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.ChildCare
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
@@ -42,6 +44,8 @@ import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -66,6 +70,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -81,6 +86,7 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -1425,7 +1431,192 @@ private fun ControlsTab(
             Spacer(modifier = Modifier.width(8.dp))
             Text("Save Changes")
         }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        DangerZoneCard(
+            child = child,
+            parentDashboardViewModel = parentDashboardViewModel
+        )
     }
+}
+
+@Composable
+private fun DangerZoneCard(
+    child: User,
+    parentDashboardViewModel: ParentDashboardViewModel
+) {
+    var showDialog by remember(child.id) { mutableStateOf(false) }
+    val removeState by parentDashboardViewModel.removeChildState.collectAsState()
+    val hasPin = child.parentalPin?.matches(Regex("^\\d{4}$")) == true
+
+    LaunchedEffect(removeState) {
+        if (removeState is RemoveChildState.Success) {
+            showDialog = false
+            parentDashboardViewModel.resetRemoveChildState()
+        }
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = BorderStroke(1.dp, ParentDanger.copy(alpha = 0.4f))
+    ) {
+        Column(modifier = Modifier.padding(18.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Default.Warning,
+                    contentDescription = null,
+                    tint = ParentDanger
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Danger Zone",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = ParentDanger
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Text(
+                text = "Removing this child account will sign them out and block " +
+                        "them from logging back in. The child's data is kept so an " +
+                        "admin can restore the account later if needed.",
+                fontSize = 13.sp,
+                lineHeight = 20.sp,
+                color = ParentTextSoft
+            )
+
+            if (!hasPin) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    text = "Set a 4-digit PIN above before you can remove this account.",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = ParentDanger
+                )
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            OutlinedButton(
+                onClick = { showDialog = true },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = hasPin,
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = ParentDanger),
+                border = BorderStroke(1.dp, ParentDanger)
+            ) {
+                Icon(Icons.Default.Delete, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Remove Child Account")
+            }
+        }
+    }
+
+    if (showDialog) {
+        RemoveChildPinDialog(
+            childName = child.name.ifBlank { "this child" },
+            removeState = removeState,
+            onConfirm = { pin ->
+                parentDashboardViewModel.softDeleteChild(child.id, pin)
+            },
+            onDismiss = {
+                showDialog = false
+                parentDashboardViewModel.resetRemoveChildState()
+            }
+        )
+    }
+}
+
+@Composable
+private fun RemoveChildPinDialog(
+    childName: String,
+    removeState: RemoveChildState,
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var pin by remember { mutableStateOf("") }
+    val isLoading = removeState is RemoveChildState.Loading
+    val errorText = (removeState as? RemoveChildState.Error)?.message
+
+    AlertDialog(
+        onDismissRequest = { if (!isLoading) onDismiss() },
+        icon = {
+            Icon(
+                Icons.Default.Warning,
+                contentDescription = null,
+                tint = ParentDanger
+            )
+        },
+        title = {
+            Text(
+                "Remove $childName?",
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column {
+                Text(
+                    text = "Enter the 4-digit parent PIN to confirm. This will sign " +
+                            "$childName out and block future sign-ins.",
+                    fontSize = 13.sp,
+                    lineHeight = 20.sp
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = pin,
+                    onValueChange = { value ->
+                        if (value.length <= 4 && value.all { it.isDigit() }) {
+                            pin = value
+                        }
+                    },
+                    label = { Text("Parent PIN") },
+                    singleLine = true,
+                    enabled = !isLoading,
+                    isError = errorText != null,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (errorText != null) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = errorText,
+                        color = ParentDanger,
+                        fontSize = 12.sp
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(pin) },
+                enabled = pin.length == 4 && !isLoading
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp,
+                        color = ParentDanger
+                    )
+                } else {
+                    Text("Remove", color = ParentDanger, fontWeight = FontWeight.Bold)
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                enabled = !isLoading
+            ) {
+                Text("Cancel")
+            }
+        }
+    )
 }
 
 @Composable

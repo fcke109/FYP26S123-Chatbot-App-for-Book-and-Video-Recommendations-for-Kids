@@ -30,11 +30,15 @@ class ParentDashboardViewModel @Inject constructor(
     private val firestore: com.google.firebase.firestore.FirebaseFirestore
 ) : ViewModel() {
 
-    // check parent owns this child
+    // check parent owns this child (via parent.childIds OR child.parentId,
+    // since the new-child redeem flow can't write parent.childIds under the
+    // current Firestore rules)
     private suspend fun isMyChild(childId: String): Boolean {
         val parentId = accountManager.getCurrentUserId() ?: return false
         val parent = accountManager.getUser(parentId) ?: return false
-        return childId in parent.childIds
+        if (childId in parent.childIds) return true
+        val child = accountManager.getUser(childId) ?: return false
+        return child.parentId == parentId
     }
 
     // linked children
@@ -77,6 +81,9 @@ class ParentDashboardViewModel @Inject constructor(
 
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+
+    private val _removeChildState = MutableStateFlow<RemoveChildState>(RemoveChildState.Idle)
+    val removeChildState: StateFlow<RemoveChildState> = _removeChildState.asStateFlow()
 
     init {
         loadChildren()
@@ -350,4 +357,40 @@ class ParentDashboardViewModel @Inject constructor(
     fun dismissInviteCode() {
         _inviteCode.value = null
     }
+
+    fun softDeleteChild(childId: String, pin: String) {
+        viewModelScope.launch {
+            if (!isMyChild(childId)) {
+                _removeChildState.value = RemoveChildState.Error("Unauthorized action.")
+                return@launch
+            }
+
+            _removeChildState.value = RemoveChildState.Loading
+
+            val result = accountManager.softDeleteChild(childId, pin)
+            result.fold(
+                onSuccess = {
+                    if (_selectedChild.value?.id == childId) {
+                        clearSelectedChild()
+                    }
+                    _removeChildState.value = RemoveChildState.Success
+                },
+                onFailure = { e ->
+                    _removeChildState.value =
+                        RemoveChildState.Error(e.message ?: "Failed to remove child account.")
+                }
+            )
+        }
+    }
+
+    fun resetRemoveChildState() {
+        _removeChildState.value = RemoveChildState.Idle
+    }
+}
+
+sealed class RemoveChildState {
+    object Idle : RemoveChildState()
+    object Loading : RemoveChildState()
+    object Success : RemoveChildState()
+    data class Error(val message: String) : RemoveChildState()
 }

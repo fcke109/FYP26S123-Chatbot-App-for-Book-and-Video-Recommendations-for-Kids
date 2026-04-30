@@ -56,7 +56,11 @@ data class User(
     val contentApprovalRequired: Boolean = false,
     val isGuest: Boolean = false,
 
-    val createdAt: Timestamp = Timestamp.now()
+    val createdAt: Timestamp = Timestamp.now(),
+
+    // Soft-delete metadata (set when a parent removes a child account; status also flips to BANNED).
+    val deletedAt: Timestamp? = null,
+    val deletedBy: String? = null
 ) {
     // required for firestore
     constructor() : this("")
