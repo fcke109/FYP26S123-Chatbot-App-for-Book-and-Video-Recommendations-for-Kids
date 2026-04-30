@@ -117,6 +117,14 @@ service cloud.firestore {
       allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
 
+    // User notifications (announcements + personalized alerts sent by admin)
+    match /userNotifications/{userId}/items/{itemId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isAdmin();
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
     // Deny all other access
     match /{document=**} {
       allow read, write: if false;

@@ -324,54 +324,28 @@ class AdminViewModel @Inject constructor(
                         .toLong()
                 }
 
-                // count chatbot messages
+                // Count chatbot sessions = number of conversations across all users.
+                // (One conversation = one chatbot session.)
                 val chatbotUsageCount = try {
-                    firestore.collectionGroup("messages")
+                    firestore.collectionGroup("conversations")
                         .get()
                         .await()
-                        .documents
-                        .size
+                        .size()
                         .toLong()
                 } catch (e: Exception) {
                     Log.w(
                         "AdminVM",
-                        "Failed to query collectionGroup(messages) for chatbot usage, falling back to nested traversal",
+                        "collectionGroup(conversations) failed, falling back to messages count",
                         e
                     )
                     try {
-                        firestore.collection("chatHistory")
+                        firestore.collectionGroup("messages")
                             .get()
                             .await()
-                            .documents
-                            .sumOf { userDoc ->
-                                try {
-                                    userDoc.reference
-                                        .collection("conversations")
-                                        .get()
-                                        .await()
-                                        .documents
-                                        .sumOf { convoDoc ->
-                                            try {
-                                                convoDoc.reference
-                                                    .collection("messages")
-                                                    .get()
-                                                    .await()
-                                                    .size()
-                                                    .toLong()
-                                            } catch (inner: Exception) {
-                                                0L
-                                            }
-                                        }
-                                } catch (inner: Exception) {
-                                    0L
-                                }
-                            }
+                            .size()
+                            .toLong()
                     } catch (inner: Exception) {
-                        Log.w(
-                            "AdminVM",
-                            "Fallback nested traversal also failed for chatbot usage",
-                            inner
-                        )
+                        Log.w("AdminVM", "Both chatbot session queries failed", inner)
                         0L
                     }
                 }

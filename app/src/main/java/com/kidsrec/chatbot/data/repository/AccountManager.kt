@@ -44,6 +44,17 @@ class AccountManager @Inject constructor(
             val user = result.user ?: return Result.failure(Exception("Sign in failed"))
 
             trackLoginAttempt(email, user.uid, true, "")
+
+            // Update lastLoggedInAt for daily/monthly active user analytics.
+            try {
+                firestore.collection("users")
+                    .document(user.uid)
+                    .update("lastLoggedInAt", Timestamp.now())
+                    .await()
+            } catch (e: Exception) {
+                Log.w("AccountManager", "Failed to update lastLoggedInAt", e)
+            }
+
             Result.success(user)
         } catch (e: Exception) {
             trackLoginAttempt(email, "", false, e.message ?: "Unknown error")
@@ -254,40 +265,72 @@ class AccountManager @Inject constructor(
                 )
             )
 
+            if (code.assignedParentId.isNotBlank()) {
+                batch.update(
+                    firestore.collection("users").document(code.assignedParentId),
+                    "childIds",
+                    FieldValue.arrayUnion(user.uid)
+                )
+            }
+
             batch.commit().await()
 
             val starterBooks = (inviteSnapshot.get("starterBooks") as? List<*>).orEmpty()
             if (starterBooks.isNotEmpty()) {
-                val starterBatch = firestore.batch()
+                try {
+                    val starterBatch = firestore.batch()
 
-                starterBooks.forEach { raw ->
-                    val bookMap = raw as? Map<*, *> ?: return@forEach
-                    val itemId = bookMap["id"] as? String ?: return@forEach
-                    val titleValue = bookMap["title"] as? String ?: ""
-                    val authorValue = bookMap["author"] as? String ?: ""
-                    val coverUrlValue = bookMap["coverUrl"] as? String ?: ""
-                    val readerUrlValue = bookMap["readerUrl"] as? String ?: ""
-                    val bookUrlValue = bookMap["bookUrl"] as? String ?: ""
-
-                    val docRef = firestore.collection("favorites")
-                        .document(user.uid)
-                        .collection("items")
-                        .document(itemId)
-
+                    val parentFavoritesDoc = firestore.collection("favorites").document(user.uid)
                     starterBatch.set(
-                        docRef,
-                        Favorite(
-                            itemId = itemId,
-                            type = RecommendationType.BOOK,
-                            title = titleValue,
-                            description = authorValue,
-                            imageUrl = coverUrlValue,
-                            url = readerUrlValue.ifBlank { bookUrlValue }
-                        )
+                        parentFavoritesDoc,
+                        mapOf(
+                            "userId" to user.uid,
+                            "updatedAt" to Timestamp.now()
+                        ),
+                        com.google.firebase.firestore.SetOptions.merge()
                     )
-                }
 
-                starterBatch.commit().await()
+                    starterBooks.forEach { raw ->
+                        val bookMap = raw as? Map<*, *> ?: return@forEach
+                        val titleValue = (bookMap["title"] as? String).orEmpty()
+                        val authorValue = (bookMap["author"] as? String).orEmpty()
+                        val coverUrlValue = (bookMap["coverUrl"] as? String).orEmpty()
+                        val readerUrlValue = (bookMap["readerUrl"] as? String).orEmpty()
+                        val bookUrlValue = (bookMap["bookUrl"] as? String).orEmpty()
+
+                        val rawId = (bookMap["id"] as? String)?.takeIf { it.isNotBlank() }
+                        val itemId = rawId
+                            ?: "starter_${titleValue}_${authorValue}"
+                                .lowercase()
+                                .replace(Regex("[^a-z0-9]+"), "_")
+                                .trim('_')
+                                .ifBlank { return@forEach }
+
+                        val docRef = parentFavoritesDoc
+                            .collection("items")
+                            .document(itemId)
+
+                        starterBatch.set(
+                            docRef,
+                            Favorite(
+                                id = itemId,
+                                userId = user.uid,
+                                itemId = itemId,
+                                type = RecommendationType.BOOK,
+                                title = titleValue,
+                                description = authorValue,
+                                imageUrl = coverUrlValue,
+                                url = readerUrlValue.ifBlank { bookUrlValue }
+                            )
+                        )
+                    }
+
+                    starterBatch.commit().await()
+                    Log.d("AccountManager", "Seeded ${starterBooks.size} starter books for child ${user.uid}")
+                } catch (e: Exception) {
+                    // Don't fail signup if starter book seeding fails - the child account itself is valid.
+                    Log.e("AccountManager", "Failed to seed starter books for child ${user.uid}", e)
+                }
             }
 
             Result.success(user)
@@ -573,15 +616,42 @@ class AccountManager @Inject constructor(
 
     suspend fun upgradeToPremium(userId: String): Result<Unit> {
         return try {
-            firestore.collection("users")
-                .document(userId)
-                .update(
-                    mapOf(
-                        "planType" to PlanType.PREMIUM.name,
-                        "isGuest" to false
-                    )
+            val userRef = firestore.collection("users").document(userId)
+
+            val batch = firestore.batch()
+            batch.update(
+                userRef,
+                mapOf(
+                    "planType" to PlanType.PREMIUM.name,
+                    "isGuest" to false
                 )
-                .await()
+            )
+
+            // If this user is a parent, cascade premium to all linked children.
+            val userSnapshot = userRef.get().await()
+            val accountTypeStr = userSnapshot.getString("accountType")
+            val childIds = (userSnapshot.get("childIds") as? List<*>)
+                ?.mapNotNull { it as? String }
+                ?.filter { it.isNotBlank() }
+                .orEmpty()
+
+            if (accountTypeStr == AccountType.PARENT.name && childIds.isNotEmpty()) {
+                childIds.forEach { childId ->
+                    batch.update(
+                        firestore.collection("users").document(childId),
+                        mapOf(
+                            "planType" to PlanType.PREMIUM.name,
+                            "isGuest" to false
+                        )
+                    )
+                }
+            }
+
+            batch.commit().await()
+
+            if (childIds.isNotEmpty()) {
+                Log.d("AccountManager", "Upgraded $userId and ${childIds.size} linked child(ren) to premium")
+            }
             Result.success(Unit)
         } catch (e: Exception) {
             Log.e("AccountManager", "Failed to upgrade user to premium", e)

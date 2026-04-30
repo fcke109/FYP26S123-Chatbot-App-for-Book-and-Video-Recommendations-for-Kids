@@ -79,14 +79,28 @@ class ProfileViewModel @Inject constructor(
         readingLevel: String
     ) {
         viewModelScope.launch {
-            val currentUser = _user.value ?: return@launch
+            _error.value = null
 
+            if (name.isBlank()) {
+                _error.value = "Name cannot be empty."
+                return@launch
+            }
             if (age !in 1..18) {
                 _error.value = "Age must be between 1 and 18."
                 return@launch
             }
-            if (name.isBlank()) {
-                _error.value = "Name cannot be empty."
+
+            // Resolve current user, with a one-shot fetch fallback if the flow hasn't emitted yet.
+            val currentUser = _user.value ?: run {
+                val userId = accountManager.getCurrentUserId()
+                if (userId == null) {
+                    _error.value = "You're signed out. Please sign in again."
+                    return@launch
+                }
+                accountManager.getUser(userId)
+            }
+            if (currentUser == null) {
+                _error.value = "Could not load your profile. Please try again."
                 return@launch
             }
 
@@ -102,12 +116,13 @@ class ProfileViewModel @Inject constructor(
             val result = accountManager.updateUser(updatedUser)
             result.fold(
                 onSuccess = {
+                    _user.value = updatedUser
                     _updateSuccess.value = true
                     _isLoading.value = false
                 },
                 onFailure = { e ->
                     Log.e("ProfileVM", "Failed to update profile", e)
-                    _error.value = "Failed to save profile changes."
+                    _error.value = e.message ?: "Failed to save profile changes."
                     _isLoading.value = false
                 }
             )
@@ -116,6 +131,10 @@ class ProfileViewModel @Inject constructor(
 
     fun resetUpdateSuccess() {
         _updateSuccess.value = false
+    }
+
+    fun clearError() {
+        _error.value = null
     }
 
     fun trackReading(title: String, url: String, coverUrl: String = "", isVideo: Boolean = false) {

@@ -44,6 +44,8 @@ fun ProfileScreen(
     val user by authViewModel.currentUser.collectAsState()
     val updateSuccess by profileViewModel.updateSuccess.collectAsState()
     val readingHistory by profileViewModel.readingHistory.collectAsState()
+    val profileError by profileViewModel.error.collectAsState()
+    val isSaving by profileViewModel.isLoading.collectAsState()
 
     var isEditing by remember { mutableStateOf(false) }
     var name by remember { mutableStateOf("") }
@@ -251,13 +253,28 @@ fun ProfileScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
+                profileError?.let { errorMsg ->
+                    Text(
+                        text = errorMsg,
+                        color = MaterialTheme.colorScheme.error,
+                        fontSize = 14.sp,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp)
+                    )
+                }
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     OutlinedButton(
-                        onClick = { isEditing = false },
-                        modifier = Modifier.weight(1f)
+                        onClick = {
+                            profileViewModel.clearError()
+                            isEditing = false
+                        },
+                        modifier = Modifier.weight(1f),
+                        enabled = !isSaving
                     ) {
                         Text("Cancel")
                     }
@@ -271,9 +288,18 @@ fun ProfileScreen(
                                 readingLevel = readingLevel
                             )
                         },
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        enabled = !isSaving
                     ) {
-                        Text("Save")
+                        if (isSaving) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.onPrimary
+                            )
+                        } else {
+                            Text("Save")
+                        }
                     }
                 }
             } else {
