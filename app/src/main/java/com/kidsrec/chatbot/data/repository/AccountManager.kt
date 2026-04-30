@@ -6,6 +6,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.functions.FirebaseFunctions
 import com.kidsrec.chatbot.data.model.AccountType
 import com.kidsrec.chatbot.data.model.Favorite
 import com.kidsrec.chatbot.data.model.InviteCode
@@ -30,7 +31,8 @@ import com.kidsrec.chatbot.data.model.RecommendationType
 @Singleton
 class AccountManager @Inject constructor(
     private val auth: FirebaseAuth,
-    private val firestore: FirebaseFirestore
+    private val firestore: FirebaseFirestore,
+    private val functions: FirebaseFunctions
 ) {
     @Suppress("unused")
     val currentUser: FirebaseUser?
@@ -44,17 +46,6 @@ class AccountManager @Inject constructor(
             val user = result.user ?: return Result.failure(Exception("Sign in failed"))
 
             trackLoginAttempt(email, user.uid, true, "")
-
-            // Update lastLoggedInAt for daily/monthly active user analytics.
-            try {
-                firestore.collection("users")
-                    .document(user.uid)
-                    .update("lastLoggedInAt", Timestamp.now())
-                    .await()
-            } catch (e: Exception) {
-                Log.w("AccountManager", "Failed to update lastLoggedInAt", e)
-            }
-
             Result.success(user)
         } catch (e: Exception) {
             trackLoginAttempt(email, "", false, e.message ?: "Unknown error")
@@ -265,13 +256,10 @@ class AccountManager @Inject constructor(
                 )
             )
 
-            if (code.assignedParentId.isNotBlank()) {
-                batch.update(
-                    firestore.collection("users").document(code.assignedParentId),
-                    "childIds",
-                    FieldValue.arrayUnion(user.uid)
-                )
-            }
+            // NOTE: We deliberately do NOT update parent.childIds here. The Firestore
+            // rules forbid a non-owner from writing to that field, so the parent.childIds
+            // backfill happens via a Cloud Function trigger (or it stays empty and the
+            // parent dashboard discovers children via users.parentId == parentId).
 
             batch.commit().await()
 
@@ -616,42 +604,25 @@ class AccountManager @Inject constructor(
 
     suspend fun upgradeToPremium(userId: String): Result<Unit> {
         return try {
-            val userRef = firestore.collection("users").document(userId)
-
-            val batch = firestore.batch()
-            batch.update(
-                userRef,
-                mapOf(
-                    "planType" to PlanType.PREMIUM.name,
-                    "isGuest" to false
-                )
-            )
-
-            // If this user is a parent, cascade premium to all linked children.
-            val userSnapshot = userRef.get().await()
-            val accountTypeStr = userSnapshot.getString("accountType")
-            val childIds = (userSnapshot.get("childIds") as? List<*>)
-                ?.mapNotNull { it as? String }
-                ?.filter { it.isNotBlank() }
-                .orEmpty()
-
-            if (accountTypeStr == AccountType.PARENT.name && childIds.isNotEmpty()) {
-                childIds.forEach { childId ->
-                    batch.update(
-                        firestore.collection("users").document(childId),
-                        mapOf(
-                            "planType" to PlanType.PREMIUM.name,
-                            "isGuest" to false
-                        )
+            // Firestore rules forbid clients from writing planType directly
+            // (isValidUserSelfUpdate explicitly excludes 'planType', and
+            // isValidParentChildControlUpdate doesn't allow planType either),
+            // so this MUST go through the verifyPurchase Cloud Function which
+            // runs with admin privileges.
+            //
+            // The function ignores its input and upgrades the calling user
+            // (and any linked children if the caller is a parent), so we just
+            // pass placeholders for the demo flow.
+            functions.getHttpsCallable("verifyPurchase")
+                .call(
+                    mapOf(
+                        "purchaseToken" to "",
+                        "productId" to "demo_upgrade"
                     )
-                }
-            }
+                )
+                .await()
 
-            batch.commit().await()
-
-            if (childIds.isNotEmpty()) {
-                Log.d("AccountManager", "Upgraded $userId and ${childIds.size} linked child(ren) to premium")
-            }
+            Log.d("AccountManager", "verifyPurchase succeeded for $userId")
             Result.success(Unit)
         } catch (e: Exception) {
             Log.e("AccountManager", "Failed to upgrade user to premium", e)

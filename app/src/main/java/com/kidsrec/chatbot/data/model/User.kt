@@ -56,9 +56,7 @@ data class User(
     val contentApprovalRequired: Boolean = false,
     val isGuest: Boolean = false,
 
-    val createdAt: Timestamp = Timestamp.now(),
-    // tracks last successful sign-in for daily/monthly active user analytics
-    val lastLoggedInAt: Timestamp? = null
+    val createdAt: Timestamp = Timestamp.now()
 ) {
     // required for firestore
     constructor() : this("")

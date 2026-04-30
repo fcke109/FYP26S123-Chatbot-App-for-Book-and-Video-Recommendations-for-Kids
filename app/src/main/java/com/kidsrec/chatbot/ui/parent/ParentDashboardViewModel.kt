@@ -83,25 +83,16 @@ class ParentDashboardViewModel @Inject constructor(
         loadPendingApprovals()
     }
 
-    // load children linked to parent
+    // load children linked to parent (by users.parentId == parentId, since Firestore
+    // rules block writes to parent.childIds from the child during invite-code redemption)
     private fun loadChildren() {
         val parentId = accountManager.getCurrentUserId() ?: return
         viewModelScope.launch {
-            accountManager.getUserFlow(parentId).collect { parent ->
-                if (parent != null && parent.childIds.isNotEmpty()) {
-                    val childList = parent.childIds.mapNotNull { childId ->
-                        try {
-                            accountManager.getUser(childId)
-                        } catch (e: Exception) {
-                            Log.e("ParentDashVM", "Failed to fetch child $childId", e)
-                            null
-                        }
-                    }
+            accountManager.getChildrenFlow(parentId)
+                .catch { e -> Log.e("ParentDashVM", "Failed to load children", e) }
+                .collect { childList ->
                     _children.value = childList
-                } else {
-                    _children.value = emptyList()
                 }
-            }
         }
     }
 
