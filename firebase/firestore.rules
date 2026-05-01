@@ -506,6 +506,14 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Curated videos. ContentRepository.getAllContentItems() reads this
+    // alongside content_books, so without a rule here the entire CF load
+    // throws permission-denied even though the collection is currently empty.
+    match /content_videos/{videoId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
     // Categories
     match /categories/{categoryId} {
       allow read: if isAuthenticated();
