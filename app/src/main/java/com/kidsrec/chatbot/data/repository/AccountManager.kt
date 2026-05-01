@@ -42,30 +42,33 @@ class AccountManager @Inject constructor(
 
     suspend fun signIn(email: String, password: String): Result<FirebaseUser> {
         return try {
-            val result = auth.signInWithEmailAndPassword(email, password).await()
+            Log.d("AuthFlow", "signIn: calling FirebaseAuth")
+            val result = kotlinx.coroutines.withTimeout(15_000) {
+                auth.signInWithEmailAndPassword(email, password).await()
+            }
             val user = result.user ?: return Result.failure(Exception("Sign in failed"))
+            Log.d("AuthFlow", "signIn: auth ok uid=${user.uid}")
 
-            // Block soft-deleted (BANNED) accounts from completing sign-in.
-            val statusStr = try {
-                firestore.collection("users")
-                    .document(user.uid)
-                    .get()
-                    .await()
-                    .getString("status")
+            // Fire-and-forget — never block sign-in on the analytics write.
+            try {
+                trackLoginAttempt(email, user.uid, true, "")
             } catch (e: Exception) {
-                Log.w("AccountManager", "Failed to read user status during sign-in", e)
-                null
-            }
-            if (statusStr == com.kidsrec.chatbot.data.model.UserStatus.BANNED.name) {
-                auth.signOut()
-                trackLoginAttempt(email, user.uid, false, "ACCOUNT_REMOVED")
-                return Result.failure(Exception("This account has been removed."))
+                Log.w("AuthFlow", "trackLoginAttempt threw (ignored)", e)
             }
 
-            trackLoginAttempt(email, user.uid, true, "")
+            // BANNED accounts are caught by AuthViewModel.observeUserData, which
+            // sees the user doc, sets AuthState.Error, and signs the user back
+            // out. We deliberately do not add an extra Firestore read here —
+            // it can stall the login spinner if the network or cache is slow.
             Result.success(user)
+        } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+            Log.e("AuthFlow", "signIn TIMED OUT (15s) — likely no network", e)
+            Result.failure(Exception("Sign-in timed out. Check your internet connection."))
         } catch (e: Exception) {
-            trackLoginAttempt(email, "", false, e.message ?: "Unknown error")
+            Log.e("AuthFlow", "signIn failed: ${e.message}", e)
+            try {
+                trackLoginAttempt(email, "", false, e.message ?: "Unknown error")
+            } catch (_: Exception) { /* swallow */ }
             Result.failure(e)
         }
     }
@@ -84,10 +87,16 @@ class AccountManager @Inject constructor(
             val user = result.user ?: return Result.failure(Exception("User creation failed"))
             createdUser = user
 
+            // Use the email Firebase Auth stored, not the typed input — the
+            // isValidUserCreate rule compares request.resource.data.email to
+            // request.auth.token.email exactly (case-sensitive), and the typed
+            // value can differ from what Firebase normalizes into the token.
+            val authEmail = user.email ?: email
+
             val userDoc = User(
                 id = user.uid,
                 name = name,
-                email = email,
+                email = authEmail,
                 age = age,
                 planType = PlanType.PREMIUM,
                 accountType = AccountType.CHILD,
@@ -121,10 +130,12 @@ class AccountManager @Inject constructor(
 
             user.sendEmailVerification().await()
 
+            val authEmail = user.email ?: email
+
             val userDoc = User(
                 id = user.uid,
                 name = name,
-                email = email,
+                email = authEmail,
                 age = 0,
                 planType = PlanType.PREMIUM,
                 accountType = AccountType.PARENT,
@@ -175,10 +186,12 @@ class AccountManager @Inject constructor(
 
             user.getIdToken(true).await()
 
+            val authEmail = user.email ?: email
+
             val userDoc = User(
                 id = user.uid,
                 name = name,
-                email = email,
+                email = authEmail,
                 age = age,
                 planType = PlanType.FREE,
                 accountType = AccountType.CHILD,
@@ -246,10 +259,12 @@ class AccountManager @Inject constructor(
                 .distinct()
                 .take(5)
 
+            val authEmail = user.email ?: email
+
             val childDoc = User(
                 id = user.uid,
                 name = name,
-                email = email,
+                email = authEmail,
                 age = age,
                 planType = PlanType.PREMIUM,
                 accountType = AccountType.CHILD,
@@ -647,9 +662,18 @@ class AccountManager @Inject constructor(
 
     suspend fun getUser(userId: String): User? {
         return try {
-            val snapshot = firestore.collection("users").document(userId).get().await()
-            snapshot.toObject(User::class.java)
-        } catch (_: Exception) {
+            Log.d("AuthFlow", "getUser: $userId")
+            val snapshot = kotlinx.coroutines.withTimeout(10_000) {
+                firestore.collection("users").document(userId).get().await()
+            }
+            val user = snapshot.toObject(User::class.java)
+            Log.d("AuthFlow", "getUser: $userId -> ${if (user == null) "null" else "ok plan=${user.planType}"}")
+            user
+        } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+            Log.e("AuthFlow", "getUser TIMED OUT for $userId", e)
+            null
+        } catch (e: Exception) {
+            Log.e("AuthFlow", "getUser failed for $userId", e)
             null
         }
     }
