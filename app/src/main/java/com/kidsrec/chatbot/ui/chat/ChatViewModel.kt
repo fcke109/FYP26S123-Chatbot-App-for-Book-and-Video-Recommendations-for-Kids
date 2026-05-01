@@ -43,6 +43,12 @@ class ChatViewModel @Inject constructor(
     private val cfService: CollaborativeFilteringService
 ) : ViewModel() {
 
+    private companion object {
+        // How many years younger a book's ageMax can be relative to the
+        // child's age and still be eligible for "users like you" recs.
+        const val AGE_FLOOR_SLACK = 4
+    }
+
     private val _messages = MutableStateFlow<List<ChatMessage>>(emptyList())
     val messages: StateFlow<List<ChatMessage>> = _messages.asStateFlow()
 
@@ -121,8 +127,17 @@ class ChatViewModel @Inject constructor(
                 val user = accountManager.getUser(userId)
                 val childAge = user?.age?.takeIf { it > 0 } ?: 8
 
+                // ageMin is enforced strictly (don't recommend something
+                // labelled too mature). ageMax is relaxed by AGE_FLOOR_SLACK so
+                // older kids still pull in middle-grade titles — without that,
+                // a 15-year-old gets ~15 candidates because the library is
+                // weighted toward ageMax<=12.
                 val allItems = contentRepository.getAllContentItems()
-                    .filter { it.isKidSafe && childAge in it.ageMin..it.ageMax }
+                    .filter {
+                        it.isKidSafe &&
+                            it.ageMin <= childAge &&
+                            it.ageMax >= childAge - AGE_FLOOR_SLACK
+                    }
 
                 val recs = cfService.getHybridRecommendations(
                     targetUserId = userId,
