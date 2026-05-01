@@ -713,25 +713,77 @@ class AccountManager @Inject constructor(
 
     suspend fun upgradeToPremium(userId: String): Result<Unit> {
         return try {
-            // Firestore rules forbid clients from writing planType directly
-            // (isValidUserSelfUpdate explicitly excludes 'planType', and
-            // isValidParentChildControlUpdate doesn't allow planType either),
-            // so this MUST go through the verifyPurchase Cloud Function which
-            // runs with admin privileges.
-            //
-            // The function ignores its input and upgrades the calling user
-            // (and any linked children if the caller is a parent), so we just
-            // pass placeholders for the demo flow.
-            functions.getHttpsCallable("verifyPurchase")
-                .call(
+            // Spark plan: no Cloud Functions. The Firestore rules
+            // isValidSelfUpgradeToPremium and isValidParentUpgradeChildToPremium
+            // enable a one-way FREE -> PREMIUM client write, scoped to
+            // {planType, isGuest} only. Demo flow has no payment validation —
+            // same as the previous verifyPurchase call which passed an empty
+            // purchaseToken anyway.
+            val authUid = auth.currentUser?.uid
+                ?: return Result.failure(Exception("Not signed in."))
+            if (authUid != userId) {
+                return Result.failure(
+                    Exception("Cannot upgrade another user's account.")
+                )
+            }
+
+            val userSnap = firestore.collection("users").document(userId).get().await()
+            val userDoc = userSnap.toObject(User::class.java)
+                ?: return Result.failure(Exception("User profile not found."))
+
+            // Idempotent — already premium (or admin).
+            if (userDoc.planType != PlanType.FREE) {
+                Log.d("AccountManager", "User $userId already non-FREE (${userDoc.planType}), skipping")
+                return Result.success(Unit)
+            }
+
+            firestore.collection("users")
+                .document(userId)
+                .update(
                     mapOf(
-                        "purchaseToken" to "",
-                        "productId" to "demo_upgrade"
+                        "planType" to PlanType.PREMIUM.name,
+                        "isGuest" to false
                     )
                 )
                 .await()
+            Log.d("AccountManager", "Upgraded $userId to PREMIUM (direct write)")
 
-            Log.d("AccountManager", "verifyPurchase succeeded for $userId")
+            // Cascade to linked children. Discover them via parentId since
+            // the new invite-redeem flow doesn't backfill parent.childIds.
+            if (userDoc.accountType == AccountType.PARENT) {
+                val childrenSnap = firestore.collection("users")
+                    .whereEqualTo("parentId", userId)
+                    .get()
+                    .await()
+
+                var upgradedChildren = 0
+                childrenSnap.documents.forEach { childDoc ->
+                    val childPlan = childDoc.getString("planType")
+                    if (childPlan == PlanType.FREE.name) {
+                        try {
+                            childDoc.reference.update(
+                                mapOf(
+                                    "planType" to PlanType.PREMIUM.name,
+                                    "isGuest" to false
+                                )
+                            ).await()
+                            upgradedChildren++
+                        } catch (e: Exception) {
+                            // Don't fail the parent upgrade if a single child
+                            // write trips a rule — log and continue.
+                            Log.w(
+                                "AccountManager",
+                                "Failed to upgrade child ${childDoc.id}: ${e.message}"
+                            )
+                        }
+                    }
+                }
+                Log.d(
+                    "AccountManager",
+                    "Cascaded PREMIUM to $upgradedChildren of ${childrenSnap.size()} linked child(ren)"
+                )
+            }
+
             Result.success(Unit)
         } catch (e: Exception) {
             Log.e("AccountManager", "Failed to upgrade user to premium", e)

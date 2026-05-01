@@ -46,6 +46,18 @@ service cloud.firestore {
         );
     }
 
+    // Same intent as isParentOf, but for the users/{userId} read rule where
+    // userId IS the doc being read. Uses resource.data directly so list
+    // queries (e.g. users.where('parentId','==',parentId)) don't have to
+    // fan out a get() per result, which Firestore denies at evaluation time.
+    function isParentOfThisUserDoc(userId) {
+      return isParent()
+        && (
+          resource.data.parentId == request.auth.uid
+          || userId in currentUserData().childIds
+        );
+    }
+
     function isValidUserCreate(userId) {
       return isAuthenticated()
         && request.auth.uid == userId
@@ -120,6 +132,32 @@ service cloud.firestore {
           'status',
           'deletedAt',
           'deletedBy'
+        ]);
+    }
+
+    // One-way premium upgrade for the signed-in user themselves. Replaces the
+    // verifyPurchase Cloud Function path (Spark plan: no Cloud Functions).
+    // Lets a user flip planType FREE -> PREMIUM and clear isGuest, and
+    // ABSOLUTELY NOTHING ELSE — no email, accountType, parentId, etc.
+    function isValidSelfUpgradeToPremium() {
+      return isAuthenticated()
+        && resource.data.id == request.auth.uid
+        && resource.data.planType == 'FREE'
+        && request.resource.data.planType == 'PREMIUM'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'planType',
+          'isGuest'
+        ]);
+    }
+
+    // Same as above but for a parent cascading premium to one of their kids.
+    function isValidParentUpgradeChildToPremium(childId) {
+      return isParentOf(childId)
+        && resource.data.planType == 'FREE'
+        && request.resource.data.planType == 'PREMIUM'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'planType',
+          'isGuest'
         ]);
     }
 
@@ -353,14 +391,16 @@ service cloud.firestore {
 
     // Users
     match /users/{userId} {
-      allow read: if isOwner(userId) || isParentOf(userId) || isAdmin();
+      allow read: if isOwner(userId) || isParentOfThisUserDoc(userId) || isAdmin();
       allow create: if isValidUserCreate(userId) || isAdmin();
       allow update: if
         (isOwner(userId) && isValidUserSelfUpdate())
         || (isOwner(userId) && isValidOwnScreenTimeUsageUpdate())
+        || (isOwner(userId) && isValidSelfUpgradeToPremium())
         || isAdmin()
         || isValidParentChildControlUpdate(userId)
-        || isValidParentSoftDeleteChild(userId);
+        || isValidParentSoftDeleteChild(userId)
+        || isValidParentUpgradeChildToPremium(userId);
       allow delete: if isAdmin();
     }
 
@@ -392,19 +432,40 @@ service cloud.firestore {
 
     // Favorites
     match /favorites/{userId} {
-      allow read: if isOwner(userId) || isParentOf(userId) || isAdmin();
+      // Top-level doc only contains userId/updatedAt — no PII. Read is open
+      // so the CF service can list the root collection to discover users
+      // that have favorites at all. Owner-only writes still apply.
+      allow read: if isAuthenticated();
       allow create, update: if isOwner(userId) || isAdmin();
       allow delete: if isOwner(userId) || isAdmin();
     }
 
     match /favorites/{userId}/items/{itemId} {
-      allow read: if isOwner(userId) || isParentOf(userId) || isAdmin();
+      // Cross-user read is intentional: the collaborative-filtering service
+      // walks all users' favorites items to find similar tastes. Items hold
+      // titles/imageUrls/itemIds — no PII. Owner-only writes still apply.
+      allow read: if isAuthenticated();
       allow create, update, delete: if isOwner(userId) || isAdmin();
     }
 
-    // Reading history
+    // Reading history root — open read for CF root-listing. Only userId-keyed
+    // placeholder docs live here.
+    match /readingHistory/{userId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isOwner(userId) || isAdmin();
+      allow delete: if isOwner(userId) || isAdmin();
+    }
+
     match /readingHistory/{userId}/sessions/{sessionId} {
-      allow read: if isOwner(userId) || isParentOf(userId) || isAdmin();
+      // Cross-user read for CF.
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isOwner(userId) || isAdmin();
+    }
+
+    // Reading history items subcollection — used by the synthetic seed script
+    // and read by the CF service.
+    match /readingHistory/{userId}/items/{itemId} {
+      allow read: if isAuthenticated();
       allow create, update, delete: if isOwner(userId) || isAdmin();
     }
 
