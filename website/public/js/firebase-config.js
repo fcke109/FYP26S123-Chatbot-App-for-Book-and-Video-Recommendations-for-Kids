@@ -6,6 +6,7 @@ import {
   createUserWithEmailAndPassword,
   signOut,
   sendPasswordResetEmail,
+  sendEmailVerification,
   updateProfile
 } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
 
@@ -22,6 +23,8 @@ import {
   doc,
   setDoc,
   deleteDoc,
+  writeBatch,
+  increment,
   serverTimestamp,
   onSnapshot
 } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
@@ -46,6 +49,7 @@ export {
   createUserWithEmailAndPassword,
   signOut,
   sendPasswordResetEmail,
+  sendEmailVerification,
   updateProfile,
   collection,
   query,
@@ -58,6 +62,8 @@ export {
   doc,
   setDoc,
   deleteDoc,
+  writeBatch,
+  increment,
   serverTimestamp,
   onSnapshot
 };

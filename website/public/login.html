@@ -93,6 +93,14 @@
 
           <form id="register-form" style="display:none;">
             <div class="form-group">
+              <label for="reg-mode">I am a...</label>
+              <select id="reg-mode" required>
+                <option value="PARENT">Parent / Guardian</option>
+                <option value="PREMIUM_KID">Child</option>
+              </select>
+            </div>
+
+            <div class="form-group">
               <label for="reg-name">Name</label>
               <input type="text" id="reg-name" required placeholder="Your name">
             </div>
@@ -100,17 +108,50 @@
               <label for="reg-email">Email</label>
               <input type="email" id="reg-email" required placeholder="your@email.com">
             </div>
-            <div class="form-group">
+
+            <div class="form-group kid-only" style="display:none;">
               <label for="reg-age">Age</label>
-              <input type="number" id="reg-age" required min="3" max="99" placeholder="Age">
+              <input type="number" id="reg-age" min="3" max="18" placeholder="Age">
             </div>
-            <div class="form-group">
-              <label for="reg-type">Account Type</label>
-              <select id="reg-type">
-                <option value="CHILD">Child</option>
-                <option value="PARENT">Parent / Guardian</option>
+            <div class="form-group kid-only" style="display:none;">
+              <label for="reg-reading-level">Reading Level</label>
+              <select id="reg-reading-level">
+                <option value="Beginner">Beginner</option>
+                <option value="Early Reader">Early Reader</option>
+                <option value="Intermediate">Intermediate</option>
+                <option value="Advanced">Advanced</option>
               </select>
             </div>
+            <div class="form-group kid-only" style="display:none;">
+              <label for="reg-interests">Interests <span style="font-weight:400;color:var(--muted);">(hold Ctrl/⌘ to pick a few)</span></label>
+              <select id="reg-interests" multiple size="5" style="height:auto;padding:0.5rem;">
+                <option>Reading</option>
+                <option>Science</option>
+                <option>Animals</option>
+                <option>Adventure</option>
+                <option>Fantasy</option>
+                <option>Art</option>
+                <option>Music</option>
+                <option>Sports</option>
+                <option>History</option>
+                <option>Nature</option>
+                <option>Space</option>
+                <option>Dinosaurs</option>
+                <option>Cooking</option>
+                <option>Cars</option>
+                <option>Robots</option>
+                <option>Fairy Tales</option>
+                <option>Superheroes</option>
+                <option>Ocean</option>
+                <option>Puzzles</option>
+                <option>Travel</option>
+              </select>
+            </div>
+            <div class="form-group invite-only" style="display:none;">
+              <label for="reg-invite">Invite Code</label>
+              <input type="text" id="reg-invite" maxlength="6" placeholder="6-character code from your parent" style="text-transform:uppercase;letter-spacing:0.15em;">
+            </div>
+
             <div class="form-group">
               <label for="reg-password">Password</label>
               <input type="password" id="reg-password" required minlength="6" placeholder="At least 6 characters">
@@ -146,13 +187,15 @@
   <script type="module">
     import {
       auth, db, signInWithEmailAndPassword, createUserWithEmailAndPassword,
-      sendPasswordResetEmail, onAuthStateChanged, doc, setDoc, serverTimestamp
+      sendPasswordResetEmail, sendEmailVerification, onAuthStateChanged,
+      doc, getDoc, setDoc, writeBatch, increment, serverTimestamp
     } from '/js/firebase-config.js';
 
     const loginForm = document.getElementById('login-form');
     const registerForm = document.getElementById('register-form');
     const msgEl = document.getElementById('auth-message');
     const tabs = document.querySelectorAll('.auth-tab');
+    const modeSelect = document.getElementById('reg-mode');
 
     onAuthStateChanged(auth, (user) => {
       if (user) window.location.href = '/catalog.html';
@@ -168,6 +211,16 @@
       });
     });
 
+    function refreshModeFields() {
+      const isKid = modeSelect.value === 'PREMIUM_KID';
+      document.querySelectorAll('.kid-only, .invite-only').forEach(el => {
+        el.style.display = isKid ? 'block' : 'none';
+        el.querySelectorAll('input,select').forEach(input => { input.required = isKid; });
+      });
+    }
+    modeSelect.addEventListener('change', refreshModeFields);
+    refreshModeFields();
+
     function showMsg(text, type) {
       msgEl.textContent = text;
       msgEl.className = 'auth-message ' + type;
@@ -182,23 +235,116 @@
       } catch (err) { showMsg(err.message.replace('Firebase: ', ''), 'error'); }
     });
 
+    function baseUserDoc({ uid, name, email, age, planType, accountType, parentId, interests, readingLevel }) {
+      return {
+        id: uid,
+        name,
+        email,
+        age,
+        planType,
+        accountType,
+        status: 'ACTIVE',
+        parentId: parentId ?? null,
+        childIds: [],
+        interests,
+        readingLevel,
+        parentalEmail: null,
+        parentalPin: null,
+        contentFilters: { maxAgeRating: 13, blockedTopics: [], allowVideos: true },
+        screenTimeConfig: { dailyLimitMinutes: 30, enabled: true, warningThresholdMinutes: 25 },
+        todayUsageMinutes: 0,
+        lastUsageDate: '',
+        contentApprovalRequired: false,
+        isGuest: false,
+        createdAt: serverTimestamp(),
+        deletedAt: null,
+        deletedBy: null
+      };
+    }
+
+    async function validateInviteCode(code) {
+      const ref = doc(db, 'inviteCodes', code);
+      const snap = await getDoc(ref);
+      if (!snap.exists()) throw new Error('Invite code not found.');
+      const data = snap.data();
+      if (!data.isActive) throw new Error('This invite code is no longer active.');
+      if ((data.usedCount ?? 0) >= (data.maxUses ?? 1)) throw new Error('This invite code has already been used.');
+      const expiresAt = data.expiresAt?.toDate?.();
+      if (expiresAt && expiresAt < new Date()) throw new Error('This invite code has expired.');
+      return { ref, data };
+    }
+
     registerForm.addEventListener('submit', async (e) => {
       e.preventDefault();
+      const mode = modeSelect.value;
+      const name = document.getElementById('reg-name').value.trim();
+      const email = document.getElementById('reg-email').value.trim();
       const pw = document.getElementById('reg-password').value;
-      if (pw !== document.getElementById('reg-confirm').value) { showMsg('Passwords do not match.', 'error'); return; }
+      const confirm = document.getElementById('reg-confirm').value;
+      if (pw !== confirm) { showMsg('Passwords do not match.', 'error'); return; }
+
+      const isKid = mode === 'PREMIUM_KID';
+      const ageRaw = document.getElementById('reg-age').value;
+      const age = isKid ? parseInt(ageRaw, 10) : 0;
+      if (isKid && (!Number.isFinite(age) || age < 3 || age > 18)) {
+        showMsg('Please enter a valid age between 3 and 18.', 'error');
+        return;
+      }
+      const readingLevel = isKid ? document.getElementById('reg-reading-level').value : 'Beginner';
+      const interests = isKid
+        ? Array.from(document.getElementById('reg-interests').selectedOptions).map(o => o.value).slice(0, 5)
+        : [];
+
+      let inviteResult = null;
+      if (isKid) {
+        const codeRaw = document.getElementById('reg-invite').value.trim().toUpperCase();
+        if (codeRaw.length !== 6) { showMsg('Invite code must be 6 characters.', 'error'); return; }
+        try {
+          inviteResult = await validateInviteCode(codeRaw);
+        } catch (err) {
+          showMsg(err.message, 'error');
+          return;
+        }
+      }
+
+      let cred;
       try {
-        const cred = await createUserWithEmailAndPassword(auth, document.getElementById('reg-email').value, pw);
-        await setDoc(doc(db, 'users', cred.user.uid), {
-          name: document.getElementById('reg-name').value,
-          email: document.getElementById('reg-email').value,
-          age: parseInt(document.getElementById('reg-age').value),
-          accountType: document.getElementById('reg-type').value,
-          planType: 'FREE', interests: [], readingLevel: 'Beginner',
-          childIds: [], parentId: null, isGuest: false, createdAt: serverTimestamp()
-        });
-        showMsg('Account created! Redirecting...', 'success');
-        setTimeout(() => window.location.href = '/catalog.html', 1000);
-      } catch (err) { showMsg(err.message.replace('Firebase: ', ''), 'error'); }
+        cred = await createUserWithEmailAndPassword(auth, email, pw);
+      } catch (err) {
+        showMsg(err.message.replace('Firebase: ', ''), 'error');
+        return;
+      }
+
+      try {
+        const authEmail = cred.user.email || email;
+        if (mode === 'PARENT') {
+          await setDoc(doc(db, 'users', cred.user.uid), baseUserDoc({
+            uid: cred.user.uid, name, email: authEmail, age: 0,
+            planType: 'PREMIUM', accountType: 'PARENT',
+            parentId: null, interests: [], readingLevel: 'Beginner'
+          }));
+          try { await sendEmailVerification(cred.user); } catch (_) { /* non-fatal */ }
+          showMsg('Account created! Check your email to verify, then sign in.', 'success');
+          setTimeout(() => window.location.href = '/catalog.html', 1500);
+        } else {
+          const parentId = inviteResult.data.assignedParentId || inviteResult.data.createdBy;
+          const parentInterests = Array.isArray(inviteResult.data.childInterests) ? inviteResult.data.childInterests : [];
+          const mergedInterests = Array.from(new Set([...parentInterests, ...interests])).slice(0, 5);
+          const batch = writeBatch(db);
+          batch.set(doc(db, 'users', cred.user.uid), baseUserDoc({
+            uid: cred.user.uid, name, email: authEmail, age,
+            planType: 'PREMIUM', accountType: 'CHILD',
+            parentId, interests: mergedInterests, readingLevel
+          }));
+          batch.update(inviteResult.ref, { usedCount: increment(1), isActive: false });
+          await batch.commit();
+          showMsg('Account created! Redirecting...', 'success');
+          setTimeout(() => window.location.href = '/catalog.html', 1000);
+        }
+      } catch (err) {
+        try { await cred.user.delete(); } catch (_) { /* best effort */ }
+        showMsg(err.message.replace('Firebase: ', ''), 'error');
+      }
     });
 
     document.getElementById('forgot-password-link').addEventListener('click', async (e) => {
