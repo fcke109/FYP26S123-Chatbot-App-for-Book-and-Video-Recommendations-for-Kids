@@ -12,42 +12,37 @@ class ContentRepository(
 
         val booksSnap = db.collection("content_books").get().await()
         for (doc in booksSnap.documents) {
-            items.add(
-                CFItem(
-                    id = doc.id,
-                    title = doc.getString("title") ?: "",
-                    description = doc.getString("description") ?: "",
-                    imageUrl = doc.getString("imageUrl") ?: "",
-                    url = doc.getString("url") ?: "",
-                    type = "BOOK",
-                    category = doc.getString("category") ?: "",
-                    ageMin = (doc.getLong("ageMin") ?: 0L).toInt(),
-                    ageMax = (doc.getLong("ageMax") ?: 18L).toInt(),
-                    isKidSafe = doc.getBoolean("isKidSafe") ?: true,
-                    tags = (doc.get("tags") as? List<*>)?.filterIsInstance<String>() ?: emptyList()
-                )
-            )
+            items.add(doc.toCFItem(defaultType = "BOOK"))
         }
 
         val videosSnap = db.collection("content_videos").get().await()
         for (doc in videosSnap.documents) {
-            items.add(
-                CFItem(
-                    id = doc.id,
-                    title = doc.getString("title") ?: "",
-                    description = doc.getString("description") ?: "",
-                    imageUrl = doc.getString("imageUrl") ?: "",
-                    url = doc.getString("url") ?: "",
-                    type = "VIDEO",
-                    category = doc.getString("category") ?: "",
-                    ageMin = (doc.getLong("ageMin") ?: 0L).toInt(),
-                    ageMax = (doc.getLong("ageMax") ?: 18L).toInt(),
-                    isKidSafe = doc.getBoolean("isKidSafe") ?: true,
-                    tags = (doc.get("tags") as? List<*>)?.filterIsInstance<String>() ?: emptyList()
-                )
-            )
+            items.add(doc.toCFItem(defaultType = "VIDEO"))
         }
 
         return items
+    }
+
+    // Most book docs in content_books store the cover under "coverUrl", not
+    // "imageUrl" — match Book.displayImageUrl's coverUrl-first preference so
+    // the CF "Users like you" cards render covers instead of the fallback icon.
+    private fun com.google.firebase.firestore.DocumentSnapshot.toCFItem(
+        defaultType: String
+    ): CFItem {
+        val cover = getString("coverUrl")?.takeIf { it.isNotBlank() }
+        val image = getString("imageUrl")?.takeIf { it.isNotBlank() }
+        return CFItem(
+            id = id,
+            title = getString("title") ?: "",
+            description = getString("description") ?: "",
+            imageUrl = cover ?: image ?: "",
+            url = getString("url") ?: "",
+            type = defaultType,
+            category = getString("category") ?: "",
+            ageMin = (getLong("ageMin") ?: 0L).toInt(),
+            ageMax = (getLong("ageMax") ?: 18L).toInt(),
+            isKidSafe = getBoolean("isKidSafe") ?: true,
+            tags = (get("tags") as? List<*>)?.filterIsInstance<String>() ?: emptyList()
+        )
     }
 }

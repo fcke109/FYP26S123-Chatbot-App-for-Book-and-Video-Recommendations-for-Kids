@@ -1,6 +1,9 @@
 package com.kidsrec.chatbot.data
 
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.tasks.await
 import kotlin.math.sqrt
 
@@ -90,67 +93,66 @@ class CollaborativeFilteringService(
             .take(limit)
     }
 
-    private suspend fun loadAllInteractions(): List<UserInteraction> {
-        val interactions = mutableListOf<UserInteraction>()
+    private suspend fun loadAllInteractions(): List<UserInteraction> = coroutineScope {
+        // Run both root reads in parallel, then fan out per-user item reads
+        // concurrently. Sequential await() per user used to make this an
+        // O(N) round-trip wait — perceptibly slow on the chat home screen.
+        val favoritesRootDeferred = async {
+            db.collection("favorites").get().await()
+        }
+        val historyRootDeferred = async {
+            db.collection("readingHistory").get().await()
+        }
 
-        // Favorites: favorites/{userId}/items/{itemId}
-        val favoritesRoot = db.collection("favorites").get().await()
-        for (userDoc in favoritesRoot.documents) {
-            val userId = userDoc.id
-            val itemsSnap = db.collection("favorites")
-                .document(userId)
-                .collection("items")
-                .get()
-                .await()
+        val favoritesRoot = favoritesRootDeferred.await()
+        val historyRoot = historyRootDeferred.await()
 
-            for (doc in itemsSnap.documents) {
-                interactions.add(
+        val favoritesPerUser = favoritesRoot.documents.map { userDoc ->
+            async {
+                val userId = userDoc.id
+                val itemsSnap = db.collection("favorites")
+                    .document(userId)
+                    .collection("items")
+                    .get()
+                    .await()
+                itemsSnap.documents.map { doc ->
                     UserInteraction(
                         userId = userId,
                         itemId = doc.id,
                         weight = 3.0
                     )
-                )
+                }
             }
         }
 
-        // Reading history: readingHistory/{userId}/items/{itemId}
-        val historyRoot = db.collection("readingHistory").get().await()
-        for (userDoc in historyRoot.documents) {
-            val userId = userDoc.id
-            val itemsSnap = db.collection("readingHistory")
-                .document(userId)
-                .collection("items")
-                .get()
-                .await()
-
-            for (doc in itemsSnap.documents) {
-                val completed = doc.getBoolean("completed") ?: false
-                val isVideo = doc.getBoolean("isVideo") ?: false
-
-                val weight = when {
-                    completed && isVideo -> 2.5
-                    completed -> 2.5
-                    else -> 1.5
-                }
-
-                val itemId = doc.getString("itemId") ?: doc.id
-
-                interactions.add(
+        val historyPerUser = historyRoot.documents.map { userDoc ->
+            async {
+                val userId = userDoc.id
+                val itemsSnap = db.collection("readingHistory")
+                    .document(userId)
+                    .collection("items")
+                    .get()
+                    .await()
+                itemsSnap.documents.map { doc ->
+                    val completed = doc.getBoolean("completed") ?: false
+                    val isVideo = doc.getBoolean("isVideo") ?: false
+                    val weight = when {
+                        completed && isVideo -> 2.5
+                        completed -> 2.5
+                        else -> 1.5
+                    }
+                    val itemId = doc.getString("itemId") ?: doc.id
                     UserInteraction(
                         userId = userId,
                         itemId = itemId,
                         weight = weight
                     )
-                )
+                }
             }
         }
 
-        // Optional: chat click history if you have it
-        // chatHistory/{userId}/interactions/{interactionId}
-        // Add later if needed
-
-        return mergeDuplicateInteractions(interactions)
+        val all = (favoritesPerUser.awaitAll() + historyPerUser.awaitAll()).flatten()
+        mergeDuplicateInteractions(all)
     }
 
     private fun mergeDuplicateInteractions(
