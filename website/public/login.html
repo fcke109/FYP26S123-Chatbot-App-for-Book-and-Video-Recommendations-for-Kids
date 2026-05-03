@@ -109,6 +109,17 @@
               <input type="email" id="reg-email" required placeholder="your@email.com">
             </div>
 
+            <div class="form-group parent-only">
+              <label for="reg-plan">Plan</label>
+              <select id="reg-plan">
+                <option value="FREE">Free — 1 child account, limited favorites &amp; chat</option>
+                <option value="PREMIUM" selected>Premium — unlimited children, favorites &amp; chat</option>
+              </select>
+              <p style="margin:0.4rem 0 0;font-size:0.8rem;color:var(--muted);">
+                Children you invite inherit this plan when they register with your code.
+              </p>
+            </div>
+
             <div class="form-group kid-only" style="display:none;">
               <label for="reg-age">Age</label>
               <input type="number" id="reg-age" min="3" max="18" placeholder="Age">
@@ -217,6 +228,9 @@
         el.style.display = isKid ? 'block' : 'none';
         el.querySelectorAll('input,select').forEach(input => { input.required = isKid; });
       });
+      document.querySelectorAll('.parent-only').forEach(el => {
+        el.style.display = isKid ? 'none' : 'block';
+      });
     }
     modeSelect.addEventListener('change', refreshModeFields);
     refreshModeFields();
@@ -236,6 +250,9 @@
     });
 
     function baseUserDoc({ uid, name, email, age, planType, accountType, parentId, interests, readingLevel }) {
+      // Premium kids get screen time disabled by default — parents can still
+      // turn it on later from the dashboard. Free kids keep the 30-min cap on.
+      const isPremiumKid = accountType === 'CHILD' && planType === 'PREMIUM';
       return {
         id: uid,
         name,
@@ -251,7 +268,7 @@
         parentalEmail: null,
         parentalPin: null,
         contentFilters: { maxAgeRating: 13, blockedTopics: [], allowVideos: true },
-        screenTimeConfig: { dailyLimitMinutes: 30, enabled: true, warningThresholdMinutes: 25 },
+        screenTimeConfig: { dailyLimitMinutes: 30, enabled: !isPremiumKid, warningThresholdMinutes: 25 },
         todayUsageMinutes: 0,
         lastUsageDate: '',
         contentApprovalRequired: false,
@@ -318,9 +335,10 @@
       try {
         const authEmail = cred.user.email || email;
         if (mode === 'PARENT') {
+          const parentPlan = document.getElementById('reg-plan').value === 'FREE' ? 'FREE' : 'PREMIUM';
           await setDoc(doc(db, 'users', cred.user.uid), baseUserDoc({
             uid: cred.user.uid, name, email: authEmail, age: 0,
-            planType: 'PREMIUM', accountType: 'PARENT',
+            planType: parentPlan, accountType: 'PARENT',
             parentId: null, interests: [], readingLevel: 'Beginner'
           }));
           try { await sendEmailVerification(cred.user); } catch (_) { /* non-fatal */ }
@@ -330,10 +348,14 @@
           const parentId = inviteResult.data.assignedParentId || inviteResult.data.createdBy;
           const parentInterests = Array.isArray(inviteResult.data.childInterests) ? inviteResult.data.childInterests : [];
           const mergedInterests = Array.from(new Set([...parentInterests, ...interests])).slice(0, 5);
+          // Inherit the parent's plan from the snapshot stored on the invite
+          // code at generation time. Legacy codes without this field default
+          // to PREMIUM (matches old behavior).
+          const inheritedPlan = inviteResult.data.parentPlanType === 'FREE' ? 'FREE' : 'PREMIUM';
           const batch = writeBatch(db);
           batch.set(doc(db, 'users', cred.user.uid), baseUserDoc({
             uid: cred.user.uid, name, email: authEmail, age,
-            planType: 'PREMIUM', accountType: 'CHILD',
+            planType: inheritedPlan, accountType: 'CHILD',
             parentId, interests: mergedInterests, readingLevel
           }));
           batch.update(inviteResult.ref, { usedCount: increment(1), isActive: false });

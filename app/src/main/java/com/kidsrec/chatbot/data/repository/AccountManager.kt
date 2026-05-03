@@ -413,6 +413,51 @@ class AccountManager @Inject constructor(
                 return Result.failure(Exception("Could not generate unique code. Try again."))
             }
 
+            // Snapshot the parent's plan onto the code so a kid redeeming on
+            // the website (which can't read the parent's user doc directly)
+            // inherits the correct plan. If the parent later upgrades, the
+            // existing FREE -> PREMIUM cascade in upgradeToPremium catches kids
+            // whose parentId points at the parent.
+            val parentSnap = firestore.collection("users").document(currentUser.uid).get().await()
+            val parentPlanType = parentSnap.getString("planType")
+                ?.takeIf { it == PlanType.FREE.name || it == PlanType.PREMIUM.name }
+                ?: PlanType.PREMIUM.name
+
+            // Free plan: cap parents at one child account. Block code generation
+            // if either an active child already exists OR a previous code is
+            // still outstanding (so they can't pre-stage a second code while
+            // waiting on the first to be redeemed).
+            if (parentPlanType == PlanType.FREE.name) {
+                val childrenSnap = firestore.collection("users")
+                    .whereEqualTo("parentId", currentUser.uid)
+                    .get()
+                    .await()
+                val activeChildren = childrenSnap.documents.count {
+                    it.getString("status") != com.kidsrec.chatbot.data.model.UserStatus.BANNED.name
+                }
+                if (activeChildren >= 1) {
+                    return Result.failure(Exception(
+                        "Free plan only allows 1 child account. Upgrade to Premium to add more."
+                    ))
+                }
+
+                val activeCodesSnap = firestore.collection("inviteCodes")
+                    .whereEqualTo("assignedParentId", currentUser.uid)
+                    .whereEqualTo("isActive", true)
+                    .get()
+                    .await()
+                val nowDate = java.util.Date()
+                val outstandingCodes = activeCodesSnap.documents.count { doc ->
+                    val expiresAtTs = doc.getTimestamp("expiresAt")
+                    expiresAtTs != null && expiresAtTs.toDate().after(nowDate)
+                }
+                if (outstandingCodes >= 1) {
+                    return Result.failure(Exception(
+                        "You already have an active invite code. Wait for it to be used or expire."
+                    ))
+                }
+            }
+
             val now = Timestamp.now()
             val calendar = Calendar.getInstance().apply {
                 time = now.toDate()
@@ -425,6 +470,7 @@ class AccountManager @Inject constructor(
                 createdBy = currentUser.uid,
                 assignedParentId = currentUser.uid,
                 parentName = parentName.trim(),
+                parentPlanType = parentPlanType,
                 createdAt = now,
                 expiresAt = expiresAt,
                 isActive = true,

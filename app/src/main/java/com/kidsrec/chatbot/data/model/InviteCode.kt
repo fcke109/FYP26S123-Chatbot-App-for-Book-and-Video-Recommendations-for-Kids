@@ -10,6 +10,10 @@ data class InviteCode(
     val createdBy: String = "",
     val assignedParentId: String = "",
     val parentName: String = "",
+    // Snapshot of the parent's planType at the moment the code was generated.
+    // The kid inherits this on redemption. Defaults to PREMIUM so legacy codes
+    // (written before this field existed) still produce premium kids.
+    val parentPlanType: String = "PREMIUM",
     val createdAt: Timestamp = Timestamp.now(),
     val expiresAt: Timestamp = Timestamp.now(),
     val isActive: Boolean = true,
