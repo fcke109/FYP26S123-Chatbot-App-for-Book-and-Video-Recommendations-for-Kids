@@ -51,7 +51,6 @@ import com.kidsrec.chatbot.ui.auth.AuthState
 import com.kidsrec.chatbot.ui.auth.AuthViewModel
 import com.kidsrec.chatbot.ui.auth.EmailVerificationScreen
 import com.kidsrec.chatbot.ui.auth.LoginScreen
-import com.kidsrec.chatbot.ui.auth.RegisterScreen
 import com.kidsrec.chatbot.ui.chat.ChatViewModel
 import com.kidsrec.chatbot.ui.chat.DinoChatPage
 import com.kidsrec.chatbot.ui.favorites.FavoritesScreen
@@ -84,7 +83,6 @@ private fun isAdminEmail(email: String?): Boolean {
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector? = null) {
     object Login : Screen("login", "Login")
-    object Register : Screen("register", "Register")
     object Chat : Screen("chat", "Chat", Icons.Default.Chat)
     object Library : Screen("library", "Library", Icons.AutoMirrored.Filled.MenuBook)
     object Favorites : Screen("favorites", "Favorites", Icons.Default.Favorite)
@@ -270,15 +268,6 @@ fun AuthNavigation(authViewModel: AuthViewModel) {
         composable(Screen.Login.route) {
             LoginScreen(
                 onLoginSuccess = {},
-                onNavigateToRegister = { navController.navigate(Screen.Register.route) },
-                viewModel = authViewModel
-            )
-        }
-
-        composable(Screen.Register.route) {
-            RegisterScreen(
-                onRegisterSuccess = {},
-                onNavigateToLogin = { navController.navigate(Screen.Login.route) },
                 viewModel = authViewModel
             )
         }

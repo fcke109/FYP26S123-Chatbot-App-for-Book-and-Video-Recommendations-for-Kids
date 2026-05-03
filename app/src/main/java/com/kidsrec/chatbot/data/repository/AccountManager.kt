@@ -496,7 +496,13 @@ class AccountManager @Inject constructor(
                     trySend(emptyList())
                     return@addSnapshotListener
                 }
-                val children = snapshot?.toObjects(User::class.java) ?: emptyList()
+                // Hide soft-deleted kids from the parent dashboard. Their docs
+                // are kept in Firestore so admins can restore them, but a
+                // BANNED kid should not look "still there" to the parent who
+                // just removed them.
+                val children = snapshot?.toObjects(User::class.java)
+                    ?.filter { it.status != com.kidsrec.chatbot.data.model.UserStatus.BANNED }
+                    ?: emptyList()
                 trySend(children)
             }
         awaitClose { listener.remove() }

@@ -10,7 +10,6 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -66,14 +65,11 @@ import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kidsrec.chatbot.R
@@ -113,7 +109,6 @@ private val CloudWhite = Color(0xCFFFFFFF)
 @Composable
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
-    onNavigateToRegister: () -> Unit,
     viewModel: AuthViewModel
 ) {
     var email by remember { mutableStateOf("") }
@@ -316,24 +311,6 @@ fun LoginScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Text(
-                    text = buildAnnotatedString {
-                        append("Don’t have an account? ")
-                        withStyle(
-                            SpanStyle(
-                                color = RegisterBlue,
-                                fontWeight = FontWeight.Bold
-                            )
-                        ) {
-                            append("Register")
-                        }
-                    },
-                    fontSize = 14.sp,
-                    color = BodyBlue,
-                    modifier = Modifier.clickable { onNavigateToRegister() }
-                )
             }
         }
     }
