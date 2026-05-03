@@ -332,6 +332,7 @@
         <div class="drawer-section-title">More</div>
         <a href="/catalog.html"><span class="drawer-link-icon">📚</span>Book Catalog</a>
         <a href="/feedback.html"><span class="drawer-link-icon">⭐</span>Feedback</a>
+        <a href="/download.html"><span class="drawer-link-icon">📥</span>Get the App</a>
         <a href="/privacy.html"><span class="drawer-link-icon">🔐</span>Privacy Policy</a>
 
         <div class="drawer-bottom-auth" id="drawerBottomAuth">
@@ -357,13 +358,11 @@
           </p>
 
           <div class="hero-actions">
-            <a
-              href="https://play.google.com/store/apps/details?id=com.kidsrec.chatbot"
-              class="btn btn-primary"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Download on Google Play
+            <a id="hero-download-btn" href="/download.html" class="btn btn-primary" style="display:none;">
+              Download Android App
+            </a>
+            <a id="hero-signin-btn" href="/login.html" class="btn btn-primary">
+              Login to Download
             </a>
             <a href="#app-preview" class="btn btn-secondary">See App Preview</a>
           </div>
@@ -770,13 +769,8 @@
               <li>Limited favorites</li>
               <li>Safe video viewing</li>
             </ul>
-            <a
-              href="https://play.google.com/store/apps/details?id=com.kidsrec.chatbot"
-              class="btn btn-secondary"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Download Free
+            <a href="/login.html" class="btn btn-secondary">
+              Sign Up Free
             </a>
           </div>
 
@@ -794,12 +788,7 @@
               <li>Safe video viewing</li>
               <li>Access to curated book library</li>
             </ul>
-            <a
-              href="https://play.google.com/store/apps/details?id=com.kidsrec.chatbot"
-              class="btn btn-primary"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
+            <a href="/login.html" class="btn btn-primary">
               Get Premium
             </a>
           </div>
@@ -927,13 +916,11 @@
             </p>
           </div>
           <div style="display:flex;gap:1rem;flex-wrap:wrap;">
-            <a
-              href="https://play.google.com/store/apps/details?id=com.kidsrec.chatbot"
-              class="btn btn-primary"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Google Play
+            <a id="contact-download-btn" href="/download.html" class="btn btn-primary" style="display:none;">
+              Download Android App
+            </a>
+            <a id="contact-signin-btn" href="/login.html" class="btn btn-primary">
+              Login to Download
             </a>
             <a href="/catalog.html" class="btn btn-secondary">Book Catalog</a>
           </div>
@@ -955,7 +942,7 @@
           </div>
           <div class="contact-card glass-card">
             <h3>App Status</h3>
-            <p>Available on Google Play</p>
+            <p>Available as a direct Android APK download</p>
           </div>
         </div>
       </div>
@@ -1012,6 +999,18 @@
   const navLogoutBtn = document.getElementById('nav-logout-btn');
   const drawerBottomAuth = document.getElementById('drawerBottomAuth');
 
+  const heroDownloadBtn = document.getElementById('hero-download-btn');
+  const heroSignInBtn = document.getElementById('hero-signin-btn');
+  const contactDownloadBtn = document.getElementById('contact-download-btn');
+  const contactSignInBtn = document.getElementById('contact-signin-btn');
+
+  function setDownloadCtas(signedIn) {
+    if (heroDownloadBtn) heroDownloadBtn.style.display = signedIn ? 'inline-flex' : 'none';
+    if (heroSignInBtn) heroSignInBtn.style.display = signedIn ? 'none' : 'inline-flex';
+    if (contactDownloadBtn) contactDownloadBtn.style.display = signedIn ? 'inline-flex' : 'none';
+    if (contactSignInBtn) contactSignInBtn.style.display = signedIn ? 'none' : 'inline-flex';
+  }
+
   let currentUser = null;
 
   onAuthStateChanged(auth, (user) => {
@@ -1044,6 +1043,8 @@
       if (navLogoutBtn) {
         navLogoutBtn.style.display = 'inline-block';
       }
+
+      setDownloadCtas(true);
     } else {
       if (topLoginLink) topLoginLink.style.display = 'inline-flex';
       if (topSignupLink) topSignupLink.style.display = 'inline-flex';
@@ -1053,6 +1054,8 @@
       if (drawerBottomAuth) drawerBottomAuth.style.display = 'none';
       if (navUserName) navUserName.style.display = 'none';
       if (navLogoutBtn) navLogoutBtn.style.display = 'none';
+
+      setDownloadCtas(false);
     }
   });
 
