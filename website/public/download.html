@@ -231,12 +231,16 @@
       collection, doc, setDoc, serverTimestamp
     } from '/js/firebase-config.js';
 
-    // Free-tier note: Firebase Storage rules require Blaze on this project,
-    // so the APK is served from Firebase Hosting (a static path). The auth
-    // gate is JS-only — anyone who guesses the URL can grab the file. To
-    // mitigate, every genuine click here writes an auth-checked audit row
-    // to Firestore via the `downloads` rule (server-enforced).
-    const APK_URL = '/apks/LittleDino.apk';
+    // Free-tier note: Firebase Storage rules need Blaze AND Firebase Hosting
+    // on Spark blocks the .apk extension as "executable". The APK is stored
+    // here as LittleDino.bin (a non-blocked extension) and served back with
+    // HTTP headers that fix Content-Type to APK and Content-Disposition to
+    // attachment; filename=LittleDino.apk — see the /apks/** rule in
+    // website/firebase.json. Browsers download it as LittleDino.apk.
+    //
+    // Bump the timestamp on the URL whenever you ship a new build to bypass
+    // any intermediate cache.
+    const APK_URL = '/apks/LittleDino.bin';
     const FILE_NAME = 'LittleDino.apk';
 
     const lockedView = document.getElementById('dl-locked-view');
@@ -272,16 +276,15 @@
       }
       resolvedUserId = user.uid;
       showView('ready');
-      // Best-effort size hint. HEAD against the static APK URL is fine — it
-      // doesn't reveal anything an attacker couldn't get from a GET, and we
-      // gain a friendlier UI when the file is in place.
+      // Best-effort size hint for the UI. Same-origin HEAD against Hosting
+      // is fine; the response includes Content-Length.
       try {
         const head = await fetch(APK_URL, { method: 'HEAD' });
         if (head.ok) {
           const len = parseInt(head.headers.get('content-length') || '0', 10);
           if (len > 0) sizeEl.textContent = ' (' + (len / (1024 * 1024)).toFixed(1) + ' MB)';
         }
-      } catch (_) { /* ignore — file may not be uploaded yet */ }
+      } catch (_) { /* file may not be uploaded yet — silently skip */ }
     });
 
     async function recordDownload() {
@@ -323,8 +326,10 @@
       progressWrap.classList.add('show');
       progressBar.style.width = '100%';
 
-      // Trigger the download. Hosting headers set Content-Disposition: attachment
-      // so the browser saves rather than navigates.
+      // Trigger the download. The /apks/** Hosting headers send
+      // Content-Type: application/vnd.android.package-archive and
+      // Content-Disposition: attachment; filename=LittleDino.apk so the
+      // browser saves it correctly named.
       const a = document.createElement('a');
       a.href = APK_URL;
       a.download = FILE_NAME;

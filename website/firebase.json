@@ -16,11 +16,12 @@
         ]
       },
       {
-        "source": "**/*.apk",
+        "source": "/apks/**",
         "headers": [
           { "key": "Content-Type", "value": "application/vnd.android.package-archive" },
           { "key": "Content-Disposition", "value": "attachment; filename=LittleDino.apk" },
-          { "key": "Cache-Control", "value": "no-store" }
+          { "key": "Cache-Control", "value": "no-store" },
+          { "key": "X-Robots-Tag", "value": "noindex, nofollow" }
         ]
       }
     ]
