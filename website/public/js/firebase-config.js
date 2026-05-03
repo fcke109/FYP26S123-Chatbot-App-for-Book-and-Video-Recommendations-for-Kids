@@ -30,6 +30,13 @@ import {
   onSnapshot
 } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
 
+import {
+  getStorage,
+  ref as storageRef,
+  getBlob,
+  getMetadata
+} from "https://www.gstatic.com/firebasejs/12.11.0/firebase-storage.js";
+
 const firebaseConfig = {
   apiKey: "AIzaSyAsZfL8NaSDAPuO2JgC5q1ogJcTbZge0xk",
   authDomain: "fyp-chatbot-81a50.firebaseapp.com",
@@ -43,6 +50,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+export const storage = getStorage(app);
 
 export {
   onAuthStateChanged,
@@ -67,7 +75,10 @@ export {
   writeBatch,
   increment,
   serverTimestamp,
-  onSnapshot
+  onSnapshot,
+  storageRef,
+  getBlob,
+  getMetadata
 };
 
 // Shared auth state UI updater

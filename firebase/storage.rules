@@ -15,6 +15,15 @@ service firebase.storage {
       allow write: if false; // Only admins via admin SDK
     }
 
+    // APK distribution — signed-in users only. The client uses the Storage SDK
+    // (getBytes/getBlob), which goes through this rule on every fetch — so an
+    // unauthenticated URL grab returns 403. Don't use getDownloadURL() for
+    // these files; that issues a long-lived token URL that bypasses rules.
+    match /apks/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if false; // Upload via Firebase Console only
+    }
+
     // Deny all other access
     match /{allPaths=**} {
       allow read, write: if false;

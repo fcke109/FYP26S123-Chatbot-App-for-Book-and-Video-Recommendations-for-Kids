@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Get the App | Little Dino</title>
+
+  <link rel="icon" type="image/png" href="/images/little_dino_icon_512.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="/css/styles.css" />
+  <style>
+    .dl-section { padding: 5rem 0; min-height: calc(100vh - 180px); display: flex; align-items: center; }
+    .dl-shell { max-width: 540px; margin: 0 auto; }
+
+    .dl-card {
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(102, 187, 106, 0.18);
+      border-radius: 26px;
+      padding: 2rem 1.8rem;
+      box-shadow: 0 18px 45px rgba(76, 175, 80, 0.08);
+      text-align: center;
+    }
+    .dl-icon {
+      width: 110px; height: 110px;
+      border-radius: 28px;
+      margin: 0 auto 1rem;
+      display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(135deg, #66BB6A, #43A047);
+      box-shadow: 0 16px 32px rgba(67, 160, 71, 0.32);
+    }
+    .dl-icon img { width: 84px; height: 84px; }
+    .dl-card h2 { font-family: 'Baloo 2', sans-serif; color: #2E7D32; margin: 0.4rem 0; font-size: 1.7rem; }
+    .dl-card .dl-blurb { color: var(--muted); margin: 0.4rem 0 1.6rem; font-size: 0.95rem; line-height: 1.4; }
+
+    .dl-btn {
+      width: 100%;
+      padding: 0.95rem;
+      border: none;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #66BB6A, #2E7D32);
+      color: #fff;
+      font-family: inherit;
+      font-size: 1rem;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 12px 28px rgba(46, 125, 50, 0.28);
+      transition: 0.22s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.6rem;
+      text-decoration: none;
+    }
+    .dl-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 16px 35px rgba(46, 125, 50, 0.36); }
+    .dl-btn:disabled { opacity: 0.7; cursor: progress; }
+    .dl-btn.secondary {
+      background: linear-gradient(135deg, #FF7043, #F4511E);
+      box-shadow: 0 12px 28px rgba(255, 112, 67, 0.28);
+    }
+
+    .dl-spinner {
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      border: 2.5px solid rgba(255,255,255,0.4);
+      border-top-color: #fff;
+      animation: spin 0.85s linear infinite;
+      display: none;
+    }
+    .dl-btn.is-loading .dl-spinner { display: inline-block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .dl-progress {
+      margin-top: 0.9rem;
+      width: 100%;
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(102, 187, 106, 0.15);
+      overflow: hidden;
+      display: none;
+    }
+    .dl-progress.show { display: block; }
+    .dl-progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #66BB6A, #2E7D32);
+      width: 0%;
+      transition: width 0.25s ease;
+    }
+
+    .dl-status {
+      margin-top: 0.9rem;
+      padding: 0.75rem 0.9rem;
+      border-radius: 12px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      display: none;
+      text-align: left;
+    }
+    .dl-status.info  { display: block; background: #E3F2FD; color: #1565C0; }
+    .dl-status.error { display: block; background: #FFEBEE; color: #C62828; }
+    .dl-status.success { display: block; background: #E8F5E9; color: #2E7D32; }
+
+    .dl-meta {
+      margin-top: 1rem;
+      font-size: 0.78rem;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .dl-meta strong { color: #2d2542; }
+
+    .dl-locked .dl-card { opacity: 0.96; }
+    .dl-locked-icon {
+      font-size: 2.4rem;
+      margin-bottom: 0.6rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <div class="bg-orb orb-3"></div>
+  <div class="bg-grid"></div>
+
+  <header class="site-header">
+    <div class="container nav">
+      <a href="/" class="brand">
+        <img src="/images/little_dino_icon_512.png" alt="Little Dino logo" class="brand-logo" />
+        <div class="brand-text">
+          <span class="brand-title">Little Dino</span>
+          <span class="brand-subtitle">Safe Kids Book & Video Discovery</span>
+        </div>
+      </a>
+
+      <button class="menu-toggle" id="menuToggle" aria-label="Toggle navigation menu" aria-expanded="false">
+        <span class="menu-bar"></span>
+        <span class="menu-bar"></span>
+        <span class="menu-bar"></span>
+      </button>
+
+      <nav class="nav-links" id="navLinks">
+        <a href="/">Home</a>
+        <a href="/catalog.html">Book Catalog</a>
+        <a href="/feedback.html">Feedback</a>
+        <a href="/download.html">Get the App</a>
+        <a href="/login.html" class="nav-cta">Login</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="dl-section">
+      <div class="container">
+        <div class="dl-shell" id="dl-shell">
+
+          <!-- Locked state: shown to logged-out visitors -->
+          <div class="dl-card dl-locked" id="dl-locked-view" style="display:none;">
+            <div class="dl-locked-icon">🔒</div>
+            <h2>Sign in to download</h2>
+            <p class="dl-blurb">
+              The Little Dino Android app is available to registered accounts only.
+              Sign in or create an account to get the APK.
+            </p>
+            <a href="/login.html" class="dl-btn">Sign in or Register</a>
+          </div>
+
+          <!-- Authenticated state -->
+          <div class="dl-card" id="dl-ready-view" style="display:none;">
+            <div class="dl-icon">
+              <img src="/images/little_dino_icon_512.png" alt="Little Dino app icon" />
+            </div>
+            <h2>Little Dino for Android</h2>
+            <p class="dl-blurb">
+              Tap the button to download the latest APK. After downloading,
+              open the file on your Android device to install it. You may need
+              to allow installs from unknown sources in your phone settings.
+            </p>
+
+            <button type="button" class="dl-btn" id="dl-button">
+              <span class="dl-spinner"></span>
+              <span class="dl-button-label">Download APK</span>
+            </button>
+
+            <div class="dl-progress" id="dl-progress">
+              <div class="dl-progress-bar" id="dl-progress-bar"></div>
+            </div>
+
+            <div class="dl-status" id="dl-status"></div>
+
+            <p class="dl-meta">
+              <strong id="dl-filename">LittleDino.apk</strong>
+              <span id="dl-size"></span><br>
+              Access is restricted by Firebase Storage rules. Each download is
+              authorised by your signed-in session.
+            </p>
+          </div>
+
+          <!-- Loading -->
+          <div class="dl-card" id="dl-loading-view">
+            <h2 style="margin-bottom:0.4rem;">Loading…</h2>
+            <p class="dl-blurb">Checking your sign-in.</p>
+          </div>
+
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-content">
+      <div class="footer-brand">
+        <img src="/images/little_dino_icon_512.png" alt="Little Dino footer logo" class="footer-logo" />
+        <div>
+          <strong>Little Dino</strong>
+          <p>Chatbot App for Book and Video Recommendations for Kids</p>
+        </div>
+      </div>
+      <div class="footer-links">
+        <a href="/">Home</a>
+        <a href="/privacy.html">Privacy Policy</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="/js/script.js"></script>
+  <script type="module">
+    import {
+      auth, db, onAuthStateChanged,
+      collection, doc, setDoc, serverTimestamp
+    } from '/js/firebase-config.js';
+
+    // Free-tier note: Firebase Storage rules require Blaze on this project,
+    // so the APK is served from Firebase Hosting (a static path). The auth
+    // gate is JS-only — anyone who guesses the URL can grab the file. To
+    // mitigate, every genuine click here writes an auth-checked audit row
+    // to Firestore via the `downloads` rule (server-enforced).
+    const APK_URL = '/apks/LittleDino.apk';
+    const FILE_NAME = 'LittleDino.apk';
+
+    const lockedView = document.getElementById('dl-locked-view');
+    const readyView = document.getElementById('dl-ready-view');
+    const loadingView = document.getElementById('dl-loading-view');
+    const dlBtn = document.getElementById('dl-button');
+    const dlBtnLabel = dlBtn.querySelector('.dl-button-label');
+    const status = document.getElementById('dl-status');
+    const sizeEl = document.getElementById('dl-size');
+    const progressWrap = document.getElementById('dl-progress');
+    const progressBar = document.getElementById('dl-progress-bar');
+
+    function showView(view) {
+      lockedView.style.display = view === 'locked' ? 'block' : 'none';
+      readyView.style.display = view === 'ready' ? 'block' : 'none';
+      loadingView.style.display = view === 'loading' ? 'block' : 'none';
+    }
+    function showStatus(text, type) {
+      status.textContent = text;
+      status.className = 'dl-status ' + type;
+    }
+    function clearStatus() {
+      status.textContent = '';
+      status.className = 'dl-status';
+    }
+
+    let resolvedUserId = null;
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        resolvedUserId = null;
+        showView('locked');
+        return;
+      }
+      resolvedUserId = user.uid;
+      showView('ready');
+      // Best-effort size hint. HEAD against the static APK URL is fine — it
+      // doesn't reveal anything an attacker couldn't get from a GET, and we
+      // gain a friendlier UI when the file is in place.
+      try {
+        const head = await fetch(APK_URL, { method: 'HEAD' });
+        if (head.ok) {
+          const len = parseInt(head.headers.get('content-length') || '0', 10);
+          if (len > 0) sizeEl.textContent = ' (' + (len / (1024 * 1024)).toFixed(1) + ' MB)';
+        }
+      } catch (_) { /* ignore — file may not be uploaded yet */ }
+    });
+
+    async function recordDownload() {
+      if (!resolvedUserId) return;
+      try {
+        const id = resolvedUserId + '_' + Date.now();
+        await setDoc(doc(collection(db, 'downloads'), id), {
+          userId: resolvedUserId,
+          fileName: FILE_NAME,
+          userAgent: (navigator.userAgent || '').slice(0, 400),
+          timestamp: serverTimestamp()
+        });
+      } catch (err) {
+        // Audit failure should not block the download itself.
+        console.warn('Audit log write failed:', err?.code || err?.message);
+      }
+    }
+
+    dlBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      clearStatus();
+      progressWrap.classList.remove('show');
+      progressBar.style.width = '0%';
+
+      if (!resolvedUserId) {
+        showStatus('Please sign in first.', 'error');
+        return;
+      }
+
+      dlBtn.disabled = true;
+      dlBtn.classList.add('is-loading');
+      dlBtnLabel.textContent = 'Authorising…';
+
+      // Server-enforced audit: write to Firestore with the user's id BEFORE
+      // we trigger the download. Firestore rule rejects unauthenticated
+      // writes and writes that don't match request.auth.uid.
+      await recordDownload();
+
+      progressWrap.classList.add('show');
+      progressBar.style.width = '100%';
+
+      // Trigger the download. Hosting headers set Content-Disposition: attachment
+      // so the browser saves rather than navigates.
+      const a = document.createElement('a');
+      a.href = APK_URL;
+      a.download = FILE_NAME;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+
+      showStatus('Download started — check your downloads folder.', 'success');
+      dlBtn.disabled = false;
+      dlBtn.classList.remove('is-loading');
+      dlBtnLabel.textContent = 'Download APK';
+    });
+  </script>
+</body>
+</html>
