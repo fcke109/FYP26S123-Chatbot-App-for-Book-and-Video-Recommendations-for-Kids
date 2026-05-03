@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Premium Payment | Little Dino</title>
+
+  <link rel="icon" type="image/png" href="/images/little_dino_icon_512.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="/css/styles.css" />
+  <style>
+    .pay-section { padding: 5rem 0; min-height: calc(100vh - 180px); display: flex; align-items: center; }
+    .pay-shell { max-width: 520px; margin: 0 auto; display: flex; flex-direction: column; gap: 1rem; }
+    .pay-promo {
+      border-radius: 22px;
+      padding: 1.5rem 1.6rem;
+      background: linear-gradient(135deg, #1F3A5F, #2D5A8F);
+      color: #fff;
+      box-shadow: 0 18px 40px rgba(31, 58, 95, 0.25);
+    }
+    .pay-promo .pay-title { font-family: 'Baloo 2', sans-serif; font-weight: 800; font-size: 1.55rem; }
+    .pay-promo .pay-blurb { margin-top: 0.4rem; font-size: 0.92rem; color: rgba(255,255,255,0.92); line-height: 1.4; }
+    .pay-promo .pay-price { margin-top: 1rem; font-size: 1.85rem; font-weight: 800; }
+
+    .pay-card {
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(102, 187, 106, 0.18);
+      border-radius: 22px;
+      padding: 1.6rem;
+      box-shadow: 0 18px 45px rgba(76, 175, 80, 0.08);
+    }
+    .pay-card h3 { font-family: 'Baloo 2', sans-serif; color: #2E7D32; margin: 0 0 1rem; font-size: 1.15rem; }
+
+    .pay-row { display: flex; gap: 0.8rem; }
+    .pay-row .form-group { flex: 1; margin-bottom: 0; }
+
+    .form-group { margin-bottom: 1rem; }
+    .form-group label { display: block; font-weight: 700; font-size: 0.9rem; margin-bottom: 0.4rem; color: #2d2542; }
+    .form-group input { width: 100%; padding: 0.75rem 1rem; border: 2px solid rgba(31, 58, 95, 0.15); border-radius: 14px; font-family: inherit; font-size: 0.95rem; outline: none; transition: border-color 0.2s, box-shadow 0.2s; background: rgba(255,255,255,0.95); }
+    .form-group input:focus { border-color: #1F3A5F; box-shadow: 0 0 0 3px rgba(31, 58, 95, 0.12); }
+
+    .pay-button {
+      width: 100%;
+      padding: 0.95rem;
+      border: none;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #1F3A5F, #2D5A8F);
+      color: #fff;
+      font-family: inherit;
+      font-size: 1rem;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 12px 28px rgba(31, 58, 95, 0.25);
+      transition: 0.22s ease;
+      margin-top: 0.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.6rem;
+    }
+    .pay-button:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 16px 35px rgba(31, 58, 95, 0.32); }
+    .pay-button:disabled { opacity: 0.7; cursor: progress; }
+    .pay-spinner {
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      border: 2.5px solid rgba(255,255,255,0.4);
+      border-top-color: #fff;
+      animation: spin 0.85s linear infinite;
+      display: none;
+    }
+    .pay-button.is-loading .pay-spinner { display: inline-block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .pay-disclaimer { margin-top: 0.7rem; font-size: 0.75rem; color: var(--muted); }
+
+    .pay-error { display: none; padding: 0.75rem 0.9rem; border-radius: 12px; font-size: 0.88rem; font-weight: 600; background: #ffebee; color: #c62828; }
+    .pay-error.show { display: block; }
+
+    .pay-success {
+      text-align: center;
+      padding: 2rem 1.6rem;
+      background: rgba(255,255,255,0.95);
+      border-radius: 22px;
+      border: 1px solid rgba(46, 125, 50, 0.2);
+    }
+    .pay-success .check-icon {
+      width: 92px; height: 92px;
+      border-radius: 50%;
+      background: #E8F5E9;
+      color: #2E7D32;
+      font-size: 3.4rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 1rem;
+    }
+    .pay-success h2 { font-family: 'Baloo 2', sans-serif; color: #1F3A5F; margin: 0.5rem 0; }
+    .pay-success p { color: var(--muted); margin: 0.4rem 0 1.6rem; }
+
+    .back-link { display: inline-flex; align-items: center; gap: 0.4rem; color: #4CAF50; font-weight: 700; text-decoration: none; padding: 0.4rem 0; }
+    .back-link:hover { color: #2E7D32; }
+  </style>
+</head>
+<body>
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <div class="bg-orb orb-3"></div>
+  <div class="bg-grid"></div>
+
+  <header class="site-header">
+    <div class="container nav">
+      <a href="/" class="brand">
+        <img src="/images/little_dino_icon_512.png" alt="Little Dino logo" class="brand-logo" />
+        <div class="brand-text">
+          <span class="brand-title">Little Dino</span>
+          <span class="brand-subtitle">Safe Kids Book & Video Discovery</span>
+        </div>
+      </a>
+
+      <button class="menu-toggle" id="menuToggle" aria-label="Toggle navigation menu" aria-expanded="false">
+        <span class="menu-bar"></span>
+        <span class="menu-bar"></span>
+        <span class="menu-bar"></span>
+      </button>
+
+      <nav class="nav-links" id="navLinks">
+        <a href="/">Home</a>
+        <a href="/catalog.html">Book Catalog</a>
+        <a href="/feedback.html">Feedback</a>
+        <a href="/login.html" class="nav-cta">Login</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="pay-section">
+      <div class="container">
+        <div class="pay-shell">
+
+          <div id="pay-form-view">
+            <a href="/catalog.html" class="back-link">← Skip for now</a>
+
+            <div class="pay-promo" style="margin-top:0.6rem;">
+              <div class="pay-title">Little Dino Premium 🦖</div>
+              <div class="pay-blurb">Unlock unlimited stories, videos and chats for your child. Cancel anytime.</div>
+              <div class="pay-price">$9.99 <span style="font-size:0.95rem;font-weight:600;">/ month</span></div>
+            </div>
+
+            <form id="payment-form" class="pay-card">
+              <h3>Payment Details</h3>
+
+              <div class="pay-error" id="pay-error"></div>
+
+              <div class="form-group">
+                <label for="pay-name">Cardholder Name</label>
+                <input type="text" id="pay-name" required placeholder="Name as on card">
+              </div>
+
+              <div class="form-group">
+                <label for="pay-card">Card Number</label>
+                <input type="text" id="pay-card" required inputmode="numeric" autocomplete="cc-number" placeholder="0000 0000 0000 0000" maxlength="19">
+              </div>
+
+              <div class="pay-row">
+                <div class="form-group">
+                  <label for="pay-expiry">Expiry</label>
+                  <input type="text" id="pay-expiry" required inputmode="numeric" autocomplete="cc-exp" placeholder="MM/YY" maxlength="5">
+                </div>
+                <div class="form-group">
+                  <label for="pay-cvv">CVV</label>
+                  <input type="text" id="pay-cvv" required inputmode="numeric" autocomplete="cc-csc" placeholder="123" maxlength="3">
+                </div>
+              </div>
+
+              <button type="submit" class="pay-button" id="pay-submit">
+                <span class="pay-spinner"></span>
+                <span class="pay-button-label">Pay $9.99</span>
+              </button>
+
+              <p class="pay-disclaimer">This is a demo payment screen for the FYP project. No real charge is made.</p>
+            </form>
+          </div>
+
+          <div id="pay-success-view" class="pay-success" style="display:none;">
+            <div class="check-icon">✓</div>
+            <h2>Payment Successful 🎉</h2>
+            <p>Welcome to Little Dino Premium!</p>
+            <a href="/catalog.html" class="pay-button" style="display:inline-flex;width:auto;padding:0.85rem 2.4rem;text-decoration:none;">Continue</a>
+          </div>
+
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-content">
+      <div class="footer-brand">
+        <img src="/images/little_dino_icon_512.png" alt="Little Dino footer logo" class="footer-logo" />
+        <div>
+          <strong>Little Dino</strong>
+          <p>Chatbot App for Book and Video Recommendations for Kids</p>
+        </div>
+      </div>
+      <div class="footer-links">
+        <a href="/">Home</a>
+        <a href="/privacy.html">Privacy Policy</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="/js/script.js"></script>
+  <script type="module">
+    import {
+      auth, db, onAuthStateChanged, doc, getDoc, updateDoc
+    } from '/js/firebase-config.js';
+
+    const formView = document.getElementById('pay-form-view');
+    const successView = document.getElementById('pay-success-view');
+    const form = document.getElementById('payment-form');
+    const submit = document.getElementById('pay-submit');
+    const submitLabel = submit.querySelector('.pay-button-label');
+    const errorEl = document.getElementById('pay-error');
+    const cardInput = document.getElementById('pay-card');
+    const expiryInput = document.getElementById('pay-expiry');
+    const cvvInput = document.getElementById('pay-cvv');
+
+    // Format card number as 4-digit groups while typing
+    cardInput.addEventListener('input', () => {
+      const digits = cardInput.value.replace(/\D/g, '').slice(0, 16);
+      cardInput.value = digits.replace(/(.{4})/g, '$1 ').trim();
+    });
+    // MM/YY auto-slash
+    expiryInput.addEventListener('input', () => {
+      const digits = expiryInput.value.replace(/\D/g, '').slice(0, 4);
+      expiryInput.value = digits.length >= 3 ? digits.slice(0, 2) + '/' + digits.slice(2) : digits;
+    });
+    cvvInput.addEventListener('input', () => {
+      cvvInput.value = cvvInput.value.replace(/\D/g, '').slice(0, 3);
+    });
+
+    function showError(text) {
+      errorEl.textContent = text;
+      errorEl.classList.add('show');
+    }
+    function clearError() {
+      errorEl.textContent = '';
+      errorEl.classList.remove('show');
+    }
+
+    // Gate access: must be signed in. If already PREMIUM, skip straight to catalog.
+    let resolvedUserId = null;
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        window.location.href = '/login.html';
+        return;
+      }
+      try {
+        const snap = await getDoc(doc(db, 'users', user.uid));
+        const data = snap.data();
+        if (!data) {
+          showError("Account profile not found. Please sign in again.");
+          return;
+        }
+        if (data.planType === 'PREMIUM') {
+          // Already premium — no need to "pay" again
+          window.location.href = '/catalog.html';
+          return;
+        }
+        if (data.accountType !== 'PARENT') {
+          // Kids inherit plans from their parent's invite code; the payment
+          // page is only for parents upgrading themselves.
+          showError("Only parent accounts can purchase Premium here.");
+          return;
+        }
+        resolvedUserId = user.uid;
+      } catch (err) {
+        showError("Couldn't load your account. " + (err.message || ''));
+      }
+    });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      clearError();
+      if (!resolvedUserId) {
+        showError("Please wait — checking your account.");
+        return;
+      }
+
+      // Cheap client-side sanity checks. The Firestore rule does the real
+      // gatekeeping (FREE -> PREMIUM only, planType+isGuest only).
+      const cardDigits = cardInput.value.replace(/\D/g, '');
+      if (cardDigits.length < 13) { showError("Please enter a valid card number."); return; }
+      if (!/^\d{2}\/\d{2}$/.test(expiryInput.value)) { showError("Expiry must be MM/YY."); return; }
+      if (cvvInput.value.length !== 3) { showError("CVV must be 3 digits."); return; }
+
+      submit.disabled = true;
+      submit.classList.add('is-loading');
+      submitLabel.textContent = 'Processing…';
+
+      // Mimic the app's 2-second fake processing.
+      await new Promise(r => setTimeout(r, 2000));
+
+      try {
+        await updateDoc(doc(db, 'users', resolvedUserId), {
+          planType: 'PREMIUM',
+          isGuest: false
+        });
+        formView.style.display = 'none';
+        successView.style.display = 'block';
+      } catch (err) {
+        submit.disabled = false;
+        submit.classList.remove('is-loading');
+        submitLabel.textContent = 'Pay $9.99';
+        showError("Couldn't upgrade your account: " + (err.message || 'unknown error'));
+      }
+    });
+  </script>
+</body>
+</html>
