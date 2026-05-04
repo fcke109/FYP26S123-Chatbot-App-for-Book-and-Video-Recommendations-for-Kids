@@ -36,7 +36,9 @@
       <nav class="nav-links" id="navLinks">
         <a href="/">Home</a>
         <a href="/catalog.html">Catalog</a>
-        <a href="/login.html" class="nav-cta">Login</a>
+        <a href="/login.html" id="nav-login-link" class="nav-cta">Login</a>
+        <span id="nav-user-name" style="display:none;font-weight:700;color:var(--primary-dark);"></span>
+        <button id="nav-logout-btn" type="button" style="display:none;background:none;border:1px solid var(--primary);color:var(--primary-dark);padding:0.5rem 1rem;border-radius:999px;font-weight:700;font-size:0.88rem;cursor:pointer;font-family:inherit;">Logout</button>
       </nav>
     </div>
   </header>
@@ -50,5 +52,9 @@
   </div>
 
   <script src="/js/script.js"></script>
+  <script type="module">
+    import { initAuthUI } from '/js/firebase-config.js';
+    initAuthUI?.();
+  </script>
 </body>
 </html>

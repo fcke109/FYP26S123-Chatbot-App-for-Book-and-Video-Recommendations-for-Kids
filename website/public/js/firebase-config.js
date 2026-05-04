@@ -81,32 +81,51 @@ export {
   getMetadata
 };
 
-// Shared auth state UI updater
-export function initAuthUI() {
-  const loginLink = document.getElementById("nav-login");
-  const logoutLink = document.getElementById("nav-logout");
+// Shared auth state UI updater. Toggles a consistent set of nav elements
+// across every page so logged-in users always see their name + Logout, and
+// logged-out users always see the Login button. Sets data-auth-state on
+// <body> so CSS can drive the loading/signed-in/signed-out states without a
+// flash of the wrong UI.
+export function initAuthUI({ logoutRedirect = "/" } = {}) {
+  const loginLink =
+    document.getElementById("nav-login-link") ||
+    document.getElementById("nav-login");
+  const logoutBtn =
+    document.getElementById("nav-logout-btn") ||
+    document.getElementById("nav-logout");
   const userName = document.getElementById("nav-user-name");
 
   onAuthStateChanged(auth, (user) => {
     if (user) {
+      document.body.setAttribute("data-auth-state", "signed-in");
+      const displayName =
+        user.displayName || user.email?.split("@")[0] || "User";
+
       if (loginLink) loginLink.style.display = "none";
-      if (logoutLink) logoutLink.style.display = "inline-block";
+      if (logoutBtn) logoutBtn.style.display = "inline-block";
       if (userName) {
-        userName.textContent = user.displayName || user.email?.split("@")[0] || "User";
+        userName.textContent = displayName;
         userName.style.display = "inline-block";
       }
     } else {
-      if (loginLink) loginLink.style.display = "inline-block";
-      if (logoutLink) logoutLink.style.display = "none";
+      document.body.setAttribute("data-auth-state", "signed-out");
+
+      if (loginLink) loginLink.style.display = "inline-flex";
+      if (logoutBtn) logoutBtn.style.display = "none";
       if (userName) userName.style.display = "none";
     }
   });
 
-  if (logoutLink) {
-    logoutLink.addEventListener("click", async (e) => {
+  if (logoutBtn && !logoutBtn.dataset.authBound) {
+    logoutBtn.dataset.authBound = "1";
+    logoutBtn.addEventListener("click", async (e) => {
       e.preventDefault();
-      await signOut(auth);
-      window.location.href = "/";
+      try {
+        await signOut(auth);
+      } catch (err) {
+        console.warn("Logout failed:", err?.message || err);
+      }
+      window.location.href = logoutRedirect;
     });
   }
 }

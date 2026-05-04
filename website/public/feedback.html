@@ -590,7 +590,7 @@
         if (navLoginLink) navLoginLink.style.display = 'none';
         if (navUserName) {
           navUserName.style.display = 'inline-block';
-          navUserName.textContent = user.displayName || user.email || 'Logged in';
+          navUserName.textContent = user.displayName || user.email?.split('@')[0] || 'Logged in';
         }
         if (navLogoutBtn) navLogoutBtn.style.display = 'inline-block';
 
