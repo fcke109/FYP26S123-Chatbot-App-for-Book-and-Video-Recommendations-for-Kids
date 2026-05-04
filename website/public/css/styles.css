@@ -1912,14 +1912,30 @@ main,
   font-size: 0.9rem;
   line-height: 1;
 }
-
 .testimonial-slider-track,
 .feedback-track,
 #live-feedback-track {
   display: flex;
   gap: 1rem;
-  width: max-content;
-  animation: scrollTestimonials 42s linear infinite;
+  overflow-x: auto;
+  overflow-y: hidden;
+  width: 100%;
+  padding-bottom: 1rem;
+  scroll-behavior: smooth;
+  animation: none !important;
+}
+
+.testimonial-slider-track::-webkit-scrollbar,
+.feedback-track::-webkit-scrollbar,
+#live-feedback-track::-webkit-scrollbar {
+  height: 8px;
+}
+
+.testimonial-slider-track::-webkit-scrollbar-thumb,
+.feedback-track::-webkit-scrollbar-thumb,
+#live-feedback-track::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.35);
+  border-radius: 999px;
 }
 
 .bg-orb {
