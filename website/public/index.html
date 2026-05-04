@@ -1226,95 +1226,104 @@
     });
   }
 
-  function renderLiveFeedback(items) {
-    const track = document.getElementById('live-feedback-track');
-    const statsRow = document.getElementById('live-feedback-stats');
-    const totalEl = document.getElementById('live-total');
-    const positiveEl = document.getElementById('live-positive');
-    const pctEl = document.getElementById('live-pct');
+function renderLiveFeedback(items) {
+  const track = document.getElementById('live-feedback-track');
+  const statsRow = document.getElementById('live-feedback-stats');
+  const totalEl = document.getElementById('live-total');
+  const positiveEl = document.getElementById('live-positive');
+  const pctEl = document.getElementById('live-pct');
 
-    if (!track) return;
+  if (!track) return;
 
-    const visibleItems = Array.isArray(items)
-      ? items.sort((a, b) => getDateValue(b) - getDateValue(a))
-      : [];
+  const uniqueMap = new Map();
 
-    if (visibleItems.length === 0) {
-      track.innerHTML =
-        '<div class="no-feedback-msg glass-card">No feedback yet. Be the first to rate a recommendation in the app!</div>';
-      if (statsRow) statsRow.style.display = 'none';
-      track.style.animation = 'none';
-      return;
+  const appItems = Array.isArray(items)
+    ? items.filter((item) => item.contentType === 'app')
+    : [];
+
+  appItems.forEach((item) => {
+    const key = [
+      item.userId || '',
+      (item.comment || item.feedback || '').trim().toLowerCase(),
+      item.rating || ''
+    ].join('|');
+
+    if (!uniqueMap.has(key)) {
+      uniqueMap.set(key, item);
     }
+  });
 
-    const total = visibleItems.length;
-    const positive = visibleItems.filter(isPositive).length;
-    const pct = Math.round((positive / total) * 100);
+  const visibleItems = Array.from(uniqueMap.values())
+    .sort((a, b) => getDateValue(b) - getDateValue(a));
 
-    if (statsRow) statsRow.style.display = 'flex';
-    if (totalEl) totalEl.textContent = total;
-    if (positiveEl) positiveEl.textContent = positive;
-    if (pctEl) pctEl.textContent = `${pct}%`;
+  track.replaceChildren();
 
-    const adminEmail = "admin@littledino.com";
-    const isAdminUser = currentUser && currentUser.email === adminEmail;
+  if (visibleItems.length === 0) {
+    track.innerHTML =
+      '<div class="no-feedback-msg glass-card">No app feedback yet. Be the first to rate Little Dino!</div>';
+    if (statsRow) statsRow.style.display = 'none';
+    track.style.animation = 'none';
+    return;
+  }
 
-    const cards = visibleItems.map((item) => {
-      const liked = isPositive(item);
-      const type = (item.contentType || item.type || item.recommendationType || 'book').toString().toLowerCase();
-      const title = item.title || item.contentTitle || item.recommendationTitle || 'Recommended item';
-      const text =
-        item.comment ||
-        item.feedback ||
-        (liked ? 'I liked this recommendation.' : 'This recommendation was okay.');
+  const total = visibleItems.length;
+  const positive = visibleItems.filter(isPositive).length;
+  const pct = Math.round((positive / total) * 100);
 
-      const emoji = liked ? '😍' : '🙂';
-      const rating = Number(item.rating) || (liked ? 5 : 3);
-      const source = (item.source || 'app').toString().toLowerCase();
-      const userName = getFeedbackUserName(item);
-      const canDelete = currentUser && (item.userId === currentUser.uid || isAdminUser);
+  if (statsRow) statsRow.style.display = 'flex';
+  if (totalEl) totalEl.textContent = total;
+  if (positiveEl) positiveEl.textContent = positive;
+  if (pctEl) pctEl.textContent = `${pct}%`;
 
-      return `
-        <div class="feedback-card glass-card">
-          <div class="feedback-card-header">
-            <span class="feedback-card-icon">${emoji}</span>
-            <span class="feedback-card-type ${type === 'video' ? 'video' : 'book'}">
-              ${type === 'video' ? 'VIDEO' : 'BOOK'}
-            </span>
+  const adminEmail = "admin@littledino.com";
+  const isAdminUser = currentUser && currentUser.email === adminEmail;
+
+  const cards = visibleItems.map((item) => {
+    const liked = isPositive(item);
+    const title = item.title || 'Little Dino App Feedback';
+    const text = item.comment || item.feedback || 'No comment provided.';
+    const emoji = liked ? '😍' : '🙂';
+    const rating = Number(item.rating) || (liked ? 5 : 3);
+    const userName = getFeedbackUserName(item);
+    const canDelete = currentUser && (item.userId === currentUser.uid || isAdminUser);
+
+    return `
+      <div class="feedback-card glass-card">
+        <div class="feedback-card-header">
+          <span class="feedback-card-icon">${emoji}</span>
+        </div>
+
+        <h4>${title}</h4>
+
+        <div class="feedback-card-user">Username: ${userName}</div>
+
+        <div class="feedback-card-rating" aria-label="${rating} star rating">
+          ${buildStarRow(rating)}
+        </div>
+
+        <p>${text}</p>
+
+        <div class="feedback-card-meta">
+          <div class="feedback-meta-left">
+            <span class="feedback-rating-badge">${rating}/5 Stars</span>
           </div>
-
-          <h4>${title}</h4>
-
-          <div class="feedback-card-user">By ${userName}</div>
-
-          <div class="feedback-card-rating" aria-label="${rating} star rating">
-            ${buildStarRow(rating)}
-          </div>
-
-          <p>${text}</p>
-
-          <div class="feedback-card-meta">
-            <div class="feedback-meta-left">
-              <span class="feedback-rating-badge">${rating}/5 Stars</span>
-              <span class="feedback-source-badge">${source === 'web' ? 'Web Feedback' : 'App Feedback'}</span>
-            </div>
-            <div class="feedback-meta-right">
-              ${canDelete ? `
-                <button class="feedback-delete-btn" data-feedback-id="${item.id}" type="button">
-                  <span class="delete-icon">🗑</span>
-                  <span>Delete</span>
-                </button>
-              ` : ''}
-            </div>
+          <div class="feedback-meta-right">
+            ${canDelete ? `
+              <button class="feedback-delete-btn" data-feedback-id="${item.id}" type="button">
+                <span class="delete-icon">🗑</span>
+                <span>Delete</span>
+              </button>
+            ` : ''}
           </div>
         </div>
-      `;
-    });
+      </div>
+    `;
+  });
 
-    track.innerHTML = cards.concat(cards).join('');
-    track.style.animation = '';
-    attachDeleteHandlers();
-  }
+  track.innerHTML = cards.join('');
+  track.style.animation = 'none';
+  attachDeleteHandlers();
+}
 
   (function loadLiveFeedback() {
     let firstSnapshotReceived = false;
