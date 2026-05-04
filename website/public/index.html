@@ -126,6 +126,21 @@
       display: inline-flex;
     }
 
+    /* "Already Premium" — looks like the Premium plan card's accent but
+       reads as a confirmation badge rather than an action button. */
+    .btn-disabled-premium {
+      background: linear-gradient(135deg, #43a047, #2e7d32) !important;
+      color: #fff !important;
+      cursor: default !important;
+      box-shadow: 0 8px 22px rgba(46, 125, 50, 0.22) !important;
+      pointer-events: none;
+    }
+    .btn-disabled-premium::before {
+      content: "✓ ";
+      font-weight: 800;
+      margin-right: 0.15rem;
+    }
+
     .drawer-brand {
       display: flex;
       align-items: center;
@@ -1020,6 +1035,7 @@
     where,
     onSnapshot,
     doc,
+    getDoc,
     deleteDoc
   } from '/js/firebase-config.js';
 
@@ -1036,6 +1052,48 @@
   const planPremiumBtn = document.getElementById('plan-premium-btn');
 
   let currentUser = null;
+
+  function setPremiumCtaAlreadyPremium() {
+    if (!planPremiumBtn) return;
+    planPremiumBtn.textContent = 'Already Premium';
+    planPremiumBtn.href = '/catalog.html';
+    planPremiumBtn.classList.add('btn-disabled-premium');
+    planPremiumBtn.setAttribute('aria-disabled', 'true');
+  }
+
+  function setPremiumCtaUpgrade() {
+    if (!planPremiumBtn) return;
+    planPremiumBtn.textContent = 'Get Premium';
+    planPremiumBtn.href = '/payment.html';
+    planPremiumBtn.classList.remove('btn-disabled-premium');
+    planPremiumBtn.removeAttribute('aria-disabled');
+  }
+
+  function setPremiumCtaSignIn() {
+    if (!planPremiumBtn) return;
+    planPremiumBtn.textContent = 'Get Premium';
+    planPremiumBtn.href = '/login.html';
+    planPremiumBtn.classList.remove('btn-disabled-premium');
+    planPremiumBtn.removeAttribute('aria-disabled');
+  }
+
+  async function refreshPremiumCtaForUser(user) {
+    if (!user) return;
+    try {
+      const snap = await getDoc(doc(db, 'users', user.uid));
+      const data = snap.data();
+      if (data?.planType === 'PREMIUM' || data?.planType === 'ADMIN') {
+        setPremiumCtaAlreadyPremium();
+      } else {
+        setPremiumCtaUpgrade();
+      }
+    } catch (err) {
+      // If we can't read the user doc (rules / network), fall back to the
+      // upgrade flow — payment.html will reject non-eligible users anyway.
+      console.warn('Could not check premium status:', err?.message || err);
+      setPremiumCtaUpgrade();
+    }
+  }
 
   onAuthStateChanged(auth, (user) => {
     currentUser = user;
@@ -1066,7 +1124,10 @@
       // catalog (Free) or payment flow (Premium upgrade) instead of /login,
       // which would silently bounce them to /catalog.html.
       if (planFreeBtn) planFreeBtn.href = '/catalog.html';
-      if (planPremiumBtn) planPremiumBtn.href = '/payment.html';
+      // Optimistic upgrade CTA, then check Firestore to swap to "Already
+      // Premium" if the user is already on the Premium plan.
+      setPremiumCtaUpgrade();
+      refreshPremiumCtaForUser(user);
     } else {
       document.body.setAttribute('data-auth-state', 'signed-out');
 
@@ -1075,7 +1136,7 @@
       if (navLogoutBtn) navLogoutBtn.style.display = 'none';
 
       if (planFreeBtn) planFreeBtn.href = '/login.html';
-      if (planPremiumBtn) planPremiumBtn.href = '/login.html';
+      setPremiumCtaSignIn();
     }
   });
 
