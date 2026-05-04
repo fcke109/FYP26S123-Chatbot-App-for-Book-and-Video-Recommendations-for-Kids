@@ -800,7 +800,7 @@
               <li>Limited favorites</li>
               <li>Safe video viewing</li>
             </ul>
-            <a href="/login.html" class="btn btn-secondary">
+            <a id="plan-free-btn" href="/login.html" class="btn btn-secondary">
               Sign Up Free
             </a>
           </div>
@@ -819,7 +819,7 @@
               <li>Safe video viewing</li>
               <li>Access to curated book library</li>
             </ul>
-            <a href="/login.html" class="btn btn-primary">
+            <a id="plan-premium-btn" href="/login.html" class="btn btn-primary">
               Get Premium
             </a>
           </div>
@@ -1032,6 +1032,9 @@
   const navLogoutBtn = document.getElementById('nav-logout-btn');
   const drawerBottomAuth = document.getElementById('drawerBottomAuth');
 
+  const planFreeBtn = document.getElementById('plan-free-btn');
+  const planPremiumBtn = document.getElementById('plan-premium-btn');
+
   let currentUser = null;
 
   onAuthStateChanged(auth, (user) => {
@@ -1058,12 +1061,21 @@
       if (navLogoutBtn) {
         navLogoutBtn.style.display = 'inline-block';
       }
+
+      // Signed-in users already have an account; route plan CTAs to the
+      // catalog (Free) or payment flow (Premium upgrade) instead of /login,
+      // which would silently bounce them to /catalog.html.
+      if (planFreeBtn) planFreeBtn.href = '/catalog.html';
+      if (planPremiumBtn) planPremiumBtn.href = '/payment.html';
     } else {
       document.body.setAttribute('data-auth-state', 'signed-out');
 
       if (drawerBottomAuth) drawerBottomAuth.style.display = 'none';
       if (navUserName) navUserName.style.display = 'none';
       if (navLogoutBtn) navLogoutBtn.style.display = 'none';
+
+      if (planFreeBtn) planFreeBtn.href = '/login.html';
+      if (planPremiumBtn) planPremiumBtn.href = '/login.html';
     }
   });
 
