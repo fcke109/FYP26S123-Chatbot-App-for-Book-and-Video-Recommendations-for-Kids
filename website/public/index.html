@@ -30,10 +30,17 @@
     }
 
     .top-auth .top-login-link,
-    .top-auth .top-signup-link {
-      display: inline-flex;
+    .top-auth .top-signup-link,
+    .top-auth .top-user-name,
+    .top-auth .top-logout-btn {
+      display: none;
       align-items: center;
       justify-content: center;
+      white-space: nowrap;
+    }
+
+    .top-auth .top-login-link,
+    .top-auth .top-signup-link {
       min-height: 44px;
       padding: 0 1.15rem;
       border-radius: 999px;
@@ -41,7 +48,16 @@
       font-size: 0.92rem;
       transition: 0.22s ease;
       border: 1px solid rgba(139, 92, 246, 0.12);
-      white-space: nowrap;
+    }
+
+    body[data-auth-state="signed-out"] .top-auth .top-login-link,
+    body[data-auth-state="signed-out"] .top-auth .top-signup-link {
+      display: inline-flex;
+    }
+
+    body[data-auth-state="signed-in"] .top-auth .top-user-name,
+    body[data-auth-state="signed-in"] .top-auth .top-logout-btn {
+      display: inline-flex;
     }
 
     .top-auth .top-login-link {
@@ -66,18 +82,15 @@
     }
 
     .top-auth .top-user-name {
-      display: none;
       font-weight: 700;
       color: var(--primary-dark);
       font-size: 0.92rem;
       max-width: 180px;
       overflow: hidden;
       text-overflow: ellipsis;
-      white-space: nowrap;
     }
 
     .top-auth .top-logout-btn {
-      display: none;
       background: none;
       border: 1px solid var(--primary);
       color: var(--primary-dark);
@@ -93,6 +106,24 @@
     .top-auth .top-logout-btn:hover {
       background: var(--primary);
       color: #fff;
+    }
+
+    /* Default-hide the "Download" CTAs until auth state confirms signed-in.
+       The "Login to Download" CTA stays visible during the brief loading
+       window so the landing page never looks blank. */
+    #hero-download-btn,
+    #contact-download-btn {
+      display: none;
+    }
+
+    body[data-auth-state="signed-in"] #hero-signin-btn,
+    body[data-auth-state="signed-in"] #contact-signin-btn {
+      display: none;
+    }
+
+    body[data-auth-state="signed-in"] #hero-download-btn,
+    body[data-auth-state="signed-in"] #contact-download-btn {
+      display: inline-flex;
     }
 
     .drawer-brand {
@@ -242,13 +273,13 @@
         font-size: 0.84rem;
       }
 
-      .top-auth .top-user-name {
-        display: none !important;
+      body[data-auth-state="signed-in"] .top-auth .top-user-name {
+        display: none;
       }
     }
 
     @media (max-width: 560px) {
-      .top-auth .top-login-link {
+      body[data-auth-state="signed-out"] .top-auth .top-login-link {
         display: none;
       }
     }
@@ -358,7 +389,7 @@
           </p>
 
           <div class="hero-actions">
-            <a id="hero-download-btn" href="/download.html" class="btn btn-primary" style="display:none;">
+            <a id="hero-download-btn" href="/download.html" class="btn btn-primary">
               Download Android App
             </a>
             <a id="hero-signin-btn" href="/login.html" class="btn btn-primary">
@@ -916,7 +947,7 @@
             </p>
           </div>
           <div style="display:flex;gap:1rem;flex-wrap:wrap;">
-            <a id="contact-download-btn" href="/download.html" class="btn btn-primary" style="display:none;">
+            <a id="contact-download-btn" href="/download.html" class="btn btn-primary">
               Download Android App
             </a>
             <a id="contact-signin-btn" href="/login.html" class="btn btn-primary">
@@ -990,26 +1021,12 @@
 
   initAuthUI?.();
 
-  const topLoginLink = document.getElementById('top-login-link');
-  const topSignupLink = document.getElementById('top-signup-link');
   const topUserName = document.getElementById('top-user-name');
   const topLogoutBtn = document.getElementById('top-logout-btn');
 
   const navUserName = document.getElementById('nav-user-name');
   const navLogoutBtn = document.getElementById('nav-logout-btn');
   const drawerBottomAuth = document.getElementById('drawerBottomAuth');
-
-  const heroDownloadBtn = document.getElementById('hero-download-btn');
-  const heroSignInBtn = document.getElementById('hero-signin-btn');
-  const contactDownloadBtn = document.getElementById('contact-download-btn');
-  const contactSignInBtn = document.getElementById('contact-signin-btn');
-
-  function setDownloadCtas(signedIn) {
-    if (heroDownloadBtn) heroDownloadBtn.style.display = signedIn ? 'inline-flex' : 'none';
-    if (heroSignInBtn) heroSignInBtn.style.display = signedIn ? 'none' : 'inline-flex';
-    if (contactDownloadBtn) contactDownloadBtn.style.display = signedIn ? 'inline-flex' : 'none';
-    if (contactSignInBtn) contactSignInBtn.style.display = signedIn ? 'none' : 'inline-flex';
-  }
 
   let currentUser = null;
 
@@ -1021,16 +1038,10 @@
         user.displayName ||
         (user.email ? user.email.split('@')[0] : 'Little Dino User');
 
-      if (topLoginLink) topLoginLink.style.display = 'none';
-      if (topSignupLink) topSignupLink.style.display = 'none';
+      document.body.setAttribute('data-auth-state', 'signed-in');
 
       if (topUserName) {
-        topUserName.style.display = 'inline-flex';
         topUserName.textContent = `Hi, ${displayName}`;
-      }
-
-      if (topLogoutBtn) {
-        topLogoutBtn.style.display = 'inline-flex';
       }
 
       if (drawerBottomAuth) drawerBottomAuth.style.display = 'flex';
@@ -1043,19 +1054,12 @@
       if (navLogoutBtn) {
         navLogoutBtn.style.display = 'inline-block';
       }
-
-      setDownloadCtas(true);
     } else {
-      if (topLoginLink) topLoginLink.style.display = 'inline-flex';
-      if (topSignupLink) topSignupLink.style.display = 'inline-flex';
-      if (topUserName) topUserName.style.display = 'none';
-      if (topLogoutBtn) topLogoutBtn.style.display = 'none';
+      document.body.setAttribute('data-auth-state', 'signed-out');
 
       if (drawerBottomAuth) drawerBottomAuth.style.display = 'none';
       if (navUserName) navUserName.style.display = 'none';
       if (navLogoutBtn) navLogoutBtn.style.display = 'none';
-
-      setDownloadCtas(false);
     }
   });
 
@@ -1236,6 +1240,17 @@
   }
 
   (function loadLiveFeedback() {
+    let firstSnapshotReceived = false;
+
+    // Fallback if Firestore takes too long or the listener never resolves —
+    // shows the empty state instead of leaving the "Loading live feedback."
+    // placeholder visible indefinitely.
+    const loadingFallback = setTimeout(() => {
+      if (!firstSnapshotReceived) {
+        renderLiveFeedback([]);
+      }
+    }, 8000);
+
     try {
       const feedbackQuery = query(
         collection(db, 'feedback'),
@@ -1245,6 +1260,9 @@
       onSnapshot(
         feedbackQuery,
         (snapshot) => {
+          firstSnapshotReceived = true;
+          clearTimeout(loadingFallback);
+
           const items = snapshot.docs.map((docSnap) => ({
             id: docSnap.id,
             ...docSnap.data()
@@ -1253,14 +1271,19 @@
           renderLiveFeedback(items);
         },
         (err) => {
+          firstSnapshotReceived = true;
+          clearTimeout(loadingFallback);
           console.warn('Live feedback listener error:', err.message);
           renderLiveFeedback([]);
         }
       );
     } catch (error) {
+      firstSnapshotReceived = true;
+      clearTimeout(loadingFallback);
       console.warn('Live feedback init failed:', error?.message || error);
       renderLiveFeedback([]);
     }
   })();
 </script>
+</body>
 </html>
