@@ -209,6 +209,14 @@
             </div>
 
             <div class="form-group parent-only">
+              <label for="reg-dob">Date of birth</label>
+              <input type="date" id="reg-dob" />
+              <p style="margin:0.4rem 0 0;font-size:0.8rem;color:var(--muted);">
+                Parent / guardian accounts must be 18 or older.
+              </p>
+            </div>
+
+            <div class="form-group parent-only">
               <label for="reg-plan">Plan</label>
               <select id="reg-plan">
                 <option value="FREE">Free — 1 child account, limited favorites &amp; chat</option>
@@ -217,6 +225,18 @@
               <p style="margin:0.4rem 0 0;font-size:0.8rem;color:var(--muted);">
                 Children you invite inherit this plan when they register with your code.
               </p>
+            </div>
+
+            <div class="form-group parent-only" style="background:rgba(255, 243, 205, 0.55);border:1px solid rgba(255, 167, 38, 0.4);border-radius:14px;padding:0.75rem 0.9rem;">
+              <label style="display:flex;gap:0.55rem;align-items:flex-start;cursor:pointer;font-weight:600;font-size:0.85rem;color:#5d4500;line-height:1.4;">
+                <input type="checkbox" id="reg-parent-attest" style="margin-top:0.2rem;flex-shrink:0;accent-color:#ff8f00;width:16px;height:16px;" />
+                <span>
+                  I confirm I am 18 years of age or older and the parent or legal
+                  guardian of any child I add to this account. Knowingly providing
+                  false information may violate applicable child-privacy laws
+                  (e.g. COPPA).
+                </span>
+              </label>
             </div>
 
             <div class="form-group kid-only" style="display:none;">
@@ -317,8 +337,17 @@
     const tabs = document.querySelectorAll('.auth-tab');
     const modeSelect = document.getElementById('reg-mode');
 
+    // While registration is mid-flight (createUserWithEmailAndPassword has
+    // resolved but the user doc + email verification haven't finished),
+    // suppress the auto-redirect — otherwise the redirect fires the moment
+    // auth state flips, the page navigates away, and the pending setDoc gets
+    // aborted, leaving an Auth account with no Firestore profile.
+    let registrationInProgress = false;
+
     onAuthStateChanged(auth, (user) => {
-      if (user) window.location.href = '/catalog.html';
+      if (user && !registrationInProgress) {
+        window.location.href = '/catalog.html';
+      }
     });
 
     function showLogin() {
@@ -338,6 +367,17 @@
       registerSelector.style.display = 'none';
       registerForm.style.display = 'block';
       refreshModeFields();
+
+      // The native date picker won't let users pick a date that implies
+      // age < 18 once we set max — JS validation still runs as a backstop.
+      if (mode === 'PARENT') {
+        const dobEl = document.getElementById('reg-dob');
+        if (dobEl && !dobEl.max) {
+          const today = new Date();
+          const max = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
+          dobEl.max = max.toISOString().split('T')[0];
+        }
+      }
     }
 
     tabs.forEach(tab => {
@@ -443,7 +483,7 @@
       } catch (err) { showMsg(err.message.replace('Firebase: ', ''), 'error'); }
     });
 
-    function baseUserDoc({ uid, name, email, age, planType, accountType, parentId, interests, readingLevel }) {
+    function baseUserDoc({ uid, name, email, age, planType, accountType, parentId, interests, readingLevel, dateOfBirth = null }) {
       // Premium kids get screen time disabled by default — parents can still
       // turn it on later from the dashboard. Free kids keep the 30-min cap on.
       const isPremiumKid = accountType === 'CHILD' && planType === 'PREMIUM';
@@ -459,6 +499,9 @@
         childIds: [],
         interests,
         readingLevel,
+        // Stored on parent accounts for COPPA audit; null for kids since their
+        // age field already covers it.
+        dateOfBirth,
         parentalEmail: null,
         parentalPin: null,
         contentFilters: { maxAgeRating: 13, blockedTopics: [], allowVideos: true },
@@ -485,6 +528,19 @@
       return { ref, data };
     }
 
+    function calculateAgeFromDob(dobString) {
+      if (!dobString) return null;
+      const dob = new Date(dobString);
+      if (Number.isNaN(dob.getTime())) return null;
+      const today = new Date();
+      let age = today.getFullYear() - dob.getFullYear();
+      const monthDelta = today.getMonth() - dob.getMonth();
+      if (monthDelta < 0 || (monthDelta === 0 && today.getDate() < dob.getDate())) {
+        age -= 1;
+      }
+      return age;
+    }
+
     registerForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const mode = modeSelect.value;
@@ -504,6 +560,33 @@
       const readingLevel = isKid ? document.getElementById('reg-reading-level').value : 'Beginner';
       const interests = isKid ? selectedInterests().slice(0, INTEREST_LIMIT) : [];
 
+      // COPPA-style attestation for parent accounts. Doesn't physically prevent
+      // a kid lying through the form, but it shifts liability to whoever
+      // submits and matches what mainstream services do (Google, Meta, etc.).
+      let parentDob = null;
+      if (mode === 'PARENT') {
+        const dobInput = document.getElementById('reg-dob').value;
+        const parentAge = calculateAgeFromDob(dobInput);
+        if (parentAge === null) {
+          showMsg('Please enter a valid date of birth.', 'error');
+          return;
+        }
+        if (parentAge < 18) {
+          showMsg('Parent / guardian accounts must be at least 18. If you are a child, please ask your parent to register and share their invite code.', 'error');
+          return;
+        }
+        if (parentAge > 120) {
+          showMsg('Please enter a valid date of birth.', 'error');
+          return;
+        }
+        const attested = document.getElementById('reg-parent-attest').checked;
+        if (!attested) {
+          showMsg('Please confirm you are a parent or legal guardian aged 18+.', 'error');
+          return;
+        }
+        parentDob = dobInput;
+      }
+
       let inviteResult = null;
       if (isKid) {
         const codeRaw = document.getElementById('reg-invite').value.trim().toUpperCase();
@@ -518,8 +601,10 @@
 
       let cred;
       try {
+        registrationInProgress = true;
         cred = await createUserWithEmailAndPassword(auth, email, pw);
       } catch (err) {
+        registrationInProgress = false;
         showMsg(err.message.replace('Firebase: ', ''), 'error');
         return;
       }
@@ -535,7 +620,8 @@
           await setDoc(doc(db, 'users', cred.user.uid), baseUserDoc({
             uid: cred.user.uid, name, email: authEmail, age: 0,
             planType: 'FREE', accountType: 'PARENT',
-            parentId: null, interests: [], readingLevel: 'Beginner'
+            parentId: null, interests: [], readingLevel: 'Beginner',
+            dateOfBirth: parentDob
           }));
           try { await sendEmailVerification(cred.user); } catch (_) { /* non-fatal */ }
           if (parentPlan === 'PREMIUM') {
@@ -565,6 +651,7 @@
           setTimeout(() => window.location.href = '/catalog.html', 1000);
         }
       } catch (err) {
+        registrationInProgress = false;
         try { await cred.user.delete(); } catch (_) { /* best effort */ }
         showMsg(err.message.replace('Firebase: ', ''), 'error');
       }
