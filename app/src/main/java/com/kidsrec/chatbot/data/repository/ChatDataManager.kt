@@ -12,10 +12,8 @@ import com.kidsrec.chatbot.data.model.MessageRole
 import com.kidsrec.chatbot.data.model.Recommendation
 import com.kidsrec.chatbot.data.model.RecommendationType
 import com.kidsrec.chatbot.data.model.User
+import com.kidsrec.chatbot.data.remote.ChatTurn
 import com.kidsrec.chatbot.data.remote.GeminiService
-import com.kidsrec.chatbot.data.remote.OpenAIMessage
-import com.kidsrec.chatbot.data.remote.OpenAIRequest
-import com.kidsrec.chatbot.data.remote.OpenAIService
 import com.kidsrec.chatbot.data.remote.OpenLibraryService
 import com.kidsrec.chatbot.data.remote.YouTubeService
 import com.kidsrec.chatbot.util.TopicExtractor
@@ -32,7 +30,6 @@ import kotlin.math.sqrt
 @Singleton
 class ChatDataManager @Inject constructor(
     private val firestore: FirebaseFirestore,
-    private val openAIService: OpenAIService,
     private val geminiService: GeminiService,
     private val bookDataManager: BookDataManager,
     private val recommendationEngine: RecommendationEngine,
@@ -866,7 +863,7 @@ class ChatDataManager @Inject constructor(
             val conversationHistory = messagesSnapshot.documents.mapNotNull { doc ->
                 val msg = doc.toObject(ChatMessage::class.java)
                 msg?.let {
-                    OpenAIMessage(
+                    ChatTurn(
                         role = if (it.role == MessageRole.USER) "user" else "assistant",
                         content = it.content
                     )
@@ -923,22 +920,7 @@ RULES FOR JSON:
 - keep descriptions short
 """.trimIndent()
 
-            val messagesList = mutableListOf(
-                OpenAIMessage(role = "system", content = systemPrompt)
-            )
-            messagesList.addAll(conversationHistory)
-            messagesList.add(OpenAIMessage(role = "user", content = sanitizedMessage))
-
-            val rawResponse = try {
-                geminiService.chat(systemPrompt, conversationHistory, sanitizedMessage)
-            } catch (e: Exception) {
-                Log.w("ChatDataManager", "Gemini failed, trying OpenAI: ${e.message}")
-                val openAIResponse = openAIService.createChatCompletion(
-                    OpenAIRequest(messages = messagesList)
-                )
-                openAIResponse.choices.firstOrNull()?.message?.content
-                    ?: "Let's find some fun stories and videos!"
-            }
+            val rawResponse = geminiService.chat(systemPrompt, conversationHistory, sanitizedMessage)
 
             val botResponse = com.kidsrec.chatbot.util.ContentFilter.sanitizeResponse(rawResponse)
             val (cleanContent, parsedRecs) = parseRecommendations(botResponse)

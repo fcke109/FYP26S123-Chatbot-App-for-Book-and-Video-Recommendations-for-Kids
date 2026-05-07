@@ -4,18 +4,13 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.storage.FirebaseStorage
-import com.kidsrec.chatbot.BuildConfig
 import com.kidsrec.chatbot.data.remote.*
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import okhttp3.Interceptor
-import okhttp3.OkHttpClient
-import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
-import java.util.concurrent.TimeUnit
 import javax.inject.Named
 import javax.inject.Singleton
 
@@ -42,48 +37,6 @@ object AppModule {
     @Provides
     @Singleton
     fun provideYouTubeService(functions: FirebaseFunctions): YouTubeService = YouTubeService(functions)
-
-    // OpenAI key injected via interceptor for direct API calls (kept for backward compat)
-    @Provides
-    @Singleton
-    fun provideOpenAIInterceptor(): Interceptor {
-        return Interceptor { chain ->
-            val request = chain.request().newBuilder()
-                .addHeader("Authorization", "Bearer ${BuildConfig.OPENAI_API_KEY}")
-                .build()
-            chain.proceed(request)
-        }
-    }
-
-    @Provides
-    @Singleton
-    fun provideOkHttpClient(openAIInterceptor: Interceptor): OkHttpClient {
-        val loggingInterceptor = HttpLoggingInterceptor().apply {
-            level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BODY
-                    else HttpLoggingInterceptor.Level.NONE
-        }
-        return OkHttpClient.Builder()
-            .addInterceptor(openAIInterceptor)
-            .addInterceptor(loggingInterceptor)
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .writeTimeout(30, TimeUnit.SECONDS)
-            .build()
-    }
-
-    @Provides
-    @Singleton
-    fun provideRetrofit(okHttpClient: OkHttpClient): Retrofit {
-        return Retrofit.Builder()
-            .baseUrl("https://api.openai.com/v1/")
-            .client(okHttpClient)
-            .addConverterFactory(GsonConverterFactory.create())
-            .build()
-    }
-
-    @Provides
-    @Singleton
-    fun provideOpenAIService(retrofit: Retrofit): OpenAIService = retrofit.create(OpenAIService::class.java)
 
     @Provides
     @Singleton
