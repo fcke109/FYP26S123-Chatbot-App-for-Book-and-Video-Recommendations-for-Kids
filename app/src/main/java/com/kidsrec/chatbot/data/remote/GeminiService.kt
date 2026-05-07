@@ -1,30 +1,36 @@
 package com.kidsrec.chatbot.data.remote
 
 import android.util.Log
-import com.google.ai.client.generativeai.GenerativeModel
-import com.google.ai.client.generativeai.type.content
-import com.google.ai.client.generativeai.type.generationConfig
-import com.kidsrec.chatbot.BuildConfig
+import com.google.firebase.Firebase
+import com.google.firebase.ai.ai
+import com.google.firebase.ai.type.GenerativeBackend
+import com.google.firebase.ai.type.content
+import com.google.firebase.ai.type.generationConfig
 import javax.inject.Inject
 import javax.inject.Singleton
+
+data class ChatTurn(
+    val role: String,
+    val content: String
+)
 
 @Singleton
 class GeminiService @Inject constructor() {
 
     private val model by lazy {
-        GenerativeModel(
-            modelName = "gemini-2.0-flash",
-            apiKey = BuildConfig.GEMINI_API_KEY,
-            generationConfig = generationConfig {
-                temperature = 0.7f
-                maxOutputTokens = 500
-            }
-        )
+        Firebase.ai(backend = GenerativeBackend.googleAI())
+            .generativeModel(
+                modelName = "gemini-2.5-flash",
+                generationConfig = generationConfig {
+                    temperature = 0.7f
+                    maxOutputTokens = 500
+                }
+            )
     }
 
     suspend fun chat(
         systemPrompt: String,
-        conversationHistory: List<OpenAIMessage>,
+        conversationHistory: List<ChatTurn>,
         userMessage: String
     ): String {
         return try {

@@ -75,7 +75,7 @@ object InputSanitizer {
     )
 
     /**
-     * Sanitize a user chat message before sending to OpenAI.
+     * Sanitize a user chat message before sending to the LLM.
      */
     fun sanitizeChatMessage(message: String): String {
         var sanitized = message.trim()
