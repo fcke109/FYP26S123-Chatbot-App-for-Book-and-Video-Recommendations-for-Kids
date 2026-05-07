@@ -17,23 +17,22 @@ data class ChatTurn(
 @Singleton
 class GeminiService @Inject constructor() {
 
-    private val model by lazy {
-        Firebase.ai(backend = GenerativeBackend.googleAI())
-            .generativeModel(
-                modelName = "gemini-2.5-flash",
-                generationConfig = generationConfig {
-                    temperature = 0.7f
-                    maxOutputTokens = 500
-                }
-            )
-    }
-
     suspend fun chat(
         systemPrompt: String,
         conversationHistory: List<ChatTurn>,
         userMessage: String
     ): String {
         return try {
+            val model = Firebase.ai(backend = GenerativeBackend.googleAI())
+                .generativeModel(
+                    modelName = "gemini-2.5-flash-lite",
+                    systemInstruction = content { text(systemPrompt) },
+                    generationConfig = generationConfig {
+                        temperature = 0.5f
+                        maxOutputTokens = 1500
+                    }
+                )
+
             val history = conversationHistory.map { msg ->
                 content(role = if (msg.role == "user") "user" else "model") {
                     text(msg.content)
@@ -41,14 +40,7 @@ class GeminiService @Inject constructor() {
             }
 
             val chat = model.startChat(history)
-
-            val fullMessage = if (conversationHistory.isEmpty()) {
-                "$systemPrompt\n\nUser message: $userMessage"
-            } else {
-                userMessage
-            }
-
-            val response = chat.sendMessage(fullMessage)
+            val response = chat.sendMessage(userMessage)
             response.text ?: "Let's find some fun stories and videos!"
         } catch (e: Exception) {
             Log.e("GeminiService", "Gemini API call failed: ${e.message}", e)
