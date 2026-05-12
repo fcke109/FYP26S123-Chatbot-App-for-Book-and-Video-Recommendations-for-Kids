@@ -512,11 +512,30 @@
     // aborted, leaving an Auth account with no Firestore profile.
     let registrationInProgress = false;
 
-    onAuthStateChanged(auth, (user) => {
-      if (user && !registrationInProgress) {
-        window.location.href = '/catalog.html';
-      }
-    });
+    onAuthStateChanged(auth, async (user) => {
+  if (!user || registrationInProgress) return;
+
+  try {
+    const snap = await getDoc(doc(db, "users", user.uid));
+
+    if (!snap.exists()) {
+      window.location.href = "/catalog.html";
+      return;
+    }
+
+    const data = snap.data();
+
+    if (data.planType === "ADMIN") {
+      window.location.href = "/admin.html";
+    } else {
+      window.location.href = "/catalog.html";
+    }
+
+  } catch (err) {
+    console.error("Redirect error:", err);
+    window.location.href = "/catalog.html";
+  }
+});
 
     function showLogin() {
       loginForm.style.display = 'block';
@@ -659,15 +678,31 @@
       msgEl.textContent = text;
       msgEl.className = 'auth-message ' + type;
     }
+loginForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
 
-    loginForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      try {
-        await signInWithEmailAndPassword(auth, document.getElementById('login-email').value, document.getElementById('login-password').value);
-        showMsg('Signed in! Redirecting...', 'success');
-        setTimeout(() => window.location.href = '/catalog.html', 1000);
-      } catch (err) { showMsg(err.message.replace('Firebase: ', ''), 'error'); }
-    });
+  try {
+    const result = await signInWithEmailAndPassword(
+      auth,
+      document.getElementById('login-email').value,
+      document.getElementById('login-password').value
+    );
+
+    showMsg('Signed in! Redirecting...', 'success');
+
+    // 🔥 CHECK USER ROLE HERE
+    const snap = await getDoc(doc(db, "users", result.user.uid));
+
+    if (snap.exists() && snap.data().planType === "ADMIN") {
+      setTimeout(() => window.location.href = '/admin.html', 800);
+    } else {
+      setTimeout(() => window.location.href = '/catalog.html', 800);
+    }
+
+  } catch (err) {
+    showMsg(err.message.replace('Firebase: ', ''), 'error');
+  }
+});
 
     function baseUserDoc({ uid, name, email, age, planType, accountType, parentId, interests, readingLevel, dateOfBirth = null }) {
       // Premium kids get screen time disabled by default — parents can still

@@ -1,0 +1,702 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function currentUserDocExists() {
+      return isAuthenticated()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function currentUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return currentUserDocExists()
+        && currentUserData().planType == 'ADMIN';
+    }
+
+    function isParent() {
+      return currentUserDocExists()
+        && currentUserData().accountType == 'PARENT';
+    }
+
+    function childUserExists(childId) {
+      return exists(/databases/$(database)/documents/users/$(childId));
+    }
+
+    function childUserData(childId) {
+      return get(/databases/$(database)/documents/users/$(childId)).data;
+    }
+
+    function isParentOf(childId) {
+      return isParent()
+        && childUserExists(childId)
+        && (
+          childUserData(childId).parentId == request.auth.uid
+          || childId in currentUserData().childIds
+        );
+    }
+
+    // Same intent as isParentOf, but for the users/{userId} read rule where
+    // userId IS the doc being read. Uses resource.data directly so list
+    // queries (e.g. users.where('parentId','==',parentId)) don't have to
+    // fan out a get() per result, which Firestore denies at evaluation time.
+    function isParentOfThisUserDoc(userId) {
+      return isParent()
+        && (
+          resource.data.parentId == request.auth.uid
+          || userId in currentUserData().childIds
+        );
+    }
+
+   function isValidUserCreate(userId) {
+  return isAuthenticated()
+    && request.auth.uid == userId
+    && request.resource.data.id == userId
+    && request.resource.data.email == request.auth.token.email
+
+    // website registration must only create FREE users
+    && request.resource.data.planType == 'FREE'
+
+    // must be either child or parent account
+    && request.resource.data.accountType in ['CHILD', 'PARENT']
+
+    // basic profile validation
+    && request.resource.data.name is string
+    && request.resource.data.name.size() > 0
+    && request.resource.data.name.size() <= 80
+    && request.resource.data.age is int
+    && request.resource.data.age >= 3
+    && request.resource.data.age <= 99
+
+    // app-matching fields
+    && request.resource.data.interests is list
+    && request.resource.data.readingLevel in ['BEGINNER', 'INTERMEDIATE', 'ADVANCED']
+    && request.resource.data.isGuest is bool
+    && request.resource.data.canDownloadApk is bool
+    && request.resource.data.childIds is list
+
+    // timestamps
+    && request.resource.data.createdAt is timestamp
+    && request.resource.data.updatedAt is timestamp
+
+    // only allow these fields during account creation
+    && request.resource.data.keys().hasOnly([
+     'id',
+  'name',
+  'email',
+  'age',
+  'accountType',
+  'planType',
+  'interests',
+  'readingLevel',
+  'parentalEmail',
+  'parentalPin',
+  'childIds',
+  'parentId',
+  'inviteCode', 
+  'isGuest',
+  'canDownloadApk',
+  'createdAt',
+  'updatedAt'
+]);
+}
+
+    function isValidUserSelfUpdate() {
+      return isAuthenticated()
+        && request.resource.data.id == resource.data.id
+        && request.resource.data.email == resource.data.email
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'planType',
+          'status',
+          'email',
+          'accountType',
+          'parentalPin',
+          'parentId',
+          'childIds',
+          'contentApprovalRequired',
+          'screenTimeConfig'
+        ]);
+    }
+
+
+    function isValidOwnScreenTimeUsageUpdate() {
+      return isAuthenticated()
+        && request.resource.data.id == resource.data.id
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'todayUsageMinutes',
+          'lastUsageDate'
+        ])
+        && request.resource.data.todayUsageMinutes is int
+        && request.resource.data.todayUsageMinutes >= 0
+        && request.resource.data.todayUsageMinutes <= 1440
+        && request.resource.data.lastUsageDate is string
+        && request.resource.data.lastUsageDate.size() >= 8
+        && request.resource.data.lastUsageDate.size() <= 20;
+    }
+
+    function isValidParentChildControlUpdate(childId) {
+      return isParentOf(childId)
+        && request.resource.data.id == resource.data.id
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.parentId == resource.data.parentId
+        && request.resource.data.planType == resource.data.planType
+        && request.resource.data.accountType == resource.data.accountType
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'contentFilters',
+          'parentalPin',
+          'contentApprovalRequired',
+          'screenTimeConfig'
+        ]);
+    }
+
+    // Lets the parent flip a child's status to BANNED (soft-delete) and stamp
+    // deletedAt/deletedBy. PIN verification happens client-side before this
+    // write fires; the rule guarantees only the parent of the child can
+    // perform it AND that nothing else on the user doc is mutated in the
+    // process.
+    function isValidParentSoftDeleteChild(childId) {
+      return isParentOf(childId)
+        && request.resource.data.id == resource.data.id
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.parentId == resource.data.parentId
+        && request.resource.data.planType == resource.data.planType
+        && request.resource.data.accountType == resource.data.accountType
+        && request.resource.data.status == 'BANNED'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status',
+          'deletedAt',
+          'deletedBy'
+        ]);
+    }
+
+    // One-way premium upgrade for the signed-in user themselves. Replaces the
+    // verifyPurchase Cloud Function path (Spark plan: no Cloud Functions).
+    // Lets a user flip planType FREE -> PREMIUM and clear isGuest, and
+    // ABSOLUTELY NOTHING ELSE — no email, accountType, parentId, etc.
+    function isValidSelfUpgradeToPremium() {
+      return isAuthenticated()
+        && resource.data.id == request.auth.uid
+        && resource.data.planType == 'FREE'
+        && request.resource.data.planType == 'PREMIUM'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'planType',
+          'isGuest'
+        ]);
+    }
+
+    // Same as above but for a parent cascading premium to one of their kids.
+    function isValidParentUpgradeChildToPremium(childId) {
+      return isParentOf(childId)
+        && resource.data.planType == 'FREE'
+        && request.resource.data.planType == 'PREMIUM'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'planType',
+          'isGuest'
+        ]);
+    }
+
+    function canManageInviteCodes() {
+      return isAuthenticated();
+    }
+
+    function isValidInviteCodeCreate() {
+      return isAuthenticated();
+    }
+
+    function isValidInviteCodeRedeemUpdate() {
+      return isAuthenticated();
+    }
+
+    function canReadInviteCode() {
+      return isAuthenticated();
+    }
+
+    function canDeleteInviteCode() {
+      return isAdmin();
+    }
+
+    function isValidFeedbackCreate() {
+      return isAuthenticated()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 120
+        && request.resource.data.comment is string
+        && request.resource.data.comment.size() > 0
+        && request.resource.data.comment.size() <= 400
+        && request.resource.data.contentType is string
+        && (
+          request.resource.data.contentType == "book" ||
+          request.resource.data.contentType == "video" ||
+          request.resource.data.contentType == "app"
+        )
+        && request.resource.data.isPositive is bool
+        && request.resource.data.rating is int
+        && request.resource.data.rating >= 1
+        && request.resource.data.rating <= 5
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.timestamp is timestamp
+        && request.resource.data.status is string
+        && request.resource.data.status == "published"
+        && (
+          !("source" in request.resource.data) ||
+          (
+            request.resource.data.source is string &&
+            (
+              request.resource.data.source == "web" ||
+              request.resource.data.source == "app"
+            )
+          )
+        )
+        && (
+          !("contentTitle" in request.resource.data) ||
+          (
+            request.resource.data.contentTitle is string &&
+            request.resource.data.contentTitle.size() <= 120
+          )
+        )
+        && (
+          !("feedback" in request.resource.data) ||
+          (
+            request.resource.data.feedback is string &&
+            request.resource.data.feedback.size() <= 400
+          )
+        )
+        && (
+          !("type" in request.resource.data) ||
+          (
+            request.resource.data.type is string &&
+            (
+              request.resource.data.type == "book" ||
+              request.resource.data.type == "video"
+            )
+          )
+        )
+        && (
+          !("positive" in request.resource.data) ||
+          request.resource.data.positive is bool
+        )
+        && (
+          !("userName" in request.resource.data) ||
+          (
+            request.resource.data.userName is string &&
+            request.resource.data.userName.size() <= 80
+          )
+        )
+        && (
+          !("userDisplayName" in request.resource.data) ||
+          (
+            request.resource.data.userDisplayName is string &&
+            request.resource.data.userDisplayName.size() <= 80
+          )
+        )
+        && (
+          !("userEmail" in request.resource.data) ||
+          (
+            request.resource.data.userEmail is string &&
+            request.resource.data.userEmail.size() <= 120
+          )
+        )
+        && request.resource.data.keys().hasOnly([
+          'userId',
+          'title',
+          'contentTitle',
+          'contentType',
+          'type',
+          'comment',
+          'feedback',
+          'isPositive',
+          'positive',
+          'rating',
+          'source',
+          'createdAt',
+          'updatedAt',
+          'timestamp',
+          'status',
+          'userName',
+          'userDisplayName',
+          'userEmail'
+        ]);
+    }
+
+    function isValidFeedbackUpdate() {
+      return isAuthenticated()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 120
+        && request.resource.data.comment is string
+        && request.resource.data.comment.size() > 0
+        && request.resource.data.comment.size() <= 400
+        && request.resource.data.contentType is string
+        && (
+          request.resource.data.contentType == "book" ||
+          request.resource.data.contentType == "video"
+        )
+        && request.resource.data.isPositive is bool
+        && request.resource.data.rating is int
+        && request.resource.data.rating >= 1
+        && request.resource.data.rating <= 5
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.timestamp == resource.data.timestamp
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.status == resource.data.status
+        && (
+          !("source" in request.resource.data) ||
+          (
+            request.resource.data.source is string &&
+            (
+              request.resource.data.source == "web" ||
+              request.resource.data.source == "app"
+            )
+          )
+        )
+        && (
+          !("contentTitle" in request.resource.data) ||
+          (
+            request.resource.data.contentTitle is string &&
+            request.resource.data.contentTitle.size() <= 120
+          )
+        )
+        && (
+          !("feedback" in request.resource.data) ||
+          (
+            request.resource.data.feedback is string &&
+            request.resource.data.feedback.size() <= 400
+          )
+        )
+        && (
+          !("type" in request.resource.data) ||
+          (
+            request.resource.data.type is string &&
+            (
+              request.resource.data.type == "book" ||
+              request.resource.data.type == "video"
+            )
+          )
+        )
+        && (
+          !("positive" in request.resource.data) ||
+          request.resource.data.positive is bool
+        )
+        && (
+          !("userName" in request.resource.data) ||
+          (
+            request.resource.data.userName is string &&
+            request.resource.data.userName.size() <= 80
+          )
+        )
+        && (
+          !("userDisplayName" in request.resource.data) ||
+          (
+            request.resource.data.userDisplayName is string &&
+            request.resource.data.userDisplayName.size() <= 80
+          )
+        )
+        && (
+          !("userEmail" in request.resource.data) ||
+          (
+            request.resource.data.userEmail is string &&
+            request.resource.data.userEmail.size() <= 120
+          )
+        )
+        && request.resource.data.keys().hasOnly([
+          'userId',
+          'title',
+          'contentTitle',
+          'contentType',
+          'type',
+          'comment',
+          'feedback',
+          'isPositive',
+          'positive',
+          'rating',
+          'source',
+          'createdAt',
+          'updatedAt',
+          'timestamp',
+          'status',
+          'userName',
+          'userDisplayName',
+          'userEmail'
+        ]);
+    }
+
+    // Users
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isParentOfThisUserDoc(userId) || isAdmin();
+      allow create: if isValidUserCreate(userId) || isAdmin();
+      allow update: if
+        (isOwner(userId) && isValidUserSelfUpdate())
+        || (isOwner(userId) && isValidOwnScreenTimeUsageUpdate())
+        || (isOwner(userId) && isValidSelfUpgradeToPremium())
+        || isAdmin()
+        || isValidParentChildControlUpdate(userId)
+        || isValidParentSoftDeleteChild(userId)
+        || isValidParentUpgradeChildToPremium(userId);
+      allow delete: if isAdmin();
+    }
+
+    // Invite codes
+    match /inviteCodes/{code} {
+      allow create: if isAuthenticated();
+      allow read: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    // Chat history
+    match /chatHistory/{userId}/conversations/{conversationId} {
+      allow read: if isOwner(userId) || isParentOf(userId) || isAdmin();
+      allow create, update, delete: if isOwner(userId);
+
+      match /messages/{messageId} {
+        allow read: if isOwner(userId) || isParentOf(userId) || isAdmin();
+        allow create, update, delete: if isOwner(userId);
+      }
+    }
+
+    // Free-plan chat quota
+    match /chatQuota/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create, update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Favorites
+    match /favorites/{userId} {
+      // Top-level doc only contains userId/updatedAt — no PII. Read is open
+      // so the CF service can list the root collection to discover users
+      // that have favorites at all. Owner-only writes still apply.
+      allow read: if isAuthenticated();
+      allow create, update: if isOwner(userId) || isAdmin();
+      allow delete: if isOwner(userId) || isAdmin();
+    }
+
+    match /favorites/{userId}/items/{itemId} {
+      // Cross-user read is intentional: the collaborative-filtering service
+      // walks all users' favorites items to find similar tastes. Items hold
+      // titles/imageUrls/itemIds — no PII. Owner-only writes still apply.
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isOwner(userId) || isAdmin();
+    }
+
+    // Reading history root — open read for CF root-listing. Only userId-keyed
+    // placeholder docs live here.
+    match /readingHistory/{userId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isOwner(userId) || isAdmin();
+      allow delete: if isOwner(userId) || isAdmin();
+    }
+
+    match /readingHistory/{userId}/sessions/{sessionId} {
+      // Cross-user read for CF.
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isOwner(userId) || isAdmin();
+    }
+
+    // Reading history items subcollection — used by the synthetic seed script
+    // and read by the CF service.
+    match /readingHistory/{userId}/items/{itemId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isOwner(userId) || isAdmin();
+    }
+
+    // Learning progress
+    match /learningProgress/{userId}/events/{eventId} {
+      allow read: if isOwner(userId) || isParentOf(userId) || isAdmin();
+      allow create, update, delete: if isOwner(userId) || isAdmin();
+    }
+
+    // Gamification
+    match /gamification/{userId} {
+      allow read: if isOwner(userId) || isParentOf(userId) || isAdmin();
+      allow create, update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /gamification/{userId}/badges/{badgeId} {
+      allow read: if isOwner(userId) || isParentOf(userId) || isAdmin();
+      allow create, update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // User notifications
+    match /userNotifications/{userId}/items/{itemId} {
+      allow read: if isOwner(userId) || isParentOf(userId) || isAdmin();
+      allow create, update, delete: if isOwner(userId) || isAdmin();
+    }
+
+    // Content library
+    match /content/{document=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // Curated books
+    match /content_books/{bookId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // Curated videos. ContentRepository.getAllContentItems() reads this
+    // alongside content_books, so without a rule here the entire CF load
+    // throws permission-denied even though the collection is currently empty.
+    match /content_videos/{videoId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // Categories
+    match /categories/{categoryId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // Screen time
+    match /screenTime/{userId}/daily/{date} {
+
+      // allow user to read their own usage
+      allow read: if isOwner(userId) || isParentOf(userId) || isAdmin();
+
+      // allow ONLY the user to write their own usage
+      allow create, update: if isOwner(userId);
+
+      // delete only admin
+      allow delete: if isAdmin();
+    }
+
+    // Content approvals
+    match /contentApprovals/{approvalId} {
+      allow read: if isAuthenticated() &&
+        (
+          resource.data.childId == request.auth.uid ||
+          resource.data.parentId == request.auth.uid ||
+          isAdmin()
+        );
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() &&
+        (
+          resource.data.parentId == request.auth.uid ||
+          isAdmin()
+        );
+      allow delete: if isAdmin();
+    }
+
+    // Security admin panel
+    match /loginAttempts/{attemptId} {
+      allow read: if true;
+      allow create: if
+        request.resource.data.keys().hasOnly([
+          'id',
+          'userId',
+          'email',
+          'success',
+          'failureReason',
+          'timestamp',
+          'ipAddress'
+        ]) &&
+        request.resource.data.id is string &&
+        request.resource.data.userId is string &&
+        request.resource.data.email is string &&
+        request.resource.data.email.size() > 0 &&
+        request.resource.data.email.size() <= 120 &&
+        request.resource.data.success is bool &&
+        request.resource.data.failureReason is string &&
+        request.resource.data.timestamp is timestamp &&
+        request.resource.data.ipAddress is string;
+      allow update, delete: if isAdmin();
+    }
+
+    match /suspiciousActivities/{activityId} {
+      allow read: if true;
+      allow create: if
+        request.resource.data.keys().hasOnly([
+          'id',
+          'userId',
+          'email',
+          'type',
+          'description',
+          'details',
+          'ipAddress',
+          'severity',
+          'activityType',
+          'timestamp',
+          'resolved'
+        ]) &&
+        request.resource.data.id is string &&
+        request.resource.data.userId is string &&
+        request.resource.data.email is string &&
+        request.resource.data.email.size() > 0 &&
+        request.resource.data.email.size() <= 120 &&
+        request.resource.data.type is string &&
+        request.resource.data.description is string &&
+        request.resource.data.details is string &&
+        request.resource.data.ipAddress is string &&
+        request.resource.data.severity is string &&
+        request.resource.data.activityType is string &&
+        request.resource.data.timestamp is timestamp &&
+        request.resource.data.resolved is bool;
+      allow update, delete: if isAdmin();
+    }
+
+    // Analytics
+    match /analyticsSearches/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /analyticsBookViews/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /analyticsDropOffs/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /analyticsDropOffEvents/{eventId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Audit log
+    match /auditLog/{logId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // Rate limits
+    match /rateLimits/{docId} {
+      allow read, write: if false;
+    }
+
+    // Feedback
+    match /feedback/{feedbackId} {
+      allow read: if true;
+      allow create: if isValidFeedbackCreate();
+      allow update: if isAdmin() || isValidFeedbackUpdate();
+      allow delete: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+    }
+
+    // Website CMS content
+match /site_content/{docId} {
+  allow read, write: if true;
+}
+
+    // Deny all else
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

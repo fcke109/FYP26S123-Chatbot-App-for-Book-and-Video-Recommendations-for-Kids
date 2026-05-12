@@ -396,7 +396,7 @@
       <div class="container hero-grid">
         <div class="hero-text">
           <span class="tag">Safe • Smart • Child-Friendly</span>
-          <h1>Discover safe books and videos</h1>
+          <h1 class="hero-title" id="heroTitle"> Discover safe books and videos </h1>
           <p class="hero-description">
             Little Dino helps children explore age-appropriate books and videos
             through a guided chatbot experience designed for curiosity, learning,
@@ -1053,6 +1053,207 @@
 
   let currentUser = null;
 
+  async function loadHomepageContent() {
+  try {
+    console.log('🔥 loadHomepageContent is running');
+    async function getSiteDoc(docId) {
+      const snap = await getDoc(doc(db, 'site_content', docId));
+      return snap.exists() ? snap.data() : null;
+    }
+
+    function setText(selector, value) {
+      const el = document.querySelector(selector);
+      if (el && value) el.textContent = value;
+    }
+
+    function setAllText(selector, values) {
+      const items = document.querySelectorAll(selector);
+      values.forEach((value, index) => {
+        if (items[index] && value) items[index].textContent = value;
+      });
+    }
+
+    // HERO / HOMEPAGE
+    const home = await getSiteDoc('homepage');
+    console.log('Homepage Firestore data:', home);
+    if (home) {
+      setText('#heroTitle', home.heroTitle || home.title);
+      setText('.hero-description', home.heroSubtitle || home.description);
+      setText('#hero-download-btn', home.primaryButtonText);
+      setText('#hero-signin-btn', home.loginButtonText);
+    }
+
+    // FEATURES
+    const features = await getSiteDoc('features');
+    if (features) {
+      setText('#features h2', features.sectionTitle);
+      setText('#features .section-heading p', features.sectionSubtitle);
+
+      for (let i = 1; i <= 6; i++) {
+        setText(`#features .feature-card:nth-child(${i}) .feature-icon`, features[`feature${i}Icon`]);
+        setText(`#features .feature-card:nth-child(${i}) h3`, features[`feature${i}Title`]);
+        setText(`#features .feature-card:nth-child(${i}) p`, features[`feature${i}Text`]);
+      }
+    }
+
+    // APP PREVIEW
+    const appPreview = await getSiteDoc('app_preview');
+    if (appPreview) {
+      setText('#app-preview .tag', appPreview.tag);
+      setText('#app-preview h2', appPreview.sectionTitle);
+      setText('#app-preview .section-heading p', appPreview.sectionSubtitle);
+
+      for (let i = 1; i <= 4; i++) {
+        setText(`#app-preview .app-side-info .about-panel:nth-child(${i}) h3`, appPreview[`card${i}Title`]);
+        setText(`#app-preview .app-side-info .about-panel:nth-child(${i}) p`, appPreview[`card${i}Text`]);
+      }
+    }
+
+    // HOW IT WORKS
+    const how = await getSiteDoc('howItWorks');
+    if (how) {
+      setText('#how-it-works .tag', how.tag);
+      setText('#how-it-works h2', how.sectionTitle);
+      setText('#how-it-works .section-heading p', how.sectionSubtitle);
+
+      for (let i = 1; i <= 3; i++) {
+        setText(`#how-it-works .step-card:nth-child(${i}) h3`, how[`step${i}Title`]);
+        setText(`#how-it-works .step-card:nth-child(${i}) p`, how[`step${i}Text`]);
+      }
+    }
+
+    // SAFETY
+    const safety = await getSiteDoc('safety');
+    if (safety) {
+      setText('#safety .tag', safety.tag);
+      setText('#safety h2', safety.sectionTitle);
+      setText('#safety .section-heading p', safety.sectionSubtitle);
+      setText('#safety .safety-main-card h3', safety.mainTitle);
+      setText('#safety .safety-main-card .safety-main-top p', safety.mainText);
+
+      for (let i = 1; i <= 4; i++) {
+        setText(`#safety .safety-feature-item:nth-child(${i}) .safety-feature-icon`, safety[`feature${i}Icon`]);
+        setText(`#safety .safety-feature-item:nth-child(${i}) h4`, safety[`feature${i}Title`]);
+        setText(`#safety .safety-feature-item:nth-child(${i}) p`, safety[`feature${i}Text`]);
+      }
+
+      for (let i = 1; i <= 3; i++) {
+        setText(`#safety .safety-side-card:nth-child(${i}) h3`, safety[`side${i}Title`]);
+        setText(`#safety .safety-side-card:nth-child(${i}) p`, safety[`side${i}Text`]);
+      }
+    }
+
+    // PLANS
+    const plans = await getSiteDoc('plans');
+    if (plans) {
+      setText('#plans .tag', plans.tag);
+      setText('#plans h2', plans.sectionTitle);
+      setText('#plans .section-heading p', plans.sectionSubtitle);
+
+      setText('#plans .plan-card:nth-child(1) .plan-badge', plans.freeBadge);
+      setText('#plans .plan-card:nth-child(1) h3', plans.freeTitle);
+      setText('#plans .plan-card:nth-child(1) .plan-price', `${plans.freePrice}${plans.freePeriod || ''}`);
+      setAllText('#plans .plan-card:nth-child(1) .plan-list li', [
+        plans.freeFeature1,
+        plans.freeFeature2,
+        plans.freeFeature3,
+        plans.freeFeature4,
+        plans.freeFeature5,
+        plans.freeFeature6
+      ]);
+      setText('#plan-free-btn', plans.freeButtonText);
+
+      setText('#plans .plan-card:nth-child(2) .plan-badge', plans.premiumBadge);
+      setText('#plans .plan-card:nth-child(2) h3', plans.premiumTitle);
+      setText('#plans .plan-card:nth-child(2) .plan-price', `${plans.premiumPrice}${plans.premiumPeriod || ''}`);
+      setAllText('#plans .plan-card:nth-child(2) .plan-list li', [
+        plans.premiumFeature1,
+        plans.premiumFeature2,
+        plans.premiumFeature3,
+        plans.premiumFeature4,
+        plans.premiumFeature5,
+        plans.premiumFeature6,
+        plans.premiumFeature7,
+        plans.premiumFeature8
+      ]);
+      setText('#plan-premium-btn', plans.premiumButtonText);
+    }
+
+    // TESTIMONIALS
+    const testimonials = await getSiteDoc('testimonials');
+    if (testimonials) {
+      setText('#testimonials .tag', testimonials.tag);
+      setText('#testimonials h2', testimonials.sectionTitle);
+      setText('#testimonials .section-heading p', testimonials.sectionSubtitle);
+      setText('#testimonials .live-badge', testimonials.liveLabel);
+    }
+
+    // ANALYTICS
+    const analytics = await getSiteDoc('analytics');
+    if (analytics) {
+      setText('#analytics .tag', analytics.tag);
+      setText('#analytics h2', analytics.sectionTitle);
+      setText('#analytics .section-heading p', analytics.sectionSubtitle);
+
+      for (let i = 1; i <= 3; i++) {
+        setText(`#analytics .analytics-card:nth-child(${i}) h3`, analytics[`stat${i}Title`]);
+        setText(`#analytics .analytics-card:nth-child(${i}) p`, analytics[`stat${i}Text`]);
+
+        const numberEl = document.querySelector(`#analytics .analytics-card:nth-child(${i}) .count-up`);
+        if (numberEl && analytics[`stat${i}Value`] !== undefined) {
+          numberEl.textContent = analytics[`stat${i}Value`];
+          numberEl.setAttribute('data-target', analytics[`stat${i}Value`]);
+        }
+      }
+    }
+
+    // ABOUT
+    const about = await getSiteDoc('about');
+    if (about) {
+      setText('#about .tag', about.tag);
+      setText('#about h2', about.sectionTitle);
+      setText('#about .section-copy:nth-of-type(1)', about.sectionText1);
+      setText('#about .section-copy:nth-of-type(2)', about.sectionText2);
+      setText('#about .about-panel h3', about.panelTitle);
+      setText('#about .about-panel p', about.panelText);
+
+      setAllText('#about .about-panel li', [
+        about.bullet1,
+        about.bullet2,
+        about.bullet3,
+        about.bullet4
+      ]);
+    }
+
+    // CONTACT
+    const contact = await getSiteDoc('contact');
+    if (contact) {
+      setText('#contact .cta-box .tag', contact.ctaTag);
+      setText('#contact .cta-box h2', contact.ctaTitle);
+      setText('#contact .cta-box p', contact.ctaText);
+      setText('#contact-download-btn', contact.downloadButtonText);
+      setText('#contact-signin-btn', contact.loginButtonText);
+      setText('#contact .btn-secondary', contact.catalogButtonText);
+
+      setText('#contact .section-heading h2', contact.sectionTitle);
+
+      const cards = document.querySelectorAll('#contact .contact-card');
+      if (cards.length >= 3) {
+        cards[0].querySelector('h3').textContent = contact.emailTitle || 'Email';
+        cards[0].querySelector('p').textContent = contact.email || '';
+
+        cards[2].querySelector('h3').textContent = contact.statusTitle || 'App Status';
+        cards[2].querySelector('p').textContent = contact.appStatus || '';
+      }
+    }
+
+    console.log('CMS content loaded successfully');
+  } catch (error) {
+    console.error('CMS load failed:', error);
+  }
+}
+
+loadHomepageContent();
   function setPremiumCtaAlreadyPremium() {
     if (!planPremiumBtn) return;
     planPremiumBtn.textContent = 'Already Premium';
@@ -1082,11 +1283,18 @@
     try {
       const snap = await getDoc(doc(db, 'users', user.uid));
       const data = snap.data();
-      if (data?.planType === 'PREMIUM' || data?.planType === 'ADMIN') {
-        setPremiumCtaAlreadyPremium();
-      } else {
-        setPremiumCtaUpgrade();
-      }
+      if (data?.planType === 'PREMIUM') {
+  setPremiumCtaAlreadyPremium();
+} else if (data?.planType === 'ADMIN') {
+  if (planPremiumBtn) {
+    planPremiumBtn.textContent = 'Admin Dashboard';
+    planPremiumBtn.href = '/admin.html';
+    planPremiumBtn.classList.remove('btn-disabled-premium');
+    planPremiumBtn.removeAttribute('aria-disabled');
+  }
+} else {
+  setPremiumCtaUpgrade();
+}
     } catch (err) {
       // If we can't read the user doc (rules / network), fall back to the
       // upgrade flow — payment.html will reject non-eligible users anyway.

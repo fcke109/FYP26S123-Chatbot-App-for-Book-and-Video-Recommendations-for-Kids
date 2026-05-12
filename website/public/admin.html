@@ -1,0 +1,1161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Little Dino | Admin Dashboard</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+
+  <style>
+    body {
+      margin: 0;
+      background: linear-gradient(135deg, #fffaf7, #f4ecff);
+      color: #2d2542;
+    }
+
+    .admin-layout {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 280px 1fr;
+    }
+
+    .admin-sidebar {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      background: linear-gradient(180deg, #241d38, #4b2fbf);
+      color: white;
+      padding: 2rem 1.2rem;
+      box-sizing: border-box;
+      overflow-y: auto;
+    }
+
+    .admin-brand {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+      margin-bottom: 2rem;
+      padding-bottom: 1.2rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+    }
+
+    .admin-brand img {
+      width: 54px;
+      height: 54px;
+      border-radius: 18px;
+      background: white;
+      padding: 0.2rem;
+    }
+
+    .admin-brand h2 {
+      margin: 0;
+      font-family: "Baloo 2", sans-serif;
+      line-height: 1.05;
+    }
+
+    .admin-brand p {
+      margin: 0.18rem 0 0;
+      color: rgba(255, 255, 255, 0.75);
+      font-size: 0.85rem;
+    }
+
+    .admin-nav-title {
+      margin: 1.3rem 0 0.5rem;
+      padding: 0 0.8rem;
+      color: rgba(255, 255, 255, 0.55);
+      font-size: 0.74rem;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .admin-nav button {
+      width: 100%;
+      border: none;
+      background: transparent;
+      color: rgba(255, 255, 255, 0.82);
+      padding: 0.9rem 1rem;
+      border-radius: 16px;
+      text-align: left;
+      font-weight: 800;
+      cursor: pointer;
+      margin-bottom: 0.45rem;
+      transition: 0.2s ease;
+      font-family: inherit;
+    }
+
+    .admin-nav button.active,
+    .admin-nav button:hover {
+      background: rgba(255, 255, 255, 0.15);
+      color: white;
+      transform: translateX(2px);
+    }
+
+    .admin-main {
+      padding: 2rem;
+      max-width: 1320px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .admin-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .admin-top h1 {
+      font-family: "Baloo 2", sans-serif;
+      margin: 0;
+      color: var(--primary-dark, #4b2fbf);
+      font-size: clamp(2rem, 4vw, 3rem);
+      line-height: 1;
+    }
+
+    .admin-top p {
+      margin: 0.4rem 0 0;
+      color: var(--muted, #746a88);
+      font-weight: 600;
+    }
+
+    .logout-btn {
+      border: 1px solid rgba(139, 92, 246, 0.25);
+      color: var(--primary-dark, #4b2fbf);
+      background: white;
+      padding: 0.75rem 1.1rem;
+      border-radius: 999px;
+      font-weight: 900;
+      cursor: pointer;
+      box-shadow: 0 10px 24px rgba(109, 84, 147, 0.1);
+      font-family: inherit;
+    }
+
+    .admin-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .admin-stat,
+    .admin-panel,
+    .cms-card,
+    .feedback-admin-card {
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid rgba(139, 92, 246, 0.12);
+      border-radius: 26px;
+      box-shadow: 0 14px 34px rgba(109, 84, 147, 0.1);
+    }
+
+    .admin-stat {
+      padding: 1.25rem;
+    }
+
+    .admin-stat h3 {
+      margin: 0;
+      color: var(--muted, #746a88);
+      font-size: 0.86rem;
+    }
+
+    .admin-stat strong {
+      display: block;
+      font-size: 1.8rem;
+      margin-top: 0.4rem;
+      color: var(--primary-dark, #4b2fbf);
+    }
+
+    .admin-stat span {
+      display: block;
+      margin-top: 0.35rem;
+      color: #827792;
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+
+    .admin-panel {
+      display: none;
+      padding: 1.6rem;
+    }
+
+    .admin-panel.active {
+      display: block;
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 1.3rem;
+      flex-wrap: wrap;
+    }
+
+    .panel-header h2 {
+      font-family: "Baloo 2", sans-serif;
+      margin: 0;
+      color: var(--primary-dark, #4b2fbf);
+      font-size: 2rem;
+    }
+
+    .panel-header p {
+      margin: 0.35rem 0 0;
+      color: var(--muted, #746a88);
+      font-weight: 600;
+      max-width: 760px;
+    }
+
+    .cms-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1rem;
+    }
+
+    .cms-card {
+      padding: 1.2rem;
+    }
+
+    .cms-card.full-width {
+      grid-column: 1 / -1;
+    }
+
+    .cms-card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 1rem;
+      padding-bottom: 0.8rem;
+      border-bottom: 1px solid rgba(139, 92, 246, 0.1);
+    }
+
+    .cms-card-header h3 {
+      margin: 0;
+      font-family: "Baloo 2", sans-serif;
+      font-size: 1.35rem;
+      color: #2d2542;
+    }
+
+    .cms-card-header p {
+      margin: 0.25rem 0 0;
+      color: #7a708b;
+      font-size: 0.88rem;
+      font-weight: 600;
+    }
+
+    .cms-doc-badge {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 0.35rem 0.7rem;
+      background: #f3edff;
+      color: #4b2fbf;
+      font-size: 0.74rem;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .admin-field {
+      margin-bottom: 1rem;
+    }
+
+    .admin-field label {
+      display: block;
+      font-weight: 900;
+      margin-bottom: 0.42rem;
+      color: #3a3150;
+      font-size: 0.9rem;
+    }
+
+    .admin-field input,
+    .admin-field textarea {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 0.9rem 1rem;
+      border-radius: 16px;
+      border: 1px solid rgba(139, 92, 246, 0.18);
+      font: inherit;
+      background: white;
+      outline: none;
+      transition: 0.2s ease;
+    }
+
+    .admin-field input:focus,
+    .admin-field textarea:focus {
+      border-color: rgba(139, 92, 246, 0.55);
+      box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.1);
+    }
+
+    .admin-field textarea {
+      min-height: 105px;
+      resize: vertical;
+    }
+
+    .field-row {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1rem;
+    }
+
+    .admin-actions {
+      display: flex;
+      gap: 0.8rem;
+      flex-wrap: wrap;
+      margin-top: 1rem;
+      align-items: center;
+    }
+
+    .admin-status {
+      margin: 0;
+      font-weight: 900;
+      color: #2e7d32;
+    }
+
+    .admin-status.error {
+      color: #c62828;
+    }
+
+    .secondary-admin-btn {
+      border: 1px solid rgba(139, 92, 246, 0.2);
+      background: white;
+      color: var(--primary-dark, #4b2fbf);
+      border-radius: 999px;
+      padding: 0.75rem 1rem;
+      font-weight: 900;
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    .feedback-list {
+      display: grid;
+      gap: 1rem;
+    }
+
+    .feedback-admin-card {
+      padding: 1rem;
+    }
+
+    .feedback-admin-card h4 {
+      margin: 0 0 0.5rem;
+      color: #2d2542;
+    }
+
+    .feedback-admin-card p {
+      color: var(--muted, #746a88);
+      margin: 0.35rem 0;
+    }
+
+    .delete-btn {
+      background: #ffebee;
+      color: #c62828;
+      border: none;
+      border-radius: 999px;
+      padding: 0.58rem 1rem;
+      font-weight: 900;
+      cursor: pointer;
+      margin-top: 0.7rem;
+      font-family: inherit;
+    }
+
+    .admin-preview-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      margin: 1rem 0;
+      flex-wrap: wrap;
+    }
+
+    .admin-preview-frame {
+      width: 100%;
+      height: 760px;
+      border: 1px solid rgba(139, 92, 246, 0.18);
+      border-radius: 24px;
+      background: white;
+      box-shadow: 0 14px 32px rgba(109, 84, 147, 0.1);
+    }
+
+    .quick-actions {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .quick-card {
+      padding: 1rem;
+      border-radius: 22px;
+      background: white;
+      border: 1px solid rgba(139, 92, 246, 0.12);
+    }
+
+    .quick-card h3 {
+      margin: 0 0 0.35rem;
+      color: #2d2542;
+    }
+
+    .quick-card p {
+      margin: 0;
+      color: #7a708b;
+      font-weight: 600;
+    }
+
+    @media (max-width: 1100px) {
+      .admin-grid,
+      .quick-actions {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .cms-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 900px) {
+      .admin-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .admin-sidebar {
+        position: relative;
+        height: auto;
+      }
+
+      .admin-main {
+        padding: 1rem;
+      }
+    }
+
+    @media (max-width: 650px) {
+      .admin-grid,
+      .quick-actions,
+      .field-row {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="admin-layout">
+    <aside class="admin-sidebar">
+      <div class="admin-brand">
+        <img src="/images/little_dino_icon_512.png" alt="Little Dino" />
+        <div>
+          <h2>Little Dino</h2>
+          <p>Admin Control Room</p>
+        </div>
+      </div>
+
+      <div class="admin-nav">
+        <div class="admin-nav-title">Dashboard</div>
+        <button class="admin-tab active" data-tab="overview">📊 Overview</button>
+        <button class="admin-tab" data-tab="cms">🌐 Website CMS</button>
+        <button class="admin-tab" data-tab="feedback">⭐ Feedback</button>
+      </div>
+    </aside>
+
+    <main class="admin-main">
+      <div class="admin-top">
+        <div>
+          <h1>Admin Dashboard</h1>
+          <p id="adminWelcome">Manage Little Dino website content and feedback.</p>
+        </div>
+
+        <button id="logoutBtn" class="logout-btn" type="button">Logout</button>
+      </div>
+
+      <div class="admin-grid">
+        <div class="admin-stat">
+          <h3>CMS Documents</h3>
+          <strong id="cmsDocCount">0</strong>
+          <span>Website sections connected</span>
+        </div>
+        <div class="admin-stat">
+          <h3>Live Feedback</h3>
+          <strong id="feedbackCount">0</strong>
+          <span>Published user feedback</span>
+        </div>
+        <div class="admin-stat">
+          <h3>Admin Status</h3>
+          <strong>Active</strong>
+          <span>Verified admin access</span>
+        </div>
+        <div class="admin-stat">
+          <h3>Website Preview</h3>
+          <strong>Live</strong>
+          <span>Refresh after saving</span>
+        </div>
+      </div>
+
+      <section id="overview" class="admin-panel active">
+        <div class="panel-header">
+          <div>
+            <h2>Overview</h2>
+            <p>Use this dashboard to edit the live website content stored in Firestore, manage feedback, and preview changes immediately.</p>
+          </div>
+        </div>
+
+        <div class="quick-actions">
+          <div class="quick-card">
+            <h3>1. Edit CMS</h3>
+            <p>Update hero, features, safety, plans, about and contact content.</p>
+          </div>
+          <div class="quick-card">
+            <h3>2. Save Changes</h3>
+            <p>Changes are saved directly into the site_content Firestore collection.</p>
+          </div>
+          <div class="quick-card">
+            <h3>3. Refresh Preview</h3>
+            <p>Use the preview to quickly check the updated homepage.</p>
+          </div>
+        </div>
+
+        <div class="admin-preview-toolbar">
+          <strong>Live Website Preview</strong>
+          <button id="refreshPreviewBtn" class="btn btn-primary" type="button">Refresh Preview</button>
+        </div>
+
+        <iframe
+          id="websitePreview"
+          src="/index.html"
+          class="admin-preview-frame"
+          title="Little Dino Website Preview"
+        ></iframe>
+      </section>
+
+      <section id="cms" class="admin-panel">
+        <div class="panel-header">
+          <div>
+            <h2>Website CMS</h2>
+            <p>Edit the same Firestore documents your homepage reads from. Save each card separately for cleaner control.</p>
+          </div>
+          <button id="reloadCmsBtn" class="secondary-admin-btn" type="button">Reload CMS Data</button>
+        </div>
+
+        <div class="cms-grid">
+          <article class="cms-card full-width">
+            <div class="cms-card-header">
+              <div>
+                <h3>Homepage Hero</h3>
+                <p>Main title, subtitle and top call-to-action buttons.</p>
+              </div>
+              <span class="cms-doc-badge">site_content/homepage</span>
+            </div>
+
+            <div class="admin-field">
+              <label for="heroTitleInput">Hero Title</label>
+              <input id="heroTitleInput" placeholder="Discover safe books and videos" />
+            </div>
+
+            <div class="admin-field">
+              <label for="heroSubtitleInput">Hero Subtitle</label>
+              <textarea id="heroSubtitleInput" placeholder="Little Dino helps children explore..."></textarea>
+            </div>
+
+            <div class="field-row">
+              <div class="admin-field">
+                <label for="heroPrimaryButtonInput">Primary Button Text</label>
+                <input id="heroPrimaryButtonInput" placeholder="Download Android App" />
+              </div>
+              <div class="admin-field">
+                <label for="heroLoginButtonInput">Login Button Text</label>
+                <input id="heroLoginButtonInput" placeholder="Login to Download" />
+              </div>
+            </div>
+
+            <div class="admin-actions">
+              <button id="saveHomepageBtn" class="btn btn-primary" type="button">Save Homepage</button>
+              <p id="homepageStatus" class="admin-status"></p>
+            </div>
+          </article>
+
+          <article class="cms-card">
+            <div class="cms-card-header">
+              <div>
+                <h3>Features</h3>
+                <p>Controls the feature section heading and subtitle.</p>
+              </div>
+              <span class="cms-doc-badge">site_content/features</span>
+            </div>
+
+            <div class="admin-field">
+              <label for="featuresTitleInput">Section Title</label>
+              <input id="featuresTitleInput" placeholder="What makes Little Dino special?" />
+            </div>
+
+            <div class="admin-field">
+              <label for="featuresSubtitleInput">Section Subtitle</label>
+              <textarea id="featuresSubtitleInput" placeholder="The platform is designed..."></textarea>
+            </div>
+
+            <div class="admin-actions">
+              <button id="saveFeaturesBtn" class="btn btn-primary" type="button">Save Features</button>
+              <p id="featuresStatus" class="admin-status"></p>
+            </div>
+          </article>
+
+          <article class="cms-card">
+            <div class="cms-card-header">
+              <div>
+                <h3>App Preview</h3>
+                <p>Controls the demo section heading and subtitle.</p>
+              </div>
+              <span class="cms-doc-badge">site_content/app_preview</span>
+            </div>
+
+            <div class="admin-field">
+              <label for="appPreviewTitleInput">Section Title</label>
+              <input id="appPreviewTitleInput" placeholder="A closer look at the Little Dino experience" />
+            </div>
+
+            <div class="admin-field">
+              <label for="appPreviewSubtitleInput">Section Subtitle</label>
+              <textarea id="appPreviewSubtitleInput"></textarea>
+            </div>
+
+            <div class="admin-actions">
+              <button id="saveAppPreviewBtn" class="btn btn-primary" type="button">Save App Preview</button>
+              <p id="appPreviewStatus" class="admin-status"></p>
+            </div>
+          </article>
+
+          <article class="cms-card">
+            <div class="cms-card-header">
+              <div>
+                <h3>How It Works</h3>
+                <p>Controls the journey section heading and subtitle.</p>
+              </div>
+              <span class="cms-doc-badge">site_content/howItWorks</span>
+            </div>
+
+            <div class="admin-field">
+              <label for="howTitleInput">Section Title</label>
+              <input id="howTitleInput" placeholder="A simple journey for young users" />
+            </div>
+
+            <div class="admin-field">
+              <label for="howSubtitleInput">Section Subtitle</label>
+              <textarea id="howSubtitleInput"></textarea>
+            </div>
+
+            <div class="admin-actions">
+              <button id="saveHowBtn" class="btn btn-primary" type="button">Save How It Works</button>
+              <p id="howStatus" class="admin-status"></p>
+            </div>
+          </article>
+
+          <article class="cms-card">
+            <div class="cms-card-header">
+              <div>
+                <h3>Safety</h3>
+                <p>Controls the safety section heading and subtitle.</p>
+              </div>
+              <span class="cms-doc-badge">site_content/safety</span>
+            </div>
+
+            <div class="admin-field">
+              <label for="safetyTitleInput">Section Title</label>
+              <input id="safetyTitleInput" placeholder="A safer digital experience for children" />
+            </div>
+
+            <div class="admin-field">
+              <label for="safetySubtitleInput">Section Subtitle</label>
+              <textarea id="safetySubtitleInput"></textarea>
+            </div>
+
+            <div class="admin-actions">
+              <button id="saveSafetyBtn" class="btn btn-primary" type="button">Save Safety</button>
+              <p id="safetyStatus" class="admin-status"></p>
+            </div>
+          </article>
+
+          <article class="cms-card">
+            <div class="cms-card-header">
+              <div>
+                <h3>Plans</h3>
+                <p>Controls plan section heading, free plan and premium plan text.</p>
+              </div>
+              <span class="cms-doc-badge">site_content/plans</span>
+            </div>
+
+            <div class="admin-field">
+              <label for="plansTitleInput">Section Title</label>
+              <input id="plansTitleInput" placeholder="Simple plans for Little Dino" />
+            </div>
+
+            <div class="admin-field">
+              <label for="plansSubtitleInput">Section Subtitle</label>
+              <textarea id="plansSubtitleInput"></textarea>
+            </div>
+
+            <div class="field-row">
+              <div class="admin-field">
+                <label for="freeTitleInput">Free Plan Title</label>
+                <input id="freeTitleInput" placeholder="Free" />
+              </div>
+              <div class="admin-field">
+                <label for="premiumTitleInput">Premium Plan Title</label>
+                <input id="premiumTitleInput" placeholder="Premium" />
+              </div>
+            </div>
+
+            <div class="field-row">
+              <div class="admin-field">
+                <label for="freePriceInput">Free Price</label>
+                <input id="freePriceInput" placeholder="$0" />
+              </div>
+              <div class="admin-field">
+                <label for="premiumPriceInput">Premium Price</label>
+                <input id="premiumPriceInput" placeholder="$9.99" />
+              </div>
+            </div>
+
+            <div class="admin-actions">
+              <button id="savePlansBtn" class="btn btn-primary" type="button">Save Plans</button>
+              <p id="plansStatus" class="admin-status"></p>
+            </div>
+          </article>
+
+          <article class="cms-card">
+            <div class="cms-card-header">
+              <div>
+                <h3>Testimonials</h3>
+                <p>Controls feedback section heading and subtitle.</p>
+              </div>
+              <span class="cms-doc-badge">site_content/testimonials</span>
+            </div>
+
+            <div class="admin-field">
+              <label for="testimonialsTitleInput">Section Title</label>
+              <input id="testimonialsTitleInput" placeholder="What kids think of their recommendations" />
+            </div>
+
+            <div class="admin-field">
+              <label for="testimonialsSubtitleInput">Section Subtitle</label>
+              <textarea id="testimonialsSubtitleInput"></textarea>
+            </div>
+
+            <div class="admin-actions">
+              <button id="saveTestimonialsBtn" class="btn btn-primary" type="button">Save Testimonials</button>
+              <p id="testimonialsStatus" class="admin-status"></p>
+            </div>
+          </article>
+
+          <article class="cms-card">
+            <div class="cms-card-header">
+              <div>
+                <h3>Analytics</h3>
+                <p>Controls analytics section heading and subtitle.</p>
+              </div>
+              <span class="cms-doc-badge">site_content/analytics</span>
+            </div>
+
+            <div class="admin-field">
+              <label for="analyticsTitleInput">Section Title</label>
+              <input id="analyticsTitleInput" placeholder="Track Little Dino growth at a glance" />
+            </div>
+
+            <div class="admin-field">
+              <label for="analyticsSubtitleInput">Section Subtitle</label>
+              <textarea id="analyticsSubtitleInput"></textarea>
+            </div>
+
+            <div class="admin-actions">
+              <button id="saveAnalyticsBtn" class="btn btn-primary" type="button">Save Analytics</button>
+              <p id="analyticsStatus" class="admin-status"></p>
+            </div>
+          </article>
+
+          <article class="cms-card">
+            <div class="cms-card-header">
+              <div>
+                <h3>About</h3>
+                <p>Controls the about section heading and paragraphs.</p>
+              </div>
+              <span class="cms-doc-badge">site_content/about</span>
+            </div>
+
+            <div class="admin-field">
+              <label for="aboutTitleInput">Section Title</label>
+              <input id="aboutTitleInput" placeholder="About the Little Dino project" />
+            </div>
+
+            <div class="admin-field">
+              <label for="aboutText1Input">Paragraph 1</label>
+              <textarea id="aboutText1Input"></textarea>
+            </div>
+
+            <div class="admin-field">
+              <label for="aboutText2Input">Paragraph 2</label>
+              <textarea id="aboutText2Input"></textarea>
+            </div>
+
+            <div class="admin-actions">
+              <button id="saveAboutBtn" class="btn btn-primary" type="button">Save About</button>
+              <p id="aboutStatus" class="admin-status"></p>
+            </div>
+          </article>
+
+          <article class="cms-card">
+            <div class="cms-card-header">
+              <div>
+                <h3>Contact</h3>
+                <p>Controls contact details and CTA text.</p>
+              </div>
+              <span class="cms-doc-badge">site_content/contact</span>
+            </div>
+
+            <div class="admin-field">
+              <label for="contactCtaTitleInput">CTA Title</label>
+              <input id="contactCtaTitleInput" placeholder="Ready to explore Little Dino?" />
+            </div>
+
+            <div class="admin-field">
+              <label for="contactCtaTextInput">CTA Text</label>
+              <textarea id="contactCtaTextInput"></textarea>
+            </div>
+
+            <div class="admin-field">
+              <label for="contactEmailInput">Contact Email</label>
+              <input id="contactEmailInput" placeholder="littledino075@gmail.com" />
+            </div>
+
+            <div class="admin-field">
+              <label for="appStatusInput">App Status</label>
+              <input id="appStatusInput" placeholder="Available as a direct Android APK download" />
+            </div>
+
+            <div class="admin-actions">
+              <button id="saveContactBtn" class="btn btn-primary" type="button">Save Contact</button>
+              <p id="contactStatus" class="admin-status"></p>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section id="feedback" class="admin-panel">
+        <div class="panel-header">
+          <div>
+            <h2>Manage Feedback</h2>
+            <p>View and delete feedback shown on the Little Dino website.</p>
+          </div>
+          <button id="reloadFeedbackBtn" class="secondary-admin-btn" type="button">Reload Feedback</button>
+        </div>
+
+        <div id="feedbackList" class="feedback-list">
+          <p>Loading feedback...</p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script type="module">
+    import {
+      auth,
+      db,
+      onAuthStateChanged,
+      signOut,
+      doc,
+      getDoc,
+      setDoc,
+      collection,
+      getDocs,
+      deleteDoc,
+      serverTimestamp
+    } from '/js/firebase-config.js';
+
+    const CMS_DOCS = [
+      'homepage',
+      'features',
+      'app_preview',
+      'howItWorks',
+      'safety',
+      'plans',
+      'testimonials',
+      'analytics',
+      'about',
+      'contact'
+    ];
+
+    const adminWelcome = document.getElementById('adminWelcome');
+    const feedbackCount = document.getElementById('feedbackCount');
+    const cmsDocCount = document.getElementById('cmsDocCount');
+    const feedbackList = document.getElementById('feedbackList');
+
+    let currentAdmin = null;
+
+    function value(id) {
+      return document.getElementById(id)?.value.trim() || '';
+    }
+
+    function setValue(id, text) {
+      const element = document.getElementById(id);
+      if (element) element.value = text || '';
+    }
+
+    function setStatus(id, text, isError = false) {
+      const element = document.getElementById(id);
+      if (!element) return;
+      element.textContent = text;
+      element.classList.toggle('error', isError);
+    }
+
+    async function getSiteDoc(docId) {
+      const snap = await getDoc(doc(db, 'site_content', docId));
+      return snap.exists() ? snap.data() : {};
+    }
+
+    async function saveSiteDoc(docId, data, statusId) {
+      try {
+        setStatus(statusId, 'Saving...');
+
+        await setDoc(doc(db, 'site_content', docId), {
+          ...data,
+          updatedAt: serverTimestamp(),
+          updatedBy: currentAdmin?.uid || null
+        }, { merge: true });
+
+        setStatus(statusId, 'Saved successfully!');
+        refreshPreview();
+      } catch (error) {
+        console.error(`Save failed for ${docId}:`, error);
+        setStatus(statusId, 'Save failed. Check console or Firestore rules.', true);
+      }
+    }
+
+    function refreshPreview() {
+      const frame = document.getElementById('websitePreview');
+      if (frame) frame.src = '/index.html?preview=' + Date.now();
+    }
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        window.location.href = '/login.html';
+        return;
+      }
+
+      const userSnap = await getDoc(doc(db, 'users', user.uid));
+
+      if (!userSnap.exists() || userSnap.data().planType !== 'ADMIN') {
+        alert('Access denied. Admin only.');
+        window.location.href = '/';
+        return;
+      }
+
+      currentAdmin = user;
+      adminWelcome.textContent = `Welcome, ${user.displayName || user.email}`;
+
+      await loadCmsContent();
+      await loadFeedback();
+    });
+
+    document.querySelectorAll('.admin-tab').forEach((button) => {
+      button.addEventListener('click', () => {
+        document.querySelectorAll('.admin-tab').forEach((b) => b.classList.remove('active'));
+        document.querySelectorAll('.admin-panel').forEach((p) => p.classList.remove('active'));
+
+        button.classList.add('active');
+        document.getElementById(button.dataset.tab)?.classList.add('active');
+      });
+    });
+
+    async function loadCmsContent() {
+      try {
+        cmsDocCount.textContent = CMS_DOCS.length;
+
+        const home = await getSiteDoc('homepage');
+        setValue('heroTitleInput', home.heroTitle || home.title || '');
+        setValue('heroSubtitleInput', home.heroSubtitle || home.description || '');
+        setValue('heroPrimaryButtonInput', home.primaryButtonText || '');
+        setValue('heroLoginButtonInput', home.loginButtonText || '');
+
+        const features = await getSiteDoc('features');
+        setValue('featuresTitleInput', features.sectionTitle || '');
+        setValue('featuresSubtitleInput', features.sectionSubtitle || '');
+
+        const appPreview = await getSiteDoc('app_preview');
+        setValue('appPreviewTitleInput', appPreview.sectionTitle || '');
+        setValue('appPreviewSubtitleInput', appPreview.sectionSubtitle || '');
+
+        const how = await getSiteDoc('howItWorks');
+        setValue('howTitleInput', how.sectionTitle || '');
+        setValue('howSubtitleInput', how.sectionSubtitle || '');
+
+        const safety = await getSiteDoc('safety');
+        setValue('safetyTitleInput', safety.sectionTitle || '');
+        setValue('safetySubtitleInput', safety.sectionSubtitle || '');
+
+        const plans = await getSiteDoc('plans');
+        setValue('plansTitleInput', plans.sectionTitle || '');
+        setValue('plansSubtitleInput', plans.sectionSubtitle || '');
+        setValue('freeTitleInput', plans.freeTitle || '');
+        setValue('premiumTitleInput', plans.premiumTitle || '');
+        setValue('freePriceInput', plans.freePrice || '');
+        setValue('premiumPriceInput', plans.premiumPrice || '');
+
+        const testimonials = await getSiteDoc('testimonials');
+        setValue('testimonialsTitleInput', testimonials.sectionTitle || '');
+        setValue('testimonialsSubtitleInput', testimonials.sectionSubtitle || '');
+
+        const analytics = await getSiteDoc('analytics');
+        setValue('analyticsTitleInput', analytics.sectionTitle || '');
+        setValue('analyticsSubtitleInput', analytics.sectionSubtitle || '');
+
+        const about = await getSiteDoc('about');
+        setValue('aboutTitleInput', about.sectionTitle || '');
+        setValue('aboutText1Input', about.sectionText1 || '');
+        setValue('aboutText2Input', about.sectionText2 || '');
+
+        const contact = await getSiteDoc('contact');
+        setValue('contactCtaTitleInput', contact.ctaTitle || '');
+        setValue('contactCtaTextInput', contact.ctaText || '');
+        setValue('contactEmailInput', contact.email || '');
+        setValue('appStatusInput', contact.appStatus || '');
+      } catch (error) {
+        console.error('CMS load failed:', error);
+        alert('Could not load CMS content. Check Firestore rules and console.');
+      }
+    }
+
+    document.getElementById('saveHomepageBtn').addEventListener('click', () => {
+      saveSiteDoc('homepage', {
+        heroTitle: value('heroTitleInput'),
+        title: value('heroTitleInput'),
+        heroSubtitle: value('heroSubtitleInput'),
+        description: value('heroSubtitleInput'),
+        primaryButtonText: value('heroPrimaryButtonInput'),
+        loginButtonText: value('heroLoginButtonInput')
+      }, 'homepageStatus');
+    });
+
+    document.getElementById('saveFeaturesBtn').addEventListener('click', () => {
+      saveSiteDoc('features', {
+        sectionTitle: value('featuresTitleInput'),
+        sectionSubtitle: value('featuresSubtitleInput')
+      }, 'featuresStatus');
+    });
+
+    document.getElementById('saveAppPreviewBtn').addEventListener('click', () => {
+      saveSiteDoc('app_preview', {
+        sectionTitle: value('appPreviewTitleInput'),
+        sectionSubtitle: value('appPreviewSubtitleInput')
+      }, 'appPreviewStatus');
+    });
+
+    document.getElementById('saveHowBtn').addEventListener('click', () => {
+      saveSiteDoc('howItWorks', {
+        sectionTitle: value('howTitleInput'),
+        sectionSubtitle: value('howSubtitleInput')
+      }, 'howStatus');
+    });
+
+    document.getElementById('saveSafetyBtn').addEventListener('click', () => {
+      saveSiteDoc('safety', {
+        sectionTitle: value('safetyTitleInput'),
+        sectionSubtitle: value('safetySubtitleInput')
+      }, 'safetyStatus');
+    });
+
+    document.getElementById('savePlansBtn').addEventListener('click', () => {
+      saveSiteDoc('plans', {
+        sectionTitle: value('plansTitleInput'),
+        sectionSubtitle: value('plansSubtitleInput'),
+        freeTitle: value('freeTitleInput'),
+        premiumTitle: value('premiumTitleInput'),
+        freePrice: value('freePriceInput'),
+        premiumPrice: value('premiumPriceInput')
+      }, 'plansStatus');
+    });
+
+    document.getElementById('saveTestimonialsBtn').addEventListener('click', () => {
+      saveSiteDoc('testimonials', {
+        sectionTitle: value('testimonialsTitleInput'),
+        sectionSubtitle: value('testimonialsSubtitleInput')
+      }, 'testimonialsStatus');
+    });
+
+    document.getElementById('saveAnalyticsBtn').addEventListener('click', () => {
+      saveSiteDoc('analytics', {
+        sectionTitle: value('analyticsTitleInput'),
+        sectionSubtitle: value('analyticsSubtitleInput')
+      }, 'analyticsStatus');
+    });
+
+    document.getElementById('saveAboutBtn').addEventListener('click', () => {
+      saveSiteDoc('about', {
+        sectionTitle: value('aboutTitleInput'),
+        sectionText1: value('aboutText1Input'),
+        sectionText2: value('aboutText2Input')
+      }, 'aboutStatus');
+    });
+
+    document.getElementById('saveContactBtn').addEventListener('click', () => {
+      saveSiteDoc('contact', {
+        ctaTitle: value('contactCtaTitleInput'),
+        ctaText: value('contactCtaTextInput'),
+        email: value('contactEmailInput'),
+        appStatus: value('appStatusInput')
+      }, 'contactStatus');
+    });
+
+    async function loadFeedback() {
+      try {
+        feedbackList.innerHTML = '<p>Loading feedback...</p>';
+
+        const snap = await getDocs(collection(db, 'feedback'));
+        feedbackCount.textContent = snap.size;
+
+        if (snap.empty) {
+          feedbackList.innerHTML = '<p>No feedback found.</p>';
+          return;
+        }
+
+        feedbackList.innerHTML = '';
+
+        snap.forEach((docSnap) => {
+          const data = docSnap.data();
+          const card = document.createElement('div');
+          card.className = 'feedback-admin-card';
+
+          card.innerHTML = `
+            <h4>${data.title || 'Little Dino App Feedback'}</h4>
+            <p><strong>User:</strong> ${data.userName || data.userDisplayName || data.userEmail || data.userId || 'Unknown'}</p>
+            <p><strong>Type:</strong> ${data.contentType || data.type || 'app'}</p>
+            <p><strong>Rating:</strong> ${data.rating || '-'} / 5</p>
+            <p>${data.comment || data.feedback || 'No comment provided.'}</p>
+            <button class="delete-btn" data-id="${docSnap.id}" type="button">Delete Feedback</button>
+          `;
+
+          feedbackList.appendChild(card);
+        });
+
+        document.querySelectorAll('.delete-btn').forEach((button) => {
+          button.addEventListener('click', async () => {
+            const id = button.dataset.id;
+            if (!id || !confirm('Delete this feedback?')) return;
+
+            await deleteDoc(doc(db, 'feedback', id));
+            await loadFeedback();
+          });
+        });
+      } catch (error) {
+        console.error('Feedback load failed:', error);
+        feedbackList.innerHTML = '<p style="color:#c62828;font-weight:900;">Could not load feedback. Check Firestore rules or console.</p>';
+      }
+    }
+
+    document.getElementById('refreshPreviewBtn').addEventListener('click', refreshPreview);
+    document.getElementById('reloadCmsBtn').addEventListener('click', loadCmsContent);
+    document.getElementById('reloadFeedbackBtn').addEventListener('click', loadFeedback);
+
+    document.getElementById('logoutBtn').addEventListener('click', async () => {
+      await signOut(auth);
+      window.location.href = '/login.html';
+    });
+  </script>
+</body>
+</html>
