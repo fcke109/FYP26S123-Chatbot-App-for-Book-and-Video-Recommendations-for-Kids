@@ -58,30 +58,95 @@ service cloud.firestore {
         );
     }
 
-    function isValidUserCreate(userId) {
-      return isAuthenticated()
-        && request.auth.uid == userId
-        && request.resource.data.id == userId
-        && request.resource.data.planType != 'ADMIN'
-        && request.resource.data.email == request.auth.token.email;
-    }
+   function isValidUserCreate(userId) {
+  return isAuthenticated()
+    && request.auth.uid == userId
+    && request.resource.data.id == userId
+    && request.resource.data.email == request.auth.token.email
 
-    function isValidUserSelfUpdate() {
-      return isAuthenticated()
-        && request.resource.data.id == resource.data.id
-        && request.resource.data.email == resource.data.email
-        && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
-          'planType',
-          'status',
-          'email',
-          'accountType',
-          'parentalPin',
-          'parentId',
-          'childIds',
-          'contentApprovalRequired',
-          'screenTimeConfig'
-        ]);
-    }
+    // website registration must only create FREE users
+    && request.resource.data.planType == 'FREE'
+
+    // must be either child or parent account
+    && request.resource.data.accountType in ['CHILD', 'PARENT']
+
+    // basic profile validation
+    && request.resource.data.name is string
+    && request.resource.data.name.size() > 0
+    && request.resource.data.name.size() <= 80
+    && request.resource.data.age is int
+    && request.resource.data.age >= 3
+    && request.resource.data.age <= 99
+
+    // app-matching fields
+    && request.resource.data.interests is list
+&& request.resource.data.readingLevel in [
+  'Beginner',
+  'Early Reader',
+  'Intermediate',
+  'Advanced'
+]    && request.resource.data.isGuest is bool
+    && request.resource.data.canDownloadApk is bool
+    && request.resource.data.childIds is list
+
+    // timestamps
+    && request.resource.data.createdAt is timestamp
+    && request.resource.data.updatedAt is timestamp
+
+    // only allow these fields during account creation
+    && request.resource.data.keys().hasOnly([
+     'id',
+  'name',
+  'email',
+  'age',
+  'accountType',
+  'planType',
+  'interests',
+  'readingLevel',
+  'parentalEmail',
+  'parentalPin',
+  'childIds',
+  'parentId',
+  'inviteCode', 
+  'isGuest',
+  'canDownloadApk',
+  'createdAt',
+  'updatedAt'
+]);
+}
+
+function isValidUserSelfUpdate() {
+  return isAuthenticated()
+    && request.resource.data.id == resource.data.id
+    && request.resource.data.email == resource.data.email
+
+    // allowed editable fields only
+    && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+      'name',
+      'age',
+      'interests',
+      'readingLevel',
+      'updatedAt'
+    ])
+
+    // validation
+    && request.resource.data.name is string
+    && request.resource.data.name.size() > 0
+    && request.resource.data.name.size() <= 80
+
+    && request.resource.data.age is int
+    && request.resource.data.age >= 3
+    && request.resource.data.age <= 99
+
+    && request.resource.data.interests is list
+
+    && request.resource.data.readingLevel in [
+      'Beginner',
+      'Early Reader',
+      'Intermediate',
+      'Advanced'
+    ];
+}
 
 
     function isValidOwnScreenTimeUsageUpdate() {
@@ -193,7 +258,8 @@ service cloud.firestore {
         && request.resource.data.contentType is string
         && (
           request.resource.data.contentType == "book" ||
-          request.resource.data.contentType == "video"
+          request.resource.data.contentType == "video" ||
+          request.resource.data.contentType == "app"
         )
         && request.resource.data.isPositive is bool
         && request.resource.data.rating is int
@@ -630,24 +696,6 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // APK download audit. The APK file itself is hosted on Firebase Hosting
-    // (Spark plan: Cloud Storage rules need Blaze), so the URL is technically
-    // public — but every genuine click on /download.html triggers an
-    // auth-checked write here. Lets us point at a server-enforced record of
-    // who pulled the build, even though the file fetch isn't gated.
-    match /downloads/{logId} {
-      allow read: if isAdmin();
-      allow create: if isAuthenticated()
-        && request.resource.data.userId == request.auth.uid
-        && request.resource.data.keys().hasOnly(['userId', 'fileName', 'userAgent', 'timestamp'])
-        && request.resource.data.fileName is string
-        && request.resource.data.fileName.size() <= 80
-        && request.resource.data.userAgent is string
-        && request.resource.data.userAgent.size() <= 400
-        && request.resource.data.timestamp is timestamp;
-      allow update, delete: if isAdmin();
-    }
-
     // Rate limits
     match /rateLimits/{docId} {
       allow read, write: if false;
@@ -660,6 +708,11 @@ service cloud.firestore {
       allow update: if isAdmin() || isValidFeedbackUpdate();
       allow delete: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
     }
+
+    // Website CMS content
+match /site_content/{docId} {
+  allow read, write: if true;
+}
 
     // Deny all else
     match /{document=**} {
