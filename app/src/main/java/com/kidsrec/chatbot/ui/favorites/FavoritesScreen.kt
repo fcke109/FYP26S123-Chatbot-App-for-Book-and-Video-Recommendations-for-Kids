@@ -42,7 +42,7 @@ fun FavoritesScreen(
     val totalCount by viewModel.totalFavoritesCount.collectAsState()
     val selectedFilter by viewModel.selectedFilter.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
-    val isFreePlan by viewModel.isFreePlan.collectAsState()
+    val isFreeChild by viewModel.isFreeChild.collectAsState()
     val bookCount by viewModel.bookFavoritesCount.collectAsState()
     val videoCount by viewModel.videoFavoritesCount.collectAsState()
 
@@ -58,7 +58,7 @@ fun FavoritesScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            if (isFreePlan) {
+            if (isFreeChild) {
                 Surface(
                     color = Color(0xFFFFF8E1),
                     modifier = Modifier.fillMaxWidth()

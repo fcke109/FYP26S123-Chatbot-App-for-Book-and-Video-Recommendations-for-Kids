@@ -845,12 +845,24 @@ class AccountManager @Inject constructor(
 
     suspend fun updateUser(user: User): Result<Unit> {
         return try {
+
+            val updates = mapOf(
+                "name" to user.name,
+                "age" to user.age,
+                "interests" to user.interests,
+                "readingLevel" to user.readingLevel,
+                "updatedAt" to Timestamp.now()
+            )
+
             firestore.collection("users")
                 .document(user.id)
-                .set(user)
+                .update(updates)
                 .await()
+
             Result.success(Unit)
+
         } catch (e: Exception) {
+            Log.e("AccountManager", "Failed to update user", e)
             Result.failure(e)
         }
     }

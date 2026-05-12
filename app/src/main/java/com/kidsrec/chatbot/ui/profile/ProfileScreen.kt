@@ -22,13 +22,11 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import android.util.Log
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.kidsrec.chatbot.data.model.PlanType
 import com.kidsrec.chatbot.data.model.ReadingHistory
 import com.kidsrec.chatbot.ui.auth.AuthViewModel
-import com.kidsrec.chatbot.ui.parental.ChildSafetyLockGate
 import com.kidsrec.chatbot.ui.parental.ChildSettingsEntry
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -52,14 +50,7 @@ fun ProfileScreen(
     var age by remember { mutableStateOf("") }
     var selectedInterests by remember { mutableStateOf(setOf<String>()) }
     var readingLevel by remember { mutableStateOf("Beginner") }
-
-    var showEditLockGate by remember { mutableStateOf(false) }
-    var isParentalUnlocked by remember { mutableStateOf(false) }
-
-    fun grantEditAccess() {
-        showEditLockGate = false
-        isEditing = true
-    }
+    var interestsExpanded by remember { mutableStateOf(false) }
 
     val interests = listOf(
         "Reading", "Science", "Animals", "Adventure",
@@ -67,10 +58,10 @@ fun ProfileScreen(
         "Space", "Dinosaurs", "Cooking", "Cars", "Robots",
         "Fairy Tales", "Superheroes", "Ocean", "Puzzles", "Travel"
     )
-    var interestsExpanded by remember { mutableStateOf(false) }
 
     val readingLevels = listOf("Beginner", "Early Reader", "Intermediate", "Advanced")
 
+    // Load user details into the form
     LaunchedEffect(user) {
         user?.let {
             name = it.name
@@ -80,6 +71,7 @@ fun ProfileScreen(
         }
     }
 
+    // Exit edit mode after save
     LaunchedEffect(updateSuccess) {
         if (updateSuccess) {
             isEditing = false
@@ -92,11 +84,12 @@ fun ProfileScreen(
             TopAppBar(
                 title = { Text("Profile") },
                 actions = {
-                    if (!isEditing && user?.planType != PlanType.FREE) {
+                    if (!isEditing) {
                         IconButton(onClick = { isEditing = true }) {
                             Icon(Icons.Default.Edit, contentDescription = "Edit Profile")
                         }
                     }
+
                     IconButton(onClick = { authViewModel.signOut() }) {
                         Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "Logout")
                     }
@@ -104,6 +97,7 @@ fun ProfileScreen(
             )
         }
     ) { paddingValues ->
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -112,6 +106,7 @@ fun ProfileScreen(
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // Avatar
             Surface(
                 color = MaterialTheme.colorScheme.primaryContainer,
                 shape = MaterialTheme.shapes.large,
@@ -130,6 +125,7 @@ fun ProfileScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             if (isEditing) {
+                // Edit form
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
@@ -142,7 +138,11 @@ fun ProfileScreen(
 
                 OutlinedTextField(
                     value = age,
-                    onValueChange = { if (it.isEmpty() || it.all { char -> char.isDigit() }) age = it },
+                    onValueChange = {
+                        if (it.isEmpty() || it.all { char -> char.isDigit() }) {
+                            age = it
+                        }
+                    },
                     label = { Text("Age") },
                     leadingIcon = { Icon(Icons.Default.Cake, contentDescription = null) },
                     modifier = Modifier.fillMaxWidth()
@@ -159,6 +159,7 @@ fun ProfileScreen(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
+                // Selected interests
                 if (selectedInterests.isNotEmpty()) {
                     FlowRow(
                         modifier = Modifier.fillMaxWidth(),
@@ -180,9 +181,11 @@ fun ProfileScreen(
                             )
                         }
                     }
+
                     Spacer(modifier = Modifier.height(8.dp))
                 }
 
+                // Interest picker
                 ExposedDropdownMenuBox(
                     expanded = interestsExpanded,
                     onExpandedChange = { interestsExpanded = it }
@@ -192,17 +195,21 @@ fun ProfileScreen(
                         onValueChange = {},
                         readOnly = true,
                         label = { Text("Tap to pick interests") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = interestsExpanded) },
+                        trailingIcon = {
+                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = interestsExpanded)
+                        },
                         modifier = Modifier
                             .fillMaxWidth()
                             .menuAnchor()
                     )
+
                     ExposedDropdownMenu(
                         expanded = interestsExpanded,
                         onDismissRequest = { interestsExpanded = false }
                     ) {
                         interests.forEach { interest ->
                             val isSelected = selectedInterests.contains(interest)
+
                             DropdownMenuItem(
                                 text = {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -304,109 +311,61 @@ fun ProfileScreen(
                 }
             } else {
                 user?.let { currentUser ->
-                    val isFreePlan = currentUser.planType == PlanType.FREE
-                    if (isFreePlan) {
-                        Text(
-                            text = currentUser.name.ifBlank { "Free User" },
-                            fontSize = 28.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                    val isFreeChild = currentUser.planType == PlanType.FREE
 
-                        Spacer(modifier = Modifier.height(8.dp))
+                    // Basic profile info
+                    Text(
+                        text = currentUser.name.ifBlank { "Little Dino User" },
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.Bold
+                    )
 
-                        Surface(
-                            color = Color(0xFFFFF8E1),
-                            shape = RoundedCornerShape(50)
-                        ) {
-                            Text(
-                                text = "Free plan",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFF8D6E00),
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
-                            )
-                        }
+                    Spacer(modifier = Modifier.height(8.dp))
 
-                        Spacer(modifier = Modifier.height(24.dp))
+                    Text(
+                        text = "${currentUser.age} years old",
+                        fontSize = 16.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
 
-                        Card(modifier = Modifier.fillMaxWidth()) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Text(
-                                    text = "Your Free plan includes:",
-                                    fontWeight = FontWeight.Medium,
-                                    fontSize = 16.sp
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(text = "- 5 Little Dino chat questions per day")
-                                Text(text = "- Up to 2 favorite books and 2 favorite videos")
-                                Text(text = "- Browse the library and read books/watch videos")
-                                Spacer(modifier = Modifier.height(12.dp))
-                                Text(
-                                    text = "Upgrade to Premium to unlock:",
-                                    fontWeight = FontWeight.Medium,
-                                    fontSize = 16.sp
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(text = "- Unlimited chat questions")
-                                Text(text = "- Unlimited favorites")
-                                Text(text = "- Badges & Rewards gamification")
-                                Spacer(modifier = Modifier.height(16.dp))
-                                Button(
-                                    onClick = onNavigateToUpgrade,
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(14.dp)
-                                ) {
-                                    Icon(Icons.Default.Star, contentDescription = null)
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Upgrade to Premium")
-                                }
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    // Profile details card
+                    Card(
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Email, contentDescription = null)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(text = currentUser.email)
                             }
-                        }
-                    } else {
-                        Text(
-                            text = currentUser.name,
-                            fontSize = 28.sp,
-                            fontWeight = FontWeight.Bold
-                        )
 
-                        Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(16.dp))
 
-                        Text(
-                            text = "${currentUser.age} years old",
-                            fontSize = 16.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.AutoMirrored.Filled.MenuBook, contentDescription = null)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(text = "Reading Level: ${currentUser.readingLevel}")
+                            }
 
-                        Spacer(modifier = Modifier.height(24.dp))
+                            Spacer(modifier = Modifier.height(16.dp))
 
-                        Card(
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.Email, contentDescription = null)
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(text = currentUser.email)
-                                }
+                            Text(
+                                text = "Interests",
+                                fontWeight = FontWeight.Medium,
+                                fontSize = 16.sp
+                            )
 
-                                Spacer(modifier = Modifier.height(16.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
 
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.AutoMirrored.Filled.MenuBook, contentDescription = null)
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(text = "Reading Level: ${currentUser.readingLevel}")
-                                }
-
-                                Spacer(modifier = Modifier.height(16.dp))
-
+                            if (currentUser.interests.isEmpty()) {
                                 Text(
-                                    text = "Interests",
-                                    fontWeight = FontWeight.Medium,
-                                    fontSize = 16.sp
+                                    text = "No interests selected yet.",
+                                    fontSize = 14.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
-
-                                Spacer(modifier = Modifier.height(8.dp))
-
+                            } else {
                                 FlowRow(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -421,9 +380,73 @@ fun ProfileScreen(
                                 }
                             }
                         }
+                    }
 
-                        Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
 
+                    // Free plan section
+                    if (isFreeChild) {
+                        Surface(
+                            color = Color(0xFFFFF8E1),
+                            shape = RoundedCornerShape(50)
+                        ) {
+                            Text(
+                                text = "Free plan",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFF8D6E00),
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(
+                                    text = "Your Free plan includes:",
+                                    fontWeight = FontWeight.Medium,
+                                    fontSize = 16.sp
+                                )
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                Text(text = "- 5 Little Dino chat questions per day")
+                                Text(text = "- Up to 2 favorite books and 2 favorite videos")
+                                Text(text = "- Browse the library and read books/watch videos")
+
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                Text(
+                                    text = "Upgrade to Premium to unlock:",
+                                    fontWeight = FontWeight.Medium,
+                                    fontSize = 16.sp
+                                )
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                Text(text = "- Unlimited chat questions")
+                                Text(text = "- Unlimited favorites")
+                                Text(text = "- Badges & Rewards gamification")
+                                Text(text = "- Parental controls and reading history")
+
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                Button(
+                                    onClick = onNavigateToUpgrade,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(14.dp)
+                                ) {
+                                    Icon(Icons.Default.Star, contentDescription = null)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Upgrade to Premium")
+                                }
+                            }
+                        }
+                    }
+
+                    // Premium-only sections
+                    if (!isFreeChild) {
                         BadgesRewardsEntryCard(
                             onClick = onNavigateToBadgesRewards
                         )
@@ -509,7 +532,9 @@ private fun BadgesRewardsEntryCard(
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.ExtraBold
                         )
+
                         Spacer(modifier = Modifier.height(4.dp))
+
                         Text(
                             text = "See your badges, points, levels, and reward progress on a full page.",
                             style = MaterialTheme.typography.bodyMedium,
@@ -546,8 +571,14 @@ fun RecentlyReadSection(
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Default.History, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            Icon(
+                Icons.Default.History,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary
+            )
+
             Spacer(modifier = Modifier.width(8.dp))
+
             Text(
                 text = "Recently Read & Watched",
                 fontSize = 18.sp,
@@ -565,7 +596,9 @@ fun RecentlyReadSection(
                 Card(
                     modifier = Modifier
                         .width(120.dp)
-                        .clickable { onItemClick(entry.url, entry.title, entry.isVideo) },
+                        .clickable {
+                            onItemClick(entry.url, entry.title, entry.isVideo)
+                        },
                     shape = RoundedCornerShape(12.dp),
                     elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
                 ) {
@@ -588,13 +621,22 @@ fun RecentlyReadSection(
                                 )
                             } else {
                                 Icon(
-                                    imageVector = if (entry.isVideo) Icons.Default.PlayCircle else Icons.AutoMirrored.Filled.MenuBook,
+                                    imageVector = if (entry.isVideo) {
+                                        Icons.Default.PlayCircle
+                                    } else {
+                                        Icons.AutoMirrored.Filled.MenuBook
+                                    },
                                     contentDescription = null,
                                     modifier = Modifier.size(36.dp),
-                                    tint = if (entry.isVideo) Color.Red else MaterialTheme.colorScheme.primary
+                                    tint = if (entry.isVideo) {
+                                        Color.Red
+                                    } else {
+                                        MaterialTheme.colorScheme.primary
+                                    }
                                 )
                             }
                         }
+
                         Text(
                             text = entry.title,
                             modifier = Modifier.padding(8.dp),

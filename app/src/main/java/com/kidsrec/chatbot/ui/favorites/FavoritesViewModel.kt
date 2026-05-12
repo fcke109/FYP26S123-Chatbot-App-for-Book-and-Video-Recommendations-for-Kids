@@ -62,8 +62,8 @@ class FavoritesViewModel @Inject constructor(
     private val _isGuest = MutableStateFlow(false)
     val isGuest: StateFlow<Boolean> = _isGuest.asStateFlow()
 
-    private val _isFreePlan = MutableStateFlow(false)
-    val isFreePlan: StateFlow<Boolean> = _isFreePlan.asStateFlow()
+    private val _isFreeChild = MutableStateFlow(false)
+    val isFreeChild: StateFlow<Boolean> = _isFreeChild.asStateFlow()
 
     val bookFavoritesCount: StateFlow<Int> =
         _favorites.map { favs -> favs.count { it.type == RecommendationType.BOOK } }
@@ -93,7 +93,8 @@ class FavoritesViewModel @Inject constructor(
                 .catch { e -> Log.e(TAG, "User plan observer failed", e) }
                 .collect { user ->
                     if (user != null) {
-                        _isFreePlan.value = user.planType == PlanType.FREE
+                        _isFreeChild.value =
+                            user.planType == PlanType.FREE && user.accountType.name == "CHILD"
                         _isGuest.value = user.isGuest
                     }
                 }
@@ -183,7 +184,7 @@ class FavoritesViewModel @Inject constructor(
         imageUrl: String,
         url: String = ""
     ) {
-        if (_isFreePlan.value) {
+        if (_isFreeChild.value) {
             val alreadyFavorited = _favorites.value.any { it.itemId == itemId }
             if (!alreadyFavorited) {
                 val currentBooks = _favorites.value.count { it.type == RecommendationType.BOOK }
