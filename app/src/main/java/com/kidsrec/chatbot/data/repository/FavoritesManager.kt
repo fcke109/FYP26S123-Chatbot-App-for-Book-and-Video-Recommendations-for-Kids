@@ -191,10 +191,15 @@ class FavoritesManager @Inject constructor(
         data: Map<String, Any>
     ): Favorite {
         val typeValue = data["type"]?.toString().orEmpty()
-        val recommendationType = if (typeValue.equals("VIDEO", ignoreCase = true)) {
-            RecommendationType.VIDEO
-        } else {
-            RecommendationType.BOOK
+        val recommendationType = when {
+            typeValue.equals("VIDEO", ignoreCase = true) ->
+                RecommendationType.VIDEO
+
+            typeValue.equals("BOOK", ignoreCase = true) ->
+                RecommendationType.BOOK
+
+            else ->
+                RecommendationType.BOOK
         }
 
         return Favorite(

@@ -33,6 +33,7 @@ class FavoritesViewModel @Inject constructor(
     companion object {
         private const val TAG = "FavoritesVM"
         private const val TEST_TAG = "FAV_TEST"
+
         const val FREE_BOOK_LIMIT = 2
         const val FREE_VIDEO_LIMIT = 2
     }
@@ -56,6 +57,14 @@ class FavoritesViewModel @Inject constructor(
         _favorites.map { it.size }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
+    val bookFavoritesCount: StateFlow<Int> =
+        _favorites.map { favs -> favs.count { it.type == RecommendationType.BOOK } }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    val videoFavoritesCount: StateFlow<Int> =
+        _favorites.map { favs -> favs.count { it.type == RecommendationType.VIDEO } }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
@@ -65,13 +74,8 @@ class FavoritesViewModel @Inject constructor(
     private val _isFreeChild = MutableStateFlow(false)
     val isFreeChild: StateFlow<Boolean> = _isFreeChild.asStateFlow()
 
-    val bookFavoritesCount: StateFlow<Int> =
-        _favorites.map { favs -> favs.count { it.type == RecommendationType.BOOK } }
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
-
-    val videoFavoritesCount: StateFlow<Int> =
-        _favorites.map { favs -> favs.count { it.type == RecommendationType.VIDEO } }
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+    // Prevents free-plan quota check before Firestore user plan has loaded
+    private val _userPlanLoaded = MutableStateFlow(false)
 
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
@@ -81,22 +85,47 @@ class FavoritesViewModel @Inject constructor(
     private var userObserverJob: Job? = null
 
     init {
-        loadFavorites()
         observeUserPlan()
+        loadFavorites()
     }
 
     private fun observeUserPlan() {
         userObserverJob?.cancel()
+
         userObserverJob = viewModelScope.launch {
-            val userId = accountManager.getCurrentUserId() ?: return@launch
+            val userId = accountManager.getCurrentUserId()
+
+            if (userId.isNullOrBlank()) {
+                _isFreeChild.value = false
+                _isGuest.value = false
+                _userPlanLoaded.value = true
+                return@launch
+            }
+
             accountManager.getUserFlow(userId)
-                .catch { e -> Log.e(TAG, "User plan observer failed", e) }
+                .catch { e ->
+                    Log.e(TAG, "User plan observer failed", e)
+                    _isFreeChild.value = false
+                    _userPlanLoaded.value = true
+                }
                 .collect { user ->
                     if (user != null) {
                         _isFreeChild.value =
-                            user.planType == PlanType.FREE && user.accountType.name == "CHILD"
+                            user.planType == PlanType.FREE &&
+                                    user.accountType.name.equals("CHILD", ignoreCase = true)
+
                         _isGuest.value = user.isGuest
+                    } else {
+                        _isFreeChild.value = false
+                        _isGuest.value = false
                     }
+
+                    _userPlanLoaded.value = true
+
+                    Log.d(
+                        TEST_TAG,
+                        "Plan loaded. isFreeChild=${_isFreeChild.value}, isGuest=${_isGuest.value}"
+                    )
                 }
         }
     }
@@ -118,8 +147,7 @@ class FavoritesViewModel @Inject constructor(
                 val userId = accountManager.getCurrentUserId()
                 Log.d(TEST_TAG, "loadFavorites called. currentUserId=$userId")
 
-                if (userId == null) {
-                    Log.w(TEST_TAG, "No logged in user. Clearing favorites list.")
+                if (userId.isNullOrBlank()) {
                     _favorites.value = emptyList()
                     _isLoading.value = false
                     currentListeningUserId = null
@@ -128,17 +156,12 @@ class FavoritesViewModel @Inject constructor(
                 }
 
                 if (userId == currentListeningUserId && favoritesJob?.isActive == true) {
-                    Log.d(TEST_TAG, "Already listening for this user: $userId")
                     _isLoading.value = false
                     return@launch
                 }
 
-                // Plan / guest state is owned by observeUserPlan(); doing a one-shot read here
-                // raced with the flow on refreshFavorites() after a plan change.
                 favoritesJob?.cancel()
                 currentListeningUserId = userId
-
-                Log.d(TEST_TAG, "Starting favorites listener for userId=$userId")
 
                 favoritesJob = viewModelScope.launch {
                     favoritesManager.getFavoritesFlow(userId)
@@ -148,20 +171,18 @@ class FavoritesViewModel @Inject constructor(
                             _errorMessage.value = null
                         }
                         .catch { e ->
-                            Log.e(TAG, "Permission denied or load failed", e)
-                            Log.e(TEST_TAG, "Favorites flow failed: ${e.message}", e)
+                            Log.e(TAG, "Favorites flow failed", e)
                             _favorites.value = emptyList()
                             _isLoading.value = false
                             _errorMessage.value = e.message ?: "Failed to load favorites."
                         }
                         .collect { items ->
-                            Log.d(TEST_TAG, "Collected favorites count=${items.size}")
                             _favorites.value = items
                         }
                 }
+
             } catch (e: Exception) {
                 Log.e(TAG, "loadFavorites failed", e)
-                Log.e(TEST_TAG, "loadFavorites exception: ${e.message}", e)
                 _favorites.value = emptyList()
                 _isLoading.value = false
                 _errorMessage.value = e.message ?: "Failed to load favorites."
@@ -170,9 +191,9 @@ class FavoritesViewModel @Inject constructor(
     }
 
     fun refreshFavorites() {
-        Log.d(TEST_TAG, "refreshFavorites called")
         currentListeningUserId = null
         favoritesJob?.cancel()
+        observeUserPlan()
         loadFavorites()
     }
 
@@ -184,8 +205,10 @@ class FavoritesViewModel @Inject constructor(
         imageUrl: String,
         url: String = ""
     ) {
-        if (_isFreeChild.value) {
+        // Apply limit only after the plan has loaded and only for FREE CHILD users
+        if (_userPlanLoaded.value && _isFreeChild.value) {
             val alreadyFavorited = _favorites.value.any { it.itemId == itemId }
+
             if (!alreadyFavorited) {
                 val currentBooks = _favorites.value.count { it.type == RecommendationType.BOOK }
                 val currentVideos = _favorites.value.count { it.type == RecommendationType.VIDEO }
@@ -195,6 +218,7 @@ class FavoritesViewModel @Inject constructor(
                         "Free plan allows up to $FREE_BOOK_LIMIT favorite books. Upgrade to Premium for unlimited favorites."
                     return
                 }
+
                 if (type == RecommendationType.VIDEO && currentVideos >= FREE_VIDEO_LIMIT) {
                     _errorMessage.value =
                         "Free plan allows up to $FREE_VIDEO_LIMIT favorite videos. Upgrade to Premium for unlimited favorites."
@@ -206,13 +230,8 @@ class FavoritesViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val userId = accountManager.getCurrentUserId()
-                Log.d(
-                    TEST_TAG,
-                    "addFavorite called with userId=$userId, itemId=$itemId, type=$type, title=$title"
-                )
 
                 if (userId.isNullOrBlank()) {
-                    Log.e(TEST_TAG, "addFavorite failed: userId is null or blank")
                     _errorMessage.value = "No logged in user."
                     return@launch
                 }
@@ -227,20 +246,17 @@ class FavoritesViewModel @Inject constructor(
                     url = url
                 )
 
-                Log.d(TEST_TAG, "addFavorite result success=${result.isSuccess}")
-
                 if (result.isFailure) {
                     Log.e(TAG, "Failed to add favorite", result.exceptionOrNull())
-                    Log.e(TEST_TAG, "Failed to add favorite", result.exceptionOrNull())
                     _errorMessage.value =
                         result.exceptionOrNull()?.message ?: "Failed to add favorite."
                 } else {
-                    Log.d(TEST_TAG, "Favorite added successfully for itemId=$itemId")
+                    Log.d(TEST_TAG, "Favorite added successfully: $itemId")
                     _errorMessage.value = null
                 }
+
             } catch (e: Exception) {
                 Log.e(TAG, "addFavorite exception", e)
-                Log.e(TEST_TAG, "addFavorite exception: ${e.message}", e)
                 _errorMessage.value = e.message ?: "Failed to add favorite."
             }
         }
@@ -250,29 +266,25 @@ class FavoritesViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val userId = accountManager.getCurrentUserId()
-                Log.d(TEST_TAG, "removeFavorite called with userId=$userId, itemId=$itemId")
 
                 if (userId.isNullOrBlank()) {
-                    Log.e(TEST_TAG, "removeFavorite failed: userId is null or blank")
                     _errorMessage.value = "No logged in user."
                     return@launch
                 }
 
                 val result = favoritesManager.removeFavorite(userId, itemId)
-                Log.d(TEST_TAG, "removeFavorite result success=${result.isSuccess}")
 
                 if (result.isFailure) {
                     Log.e(TAG, "Failed to remove favorite", result.exceptionOrNull())
-                    Log.e(TEST_TAG, "Failed to remove favorite", result.exceptionOrNull())
                     _errorMessage.value =
                         result.exceptionOrNull()?.message ?: "Failed to remove favorite."
                 } else {
-                    Log.d(TEST_TAG, "Favorite removed successfully for itemId=$itemId")
+                    Log.d(TEST_TAG, "Favorite removed successfully: $itemId")
                     _errorMessage.value = null
                 }
+
             } catch (e: Exception) {
                 Log.e(TAG, "removeFavorite exception", e)
-                Log.e(TEST_TAG, "removeFavorite exception: ${e.message}", e)
                 _errorMessage.value = e.message ?: "Failed to remove favorite."
             }
         }
