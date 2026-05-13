@@ -16,10 +16,15 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 
 enum class FavoriteFilter { ALL, BOOKS, VIDEOS }
@@ -71,11 +76,27 @@ class FavoritesViewModel @Inject constructor(
     private val _isGuest = MutableStateFlow(false)
     val isGuest: StateFlow<Boolean> = _isGuest.asStateFlow()
 
-    private val _isFreeChild = MutableStateFlow(false)
-    val isFreeChild: StateFlow<Boolean> = _isFreeChild.asStateFlow()
+    // Enforcement signal. Defaults to TRUE so the limit applies until the
+    // Firestore user doc has confirmed the account is PREMIUM/PARENT/ADMIN.
+    // The previous default of `false` meant any failure to load the plan
+    // (offline cold start, missing doc, listener never firing) silently
+    // disabled the limit and free-child users got unlimited favorites.
+    private val _isFreeChild = MutableStateFlow(true)
 
-    // Prevents free-plan quota check before Firestore user plan has loaded
     private val _userPlanLoaded = MutableStateFlow(false)
+
+    // UI-facing signal — only show the "Free plan" banner once the plan
+    // has actually been confirmed, so premium users don't see it flash
+    // briefly on cold start.
+    val isFreeChild: StateFlow<Boolean> =
+        combine(_userPlanLoaded, _isFreeChild) { loaded, free -> loaded && free }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    // In-flight adds (itemId -> type). Counted alongside _favorites so a
+    // burst of rapid taps can't all pass the limit check before the
+    // Firestore listener has echoed the first write back.
+    private val pendingAdds = MutableStateFlow<Map<String, RecommendationType>>(emptyMap())
+    private val addMutex = Mutex()
 
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
@@ -96,7 +117,9 @@ class FavoritesViewModel @Inject constructor(
             val userId = accountManager.getCurrentUserId()
 
             if (userId.isNullOrBlank()) {
-                _isFreeChild.value = false
+                // No logged-in user can't add favorites anyway. Leave the
+                // enforcement flag at its safe default (true) and just mark
+                // the plan as resolved so the UI can stop waiting.
                 _isGuest.value = false
                 _userPlanLoaded.value = true
                 return@launch
@@ -104,8 +127,10 @@ class FavoritesViewModel @Inject constructor(
 
             accountManager.getUserFlow(userId)
                 .catch { e ->
+                    // Listener errored. Keep _isFreeChild at its safe
+                    // default (true) so we don't silently disable the limit
+                    // — better to over-block than to leak unlimited writes.
                     Log.e(TAG, "User plan observer failed", e)
-                    _isFreeChild.value = false
                     _userPlanLoaded.value = true
                 }
                 .collect { user ->
@@ -115,10 +140,10 @@ class FavoritesViewModel @Inject constructor(
                                     user.accountType.name.equals("CHILD", ignoreCase = true)
 
                         _isGuest.value = user.isGuest
-                    } else {
-                        _isFreeChild.value = false
-                        _isGuest.value = false
                     }
+                    // user == null: doc missing/unreadable. Don't flip
+                    // _isFreeChild to false here — that's the exact path
+                    // that turned the limit into a no-op.
 
                     _userPlanLoaded.value = true
 
@@ -205,36 +230,62 @@ class FavoritesViewModel @Inject constructor(
         imageUrl: String,
         url: String = ""
     ) {
-        // Apply limit only after the plan has loaded and only for FREE CHILD users
-        if (_userPlanLoaded.value && _isFreeChild.value) {
-            val alreadyFavorited = _favorites.value.any { it.itemId == itemId }
-
-            if (!alreadyFavorited) {
-                val currentBooks = _favorites.value.count { it.type == RecommendationType.BOOK }
-                val currentVideos = _favorites.value.count { it.type == RecommendationType.VIDEO }
-
-                if (type == RecommendationType.BOOK && currentBooks >= FREE_BOOK_LIMIT) {
-                    _errorMessage.value =
-                        "Free plan allows up to $FREE_BOOK_LIMIT favorite books. Upgrade to Premium for unlimited favorites."
-                    return
-                }
-
-                if (type == RecommendationType.VIDEO && currentVideos >= FREE_VIDEO_LIMIT) {
-                    _errorMessage.value =
-                        "Free plan allows up to $FREE_VIDEO_LIMIT favorite videos. Upgrade to Premium for unlimited favorites."
-                    return
-                }
-            }
-        }
-
         viewModelScope.launch {
+            // Serialize adds so two concurrent taps can't both pass the
+            // limit check on the same stale _favorites snapshot.
+            addMutex.withLock {
+                // Wait for the user's plan to be resolved before deciding
+                // whether the limit applies. Otherwise a cold-start tap
+                // races the Firestore listener and the check silently
+                // skips (because _isFreeChild's value isn't trustworthy
+                // yet).
+                _userPlanLoaded.first { it }
+
+                val alreadyCommitted = _favorites.value.any { it.itemId == itemId }
+                val alreadyPending = pendingAdds.value.containsKey(itemId)
+
+                // De-dup: don't re-issue a write for something already
+                // favorited or with a write already in flight.
+                if (alreadyCommitted || alreadyPending) return@withLock
+
+                if (_isFreeChild.value) {
+                    val pending = pendingAdds.value.values
+                    val currentBooks = _favorites.value.count { it.type == RecommendationType.BOOK } +
+                            pending.count { it == RecommendationType.BOOK }
+                    val currentVideos = _favorites.value.count { it.type == RecommendationType.VIDEO } +
+                            pending.count { it == RecommendationType.VIDEO }
+
+                    if (type == RecommendationType.BOOK && currentBooks >= FREE_BOOK_LIMIT) {
+                        _errorMessage.value =
+                            "Free plan allows up to $FREE_BOOK_LIMIT favorite books. Upgrade to Premium for unlimited favorites."
+                        return@withLock
+                    }
+
+                    if (type == RecommendationType.VIDEO && currentVideos >= FREE_VIDEO_LIMIT) {
+                        _errorMessage.value =
+                            "Free plan allows up to $FREE_VIDEO_LIMIT favorite videos. Upgrade to Premium for unlimited favorites."
+                        return@withLock
+                    }
+                }
+
+                // Reserve this id BEFORE awaiting the network write, so a
+                // tap that arrives mid-write counts it toward the limit.
+                pendingAdds.update { it + (itemId to type) }
+            }
+
             try {
                 val userId = accountManager.getCurrentUserId()
 
                 if (userId.isNullOrBlank()) {
                     _errorMessage.value = "No logged in user."
+                    pendingAdds.update { it - itemId }
                     return@launch
                 }
+
+                // Don't issue a write for an id that was already rejected
+                // above (alreadyPending/alreadyCommitted/over-limit). If
+                // we didn't reserve, the toggle is a no-op.
+                if (!pendingAdds.value.containsKey(itemId)) return@launch
 
                 val result = favoritesManager.addFavorite(
                     userId = userId,
@@ -253,11 +304,20 @@ class FavoritesViewModel @Inject constructor(
                 } else {
                     Log.d(TEST_TAG, "Favorite added successfully: $itemId")
                     _errorMessage.value = null
+                    // Hold the pending reservation until the listener
+                    // confirms the new item; otherwise the next rapid tap
+                    // sees _favorites without this id and pending empty,
+                    // and re-passes the limit check.
+                    withTimeoutOrNull(5_000) {
+                        _favorites.first { favs -> favs.any { it.itemId == itemId } }
+                    }
                 }
 
             } catch (e: Exception) {
                 Log.e(TAG, "addFavorite exception", e)
                 _errorMessage.value = e.message ?: "Failed to add favorite."
+            } finally {
+                pendingAdds.update { it - itemId }
             }
         }
     }
