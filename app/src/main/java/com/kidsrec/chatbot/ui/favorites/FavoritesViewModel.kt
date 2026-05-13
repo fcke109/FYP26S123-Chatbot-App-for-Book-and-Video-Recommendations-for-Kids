@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -41,6 +42,8 @@ class FavoritesViewModel @Inject constructor(
 
         const val FREE_BOOK_LIMIT = 2
         const val FREE_VIDEO_LIMIT = 2
+
+        private const val PLAN_LOAD_TIMEOUT_MS = 8_000L
     }
 
     private val _favorites = MutableStateFlow<List<Favorite>>(emptyList())
@@ -125,6 +128,18 @@ class FavoritesViewModel @Inject constructor(
                 return@launch
             }
 
+            // Safety net: if no user doc ever loads (deleted account, broken
+            // permissions), unblock the addFavorite wait after a generous
+            // window so the UI doesn't appear permanently frozen. With no
+            // confirmed plan, _isFreeChild stays at its safe default (true).
+            val timeoutJob = launch {
+                delay(PLAN_LOAD_TIMEOUT_MS)
+                if (!_userPlanLoaded.value) {
+                    Log.w(TAG, "User plan never loaded within timeout — defaulting to limited")
+                    _userPlanLoaded.value = true
+                }
+            }
+
             accountManager.getUserFlow(userId)
                 .catch { e ->
                     // Listener errored. Keep _isFreeChild at its safe
@@ -140,17 +155,23 @@ class FavoritesViewModel @Inject constructor(
                                     user.accountType.name.equals("CHILD", ignoreCase = true)
 
                         _isGuest.value = user.isGuest
+
+                        // Mark loaded ONLY on a real user emission. A
+                        // transient null first emit (empty offline cache,
+                        // doc not yet replicated) used to mark the plan
+                        // loaded with _isFreeChild stuck at its default,
+                        // which then briefly limited premium users until
+                        // the second emit corrected it.
+                        _userPlanLoaded.value = true
+                        timeoutJob.cancel()
+
+                        Log.d(
+                            TEST_TAG,
+                            "Plan loaded. isFreeChild=${_isFreeChild.value}, isGuest=${_isGuest.value}"
+                        )
                     }
-                    // user == null: doc missing/unreadable. Don't flip
-                    // _isFreeChild to false here — that's the exact path
-                    // that turned the limit into a no-op.
-
-                    _userPlanLoaded.value = true
-
-                    Log.d(
-                        TEST_TAG,
-                        "Plan loaded. isFreeChild=${_isFreeChild.value}, isGuest=${_isGuest.value}"
-                    )
+                    // user == null: do nothing — wait for a real emit or
+                    // for the timeout job to release.
                 }
         }
     }
