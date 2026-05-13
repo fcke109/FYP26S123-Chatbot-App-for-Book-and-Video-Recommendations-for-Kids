@@ -6,6 +6,7 @@ import com.google.firebase.ai.ai
 import com.google.firebase.ai.type.GenerativeBackend
 import com.google.firebase.ai.type.content
 import com.google.firebase.ai.type.generationConfig
+import com.google.firebase.ai.type.thinkingConfig
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -29,7 +30,14 @@ class GeminiService @Inject constructor() {
                     systemInstruction = content { text(systemPrompt) },
                     generationConfig = generationConfig {
                         temperature = 0.5f
-                        maxOutputTokens = 1500
+                        maxOutputTokens = 8192
+                        // Structured recommendation task — no reasoning needed.
+                        // Without this, flash-lite's hidden thinking tokens
+                        // can exhaust the output budget mid-response and the
+                        // SDK throws ResponseStoppedException(MAX_TOKENS).
+                        thinkingConfig = thinkingConfig {
+                            thinkingBudget = 0
+                        }
                     }
                 )
 
