@@ -150,9 +150,13 @@ class FavoritesViewModel @Inject constructor(
                 }
                 .collect { user ->
                     if (user != null) {
-                        _isFreeChild.value =
-                            user.planType == PlanType.FREE &&
-                                    user.accountType.name.equals("CHILD", ignoreCase = true)
+                        // Match chat quota: any FREE user is limited,
+                        // regardless of accountType. The earlier
+                        // accountType == CHILD gate accidentally exempted
+                        // FREE PARENT accounts (which is the default state
+                        // for any parent registering on the website
+                        // before paying — see login.html:852).
+                        _isFreeChild.value = user.planType == PlanType.FREE
 
                         _isGuest.value = user.isGuest
 
