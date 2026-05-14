@@ -174,14 +174,7 @@ class FavoritesManager @Inject constructor(
         }
     }
 
-    // IMPORTANT:
-    // This checks ONLY the logged-in user's own planType.
-    // Do not read parent plan here, because that caused inconsistent results.
-    //
-    // Firestore should store:
-    // Free child: planType = "FREE"
-    // Premium child: planType = "PREMIUM"
-    // Admin: planType = "ADMIN"
+
     private suspend fun hasUnlimitedFavorites(userId: String): Boolean {
         return try {
             val userDoc = firestore.collection("users")
