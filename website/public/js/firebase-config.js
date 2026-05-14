@@ -1,4 +1,4 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
   getAuth,
   onAuthStateChanged,
@@ -8,7 +8,7 @@ import {
   sendPasswordResetEmail,
   sendEmailVerification,
   updateProfile
-} from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 import {
   getFirestore,
@@ -28,14 +28,14 @@ import {
   increment,
   serverTimestamp,
   onSnapshot
-} from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 import {
   getStorage,
   ref as storageRef,
   getBlob,
   getMetadata
-} from "https://www.gstatic.com/firebasejs/12.11.0/firebase-storage.js";
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAsZfL8NaSDAPuO2JgC5q1ogJcTbZge0xk",

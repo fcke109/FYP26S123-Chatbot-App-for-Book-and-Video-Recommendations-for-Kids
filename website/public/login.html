@@ -683,15 +683,31 @@ loginForm.addEventListener('submit', async (e) => {
 
   try {
     const result = await signInWithEmailAndPassword(
-      auth,
-      document.getElementById('login-email').value,
-      document.getElementById('login-password').value
-    );
-
-    showMsg('Signed in! Redirecting...', 'success');
-
+  auth,
+  document.getElementById('login-email').value,
+  document.getElementById('login-password').value
+);
     // 🔥 CHECK USER ROLE HERE
-    const snap = await getDoc(doc(db, "users", result.user.uid));
+const snap = await getDoc(doc(db, "users", result.user.uid));
+const userData = snap.exists() ? snap.data() : null;
+
+// Only parent accounts must verify email.
+// Admin and child accounts can login without email verification.
+if (
+  userData?.accountType === "PARENT" &&
+  userData?.planType !== "ADMIN" &&
+  !result.user.emailVerified
+) {
+  await auth.signOut();
+  showMsg(
+    "Please verify your email before logging in. Check your inbox or spam folder.",
+    "error"
+  );
+  return;
+}
+
+showMsg('Signed in! Redirecting...', 'success');
+
 
     if (snap.exists() && snap.data().planType === "ADMIN") {
       setTimeout(() => window.location.href = '/admin.html', 800);
@@ -742,7 +758,15 @@ loginForm.addEventListener('submit', async (e) => {
       const snap = await getDoc(ref);
       if (!snap.exists()) throw new Error('Invite code not found.');
       const data = snap.data();
-      if (!data.isActive) throw new Error('This invite code is no longer active.');
+      const active =
+  data.isActive === true ||
+  data.active === true ||
+  data.isEnabled === true ||
+  data.enabled === true;
+
+if (!active) {
+  throw new Error('This invite code is no longer active.');
+}
       if ((data.usedCount ?? 0) >= (data.maxUses ?? 1)) throw new Error('This invite code has already been used.');
       const expiresAt = data.expiresAt?.toDate?.();
       if (expiresAt && expiresAt < new Date()) throw new Error('This invite code has expired.');
@@ -857,11 +881,19 @@ loginForm.addEventListener('submit', async (e) => {
           }));
           try { await sendEmailVerification(cred.user); } catch (_) { /* non-fatal */ }
           if (parentPlan === 'PREMIUM') {
-            showMsg('Account created! Redirecting to payment…', 'success');
-            setTimeout(() => window.location.href = '/payment.html', 900);
+            showMsg('Account created! Verification email sent. Please verify your email before continuing to payment.', 'success');
+
+setTimeout(async () => {
+  await auth.signOut();
+  window.location.href = '/login.html';
+}, 1500);
           } else {
-            showMsg('Account created! Check your email to verify, then sign in.', 'success');
-            setTimeout(() => window.location.href = '/catalog.html', 1500);
+            showMsg('Account created! Verification email sent. Please check your inbox or spam folder before logging in.', 'success');
+
+setTimeout(async () => {
+  await auth.signOut();
+  window.location.href = '/login.html';
+}, 1500);
           }
         } else {
           const parentId = inviteResult.data.assignedParentId || inviteResult.data.createdBy;
@@ -870,7 +902,9 @@ loginForm.addEventListener('submit', async (e) => {
           // Inherit the parent's plan from the snapshot stored on the invite
           // code at generation time. Legacy codes without this field default
           // to PREMIUM (matches old behavior).
-          const inheritedPlan = inviteResult.data.parentPlanType === 'FREE' ? 'FREE' : 'PREMIUM';
+          const inheritedPlan = inviteResult.data.parentPlanType === 'PREMIUM'
+  ? 'PREMIUM'
+  : 'FREE';
           const batch = writeBatch(db);
           batch.set(doc(db, 'users', cred.user.uid), baseUserDoc({
             uid: cred.user.uid, name, email: authEmail, age,
