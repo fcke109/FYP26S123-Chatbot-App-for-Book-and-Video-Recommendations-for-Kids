@@ -22,6 +22,9 @@ class FavoritesManager @Inject constructor(
     companion object {
         private const val TAG = "FavoritesManager"
         private const val TEST_TAG = "FAV_TEST"
+
+        private const val FREE_BOOK_LIMIT = 2
+        private const val FREE_VIDEO_LIMIT = 2
     }
 
     suspend fun getFavorites(userId: String): List<Favorite> {
@@ -90,6 +93,33 @@ class FavoritesManager @Inject constructor(
         return try {
             val safeItemId = itemId.ifBlank { generateFavoriteId(title, type) }
 
+            // Final plan check happens here so no screen can bypass the limit.
+            val hasUnlimited = hasUnlimitedFavorites(userId)
+
+            Log.d(
+                TEST_TAG,
+                "Limit check: userId=$userId, type=$type, hasUnlimitedFavorites=$hasUnlimited"
+            )
+
+            if (!hasUnlimited) {
+                val currentFavorites = getFavorites(userId)
+
+                val currentBooks = currentFavorites.count { it.type == RecommendationType.BOOK }
+                val currentVideos = currentFavorites.count { it.type == RecommendationType.VIDEO }
+
+                if (type == RecommendationType.BOOK && currentBooks >= FREE_BOOK_LIMIT) {
+                    return Result.failure(
+                        Exception("Free plan allows up to $FREE_BOOK_LIMIT favorite books. Upgrade to Premium for unlimited favorites.")
+                    )
+                }
+
+                if (type == RecommendationType.VIDEO && currentVideos >= FREE_VIDEO_LIMIT) {
+                    return Result.failure(
+                        Exception("Free plan allows up to $FREE_VIDEO_LIMIT favorite videos. Upgrade to Premium for unlimited favorites.")
+                    )
+                }
+            }
+
             val favorite = Favorite(
                 id = safeItemId,
                 userId = userId,
@@ -107,8 +137,6 @@ class FavoritesManager @Inject constructor(
                 "Writing favorite: userId=$userId, itemId=$safeItemId, title=$title, type=$type"
             )
 
-            // Try to create/update parent doc for CF support.
-            // If rules block this, do NOT fail the actual favorite save.
             try {
                 firestore.collection("favorites")
                     .document(userId)
@@ -138,10 +166,46 @@ class FavoritesManager @Inject constructor(
 
             Log.d(TEST_TAG, "Favorite item write success for itemId=$safeItemId")
             Result.success(Unit)
+
         } catch (e: Exception) {
             Log.e(TAG, "Failed to add favorite: ${e.message}", e)
             Log.e(TEST_TAG, "Failed to add favorite", e)
             Result.failure(e)
+        }
+    }
+
+    // IMPORTANT:
+    // This checks ONLY the logged-in user's own planType.
+    // Do not read parent plan here, because that caused inconsistent results.
+    //
+    // Firestore should store:
+    // Free child: planType = "FREE"
+    // Premium child: planType = "PREMIUM"
+    // Admin: planType = "ADMIN"
+    private suspend fun hasUnlimitedFavorites(userId: String): Boolean {
+        return try {
+            val userDoc = firestore.collection("users")
+                .document(userId)
+                .get()
+                .await()
+
+            if (!userDoc.exists()) {
+                Log.d(TEST_TAG, "Plan check: user doc missing, defaulting to FREE")
+                return false
+            }
+
+            val planType = userDoc.getString("planType")
+                ?.trim()
+                ?.uppercase()
+                ?: "FREE"
+
+            Log.d(TEST_TAG, "Plan check user=$userId planType=$planType")
+
+            planType == "PREMIUM" || planType == "ADMIN"
+
+        } catch (e: Exception) {
+            Log.w(TEST_TAG, "Plan check failed, defaulting to FREE", e)
+            false
         }
     }
 
@@ -191,15 +255,11 @@ class FavoritesManager @Inject constructor(
         data: Map<String, Any>
     ): Favorite {
         val typeValue = data["type"]?.toString().orEmpty()
+
         val recommendationType = when {
-            typeValue.equals("VIDEO", ignoreCase = true) ->
-                RecommendationType.VIDEO
-
-            typeValue.equals("BOOK", ignoreCase = true) ->
-                RecommendationType.BOOK
-
-            else ->
-                RecommendationType.BOOK
+            typeValue.equals("VIDEO", ignoreCase = true) -> RecommendationType.VIDEO
+            typeValue.equals("BOOK", ignoreCase = true) -> RecommendationType.BOOK
+            else -> RecommendationType.BOOK
         }
 
         return Favorite(
