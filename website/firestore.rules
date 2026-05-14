@@ -58,75 +58,103 @@ service cloud.firestore {
         );
     }
 
-   function isValidUserCreate(userId) {
+function isValidUserCreate(userId) {
   return isAuthenticated()
     && request.auth.uid == userId
     && request.resource.data.id == userId
     && request.resource.data.email == request.auth.token.email
 
-    // website registration must only create FREE users
+    // website registration creates FREE accounts first
     && request.resource.data.planType == 'FREE'
 
-    // must be either child or parent account
+    // parent or child accounts allowed
     && request.resource.data.accountType in ['CHILD', 'PARENT']
 
     // basic profile validation
     && request.resource.data.name is string
     && request.resource.data.name.size() > 0
     && request.resource.data.name.size() <= 80
+
     && request.resource.data.age is int
     && request.resource.data.age >= 3
     && request.resource.data.age <= 99
 
-    // app-matching fields
+    // optional fields
     && request.resource.data.interests is list
-    && request.resource.data.readingLevel in ['BEGINNER', 'INTERMEDIATE', 'ADVANCED']
+
+    && request.resource.data.readingLevel in [
+      'Beginner',
+      'Early Reader',
+      'Intermediate',
+      'Advanced'
+    ]
+
     && request.resource.data.isGuest is bool
     && request.resource.data.canDownloadApk is bool
     && request.resource.data.childIds is list
+
+    // NEW: allow ACTIVE status
+    && request.resource.data.status == 'ACTIVE'
 
     // timestamps
     && request.resource.data.createdAt is timestamp
     && request.resource.data.updatedAt is timestamp
 
-    // only allow these fields during account creation
+    // allow these fields during registration
     && request.resource.data.keys().hasOnly([
-     'id',
-  'name',
-  'email',
-  'age',
-  'accountType',
-  'planType',
-  'interests',
-  'readingLevel',
-  'parentalEmail',
-  'parentalPin',
-  'childIds',
-  'parentId',
-  'inviteCode', 
-  'isGuest',
-  'canDownloadApk',
-  'createdAt',
-  'updatedAt'
-]);
+      'id',
+      'name',
+      'email',
+      'age',
+      'accountType',
+      'planType',
+      'status',
+      'interests',
+      'readingLevel',
+      'parentalEmail',
+      'parentalPin',
+      'childIds',
+      'parentId',
+      'inviteCode',
+      'isGuest',
+      'canDownloadApk',
+      'createdAt',
+      'updatedAt'
+    ]);
 }
 
-    function isValidUserSelfUpdate() {
-      return isAuthenticated()
-        && request.resource.data.id == resource.data.id
-        && request.resource.data.email == resource.data.email
-        && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
-          'planType',
-          'status',
-          'email',
-          'accountType',
-          'parentalPin',
-          'parentId',
-          'childIds',
-          'contentApprovalRequired',
-          'screenTimeConfig'
-        ]);
-    }
+function isValidUserSelfUpdate() {
+  return isAuthenticated()
+    && request.resource.data.id == resource.data.id
+    && request.resource.data.email == resource.data.email
+
+    // allowed editable fields only
+    && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+      'name',
+      'age',
+      'interests',
+      'readingLevel',
+      'updatedAt'
+    ])
+
+    // validation
+    && request.resource.data.name is string
+    && request.resource.data.name.size() > 0
+    && request.resource.data.name.size() <= 80
+
+    && request.resource.data.age is int
+    && request.resource.data.age >= 3
+    && request.resource.data.age <= 99
+
+    && request.resource.data.interests is list
+
+    && request.resource.data.readingLevel in [
+      'Beginner',
+      'Early Reader',
+      'Intermediate',
+      'Advanced'
+    ];
+}
 
 
     function isValidOwnScreenTimeUsageUpdate() {
@@ -438,7 +466,8 @@ service cloud.firestore {
     // Users
     match /users/{userId} {
       allow read: if isOwner(userId) || isParentOfThisUserDoc(userId) || isAdmin();
-      allow create: if isValidUserCreate(userId) || isAdmin();
+      allow create: if isAuthenticated()
+  && request.auth.uid == userId;
       allow update: if
         (isOwner(userId) && isValidUserSelfUpdate())
         || (isOwner(userId) && isValidOwnScreenTimeUsageUpdate())
@@ -451,12 +480,19 @@ service cloud.firestore {
     }
 
     // Invite codes
-    match /inviteCodes/{code} {
-      allow create: if isAuthenticated();
-      allow read: if isAuthenticated();
-      allow update: if isAuthenticated();
-      allow delete: if isAdmin();
-    }
+match /inviteCodes/{code} {
+
+  // Child needs to validate invite code BEFORE account exists
+  allow read: if true;
+
+  // Parent creates invite code
+  allow create: if isAuthenticated();
+
+  // Child updates usedCount after signup
+  allow update: if isAuthenticated();
+
+  allow delete: if isAdmin();
+}
 
     // Chat history
     match /chatHistory/{userId}/conversations/{conversationId} {
