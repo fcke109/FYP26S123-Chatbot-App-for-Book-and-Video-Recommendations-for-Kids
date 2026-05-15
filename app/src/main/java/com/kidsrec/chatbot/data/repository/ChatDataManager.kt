@@ -3,6 +3,8 @@ package com.kidsrec.chatbot.data.repository
 import android.util.Log
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FieldValue
+import com.google.firebase.firestore.SetOptions
 import com.google.firebase.firestore.Query
 import com.kidsrec.chatbot.data.model.Book
 import com.kidsrec.chatbot.data.model.BookCategory
@@ -837,6 +839,27 @@ class ChatDataManager @Inject constructor(
                 .document(userMessage.id)
                 .set(userMessage)
                 .await()
+
+            try {
+                firestore.collection("chatbotSessions")
+                    .document(conversationId)
+                    .set(
+                        mapOf(
+                            "userId" to userId,
+                            "conversationId" to conversationId,
+                            "startedAt" to Timestamp.now(),
+                            "lastMessageAt" to Timestamp.now(),
+                            "preview" to sanitizedMessage.take(80),
+                            "messageCount" to FieldValue.increment(1)
+                        ),
+                        SetOptions.merge()
+                    )
+                    .await()
+
+                Log.d("ChatDataManager", "Chatbot session saved: $conversationId")
+            } catch (e: Exception) {
+                Log.w("ChatDataManager", "Failed to save chatbot session", e)
+            }
 
             firestore.collection("chatHistory")
                 .document(userId)

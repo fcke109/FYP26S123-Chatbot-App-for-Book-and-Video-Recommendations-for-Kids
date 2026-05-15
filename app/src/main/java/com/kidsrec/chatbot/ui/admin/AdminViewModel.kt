@@ -327,27 +327,14 @@ class AdminViewModel @Inject constructor(
                 // Count chatbot sessions = number of conversations across all users.
                 // (One conversation = one chatbot session.)
                 val chatbotUsageCount = try {
-                    firestore.collectionGroup("conversations")
+                    firestore.collection("chatbotSessions")
                         .get()
                         .await()
                         .size()
                         .toLong()
                 } catch (e: Exception) {
-                    Log.w(
-                        "AdminVM",
-                        "collectionGroup(conversations) failed, falling back to messages count",
-                        e
-                    )
-                    try {
-                        firestore.collectionGroup("messages")
-                            .get()
-                            .await()
-                            .size()
-                            .toLong()
-                    } catch (inner: Exception) {
-                        Log.w("AdminVM", "Both chatbot session queries failed", inner)
-                        0L
-                    }
+                    Log.w("AdminVM", "Failed to load chatbotSessions", e)
+                    0L
                 }
 
                 _adminStats.value = AdminStats(

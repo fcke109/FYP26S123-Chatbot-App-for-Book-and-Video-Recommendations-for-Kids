@@ -55,6 +55,21 @@ class AccountManager @Inject constructor(
             } catch (e: Exception) {
                 Log.w("AuthFlow", "trackLoginAttempt threw (ignored)", e)
             }
+            try {
+                firestore.collection("users")
+                    .document(user.uid)
+                    .update(
+                        mapOf(
+                            "lastLoggedInAt" to Timestamp.now(),
+                            "updatedAt" to Timestamp.now()
+                        )
+                    )
+                    .await()
+
+                Log.d("AuthFlow", "Updated lastLoggedInAt for ${user.uid}")
+            } catch (e: Exception) {
+                Log.w("AuthFlow", "Failed to update lastLoggedInAt", e)
+            }
 
             // BANNED accounts are caught by AuthViewModel.observeUserData, which
             // sees the user doc, sets AuthState.Error, and signs the user back
