@@ -911,8 +911,44 @@ setTimeout(async () => {
             planType: inheritedPlan, accountType: 'CHILD',
             parentId, interests: mergedInterests, readingLevel
           }));
-          batch.update(inviteResult.ref, { usedCount: increment(1), isActive: false });
-          await batch.commit();
+          // Add parent-selected starter books into the new child's favourites
+const starterBooks = Array.isArray(inviteResult.data.starterBooks)
+  ? inviteResult.data.starterBooks
+  : [];
+
+starterBooks.forEach((book) => {
+  const bookId =
+    book.id ||
+    book.itemId ||
+    book.bookId ||
+    book.title?.trim() ||
+    "";
+
+  if (!bookId) return;
+
+  batch.set(
+    doc(db, "favorites", cred.user.uid, "items", bookId),
+    {
+      id: bookId,
+      userId: cred.user.uid,
+      itemId: bookId,
+      type: "BOOK",
+      title: book.title || "Untitled Book",
+      description: book.description || "",
+      imageUrl: book.imageUrl || book.coverUrl || "",
+      url: book.url || book.bookUrl || book.readerUrl || "",
+      addedAt: serverTimestamp()
+    }
+  );
+});
+
+// Mark invite code as used
+batch.update(inviteResult.ref, {
+  usedCount: increment(1),
+  isActive: false
+});
+
+await batch.commit();
           showMsg('Account created! Redirecting...', 'success');
           setTimeout(() => window.location.href = '/catalog.html', 1000);
         }
