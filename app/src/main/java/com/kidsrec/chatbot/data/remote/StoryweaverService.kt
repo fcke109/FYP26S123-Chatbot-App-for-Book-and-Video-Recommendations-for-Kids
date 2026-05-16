@@ -3,7 +3,9 @@ package com.kidsrec.chatbot.data.remote
 import retrofit2.http.GET
 import retrofit2.http.Query
 
+// Retrofit service for accessing the Storyweaver API
 interface StoryweaverService {
+    // Searches children's stories from Storyweaver
     @GET("api/v1/stories")
     suspend fun searchStories(
         @Query("search_query") query: String, // Restored to search_query
@@ -12,6 +14,7 @@ interface StoryweaverService {
     ): StoryweaverResponse
 }
 
+// Main API response model
 data class StoryweaverResponse(
     val stories: List<SWStory>
 )
