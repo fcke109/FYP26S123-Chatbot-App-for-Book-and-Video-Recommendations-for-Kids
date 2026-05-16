@@ -3,6 +3,7 @@ package com.kidsrec.chatbot.data.model
 import androidx.annotation.Keep
 import com.google.firebase.Timestamp
 
+//Tracks Reading History of users
 @Keep
 data class ReadingHistory(
     val id: String = "",

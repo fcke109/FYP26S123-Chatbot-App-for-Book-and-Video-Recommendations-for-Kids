@@ -1,5 +1,6 @@
 package com.kidsrec.chatbot.data.model
 
+// Model for achievement badges earned by users
 data class Badge(
     val id: String = "",
     val title: String = "",
