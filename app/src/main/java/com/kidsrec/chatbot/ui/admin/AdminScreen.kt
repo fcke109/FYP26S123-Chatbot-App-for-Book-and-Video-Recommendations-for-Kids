@@ -9,6 +9,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import android.util.Log
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
+import androidx.compose.runtime.rememberCoroutineScope
+import com.kidsrec.chatbot.data.repository.AnalyticsStatsManager
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -63,6 +69,7 @@ fun AdminScreen(
     viewModel: AdminViewModel,
     onLogout: () -> Unit,
     onViewBook: (String, String, Boolean) -> Unit
+
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -441,6 +448,7 @@ fun AnalyticsTab(
     topViewedBooks: List<TopViewedBook>,
     topDropOffs: List<TopDropOff>
 ) {
+    val scope = rememberCoroutineScope()
     val totalSearches = topSearchedTopics.sumOf { it.count }
     val totalViews = topViewedBooks.sumOf { it.viewCount }
     val totalDropOffs = topDropOffs.sumOf { it.dropOffCount }
@@ -471,6 +479,22 @@ fun AnalyticsTab(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        item {
+            Button(
+                onClick = {
+                    scope.launch {
+                        try {
+                            AnalyticsStatsManager.syncHomepageAnalytics()
+                            Log.d("AdminAnalytics", "Website analytics synced successfully")
+                        } catch (e: Exception) {
+                            Log.e("AdminAnalytics", "Failed to sync website analytics", e)
+                        }
+                    }
+                }
+            ) {
+                Text("Sync Website Analytics")
+            }
+        }
         item {
             Column {
                 Text(

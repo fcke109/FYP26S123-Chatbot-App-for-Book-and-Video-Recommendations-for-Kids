@@ -15,6 +15,7 @@ import com.kidsrec.chatbot.data.model.PlanType
 import com.kidsrec.chatbot.data.model.ReadingHistory
 import com.kidsrec.chatbot.data.model.StarterBookSeed
 import com.kidsrec.chatbot.data.model.User
+import com.kidsrec.chatbot.data.repository.AnalyticsStatsManager
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -124,6 +125,9 @@ class AccountManager @Inject constructor(
                 .set(userDoc)
                 .await()
 
+// Update website analytics
+            AnalyticsStatsManager.incrementRegisteredUsers()
+
             Result.success(user)
         } catch (e: Exception) {
             createdUser?.delete()
@@ -162,6 +166,9 @@ class AccountManager @Inject constructor(
                 .document(user.uid)
                 .set(userDoc)
                 .await()
+
+// Update website analytics
+            AnalyticsStatsManager.incrementRegisteredUsers()
 
             Result.success(user)
         } catch (e: Exception) {
@@ -218,6 +225,9 @@ class AccountManager @Inject constructor(
                 .document(user.uid)
                 .set(userDoc)
                 .await()
+
+// Update website analytics
+            AnalyticsStatsManager.incrementRegisteredUsers()
 
             Result.success(user)
         } catch (e: Exception) {
@@ -309,6 +319,8 @@ class AccountManager @Inject constructor(
             // parent dashboard discovers children via users.parentId == parentId).
 
             batch.commit().await()
+            // Update website analytics
+            AnalyticsStatsManager.incrementRegisteredUsers()
 
             val starterBooks = (inviteSnapshot.get("starterBooks") as? List<*>).orEmpty()
             if (starterBooks.isNotEmpty()) {

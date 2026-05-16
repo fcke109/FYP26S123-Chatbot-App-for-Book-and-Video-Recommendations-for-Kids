@@ -41,6 +41,7 @@ class LibraryViewModel @Inject constructor(
     val curatedBooks: StateFlow<List<Book>> = _curatedBooks.asStateFlow()
 
     private val _topPicks = MutableStateFlow<List<Recommendation>>(emptyList())
+    private val previousRecommendationIds = mutableSetOf<String>()
     val topPicks: StateFlow<List<Recommendation>> = _topPicks.asStateFlow()
 
     private val _isLoading = MutableStateFlow(false)
@@ -142,11 +143,16 @@ class LibraryViewModel @Inject constructor(
                 user = user,
                 favorites = favorites,
                 searchHistory = emptyList(),
+                previouslyRecommendedIds = previousRecommendationIds.toList(),
                 clickedItems = interactionManager.getClickedItems(),
                 limit = 4
             )
 
             _topPicks.value = picks
+
+            previousRecommendationIds.addAll(
+                picks.map { it.id }
+            )
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load top picks: ${e.message}", e)
         }

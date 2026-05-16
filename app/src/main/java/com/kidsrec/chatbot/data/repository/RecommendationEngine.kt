@@ -13,13 +13,13 @@ import com.kidsrec.chatbot.data.model.RecommendationType
 class RecommendationEngine @Inject constructor() {
 
     companion object {
-        const val WEIGHT_INTEREST_MATCH = 0.22
+        const val WEIGHT_INTEREST_MATCH = 0.40
         const val WEIGHT_AGE_MATCH = 0.22
         const val WEIGHT_READING_LEVEL = 0.12
         const val WEIGHT_FAVORITE_SIMILARITY = 0.18
-        const val WEIGHT_CATEGORY_TAG_MATCH = 0.08
-        const val WEIGHT_SEARCH_HISTORY = 0.10
-        const val WEIGHT_CLICK_HISTORY = 0.08
+        const val WEIGHT_CATEGORY_TAG_MATCH = 0.12
+        const val WEIGHT_SEARCH_HISTORY = 0.06
+        const val WEIGHT_CLICK_HISTORY = 0.04
 
         private val READING_LEVEL_MAP = mapOf(
             "Beginner" to 1,
@@ -115,6 +115,7 @@ class RecommendationEngine @Inject constructor() {
         favorites: List<Favorite>,
         searchHistory: List<String> = emptyList(),
         clickedItems: List<String> = emptyList(),
+        previouslyRecommendedIds: List<String> = emptyList(),
         limit: Int = 10
     ): List<Recommendation> {
         if (curatedBooks.isEmpty()) return emptyList()
@@ -129,6 +130,7 @@ class RecommendationEngine @Inject constructor() {
             .filter { book ->
                 book.isVisibleToUser &&
                         book.id !in favoriteIds &&
+                        book.id !in previouslyRecommendedIds &&
                         book.title.trim().lowercase() !in favoriteTitles &&
                         isAllowedByUserFilters(book, user)
             }
@@ -234,7 +236,8 @@ class RecommendationEngine @Inject constructor() {
     }
 
     private fun computeInterestScore(book: Book, interests: List<String>): Double {
-        if (interests.isEmpty()) return 0.5
+
+        if (interests.isEmpty()) return 0.0
 
         val searchableText = buildString {
             append(book.title).append(" ")
@@ -250,7 +253,12 @@ class RecommendationEngine @Inject constructor() {
             searchableText.contains(interest.lowercase())
         }
 
-        return (matchCount.toDouble() / interests.size).coerceIn(0.0, 1.0)
+        return when {
+            matchCount == 0 -> 0.0
+            matchCount == 1 -> 0.45
+            else -> (matchCount.toDouble() / interests.size)
+                .coerceIn(0.0, 1.0)
+        }
     }
 
     private fun computeCategoryTagScore(book: Book, interests: List<String>): Double {

@@ -42,6 +42,7 @@ class ChatDataManager @Inject constructor(
     private val learningProgressManager: LearningProgressManager,
     private val gamificationManager: GamificationManager,
     private val analyticsRepository: AnalyticsRepository
+
 ) {
 
     // approved videos are hardcoded safe fallback videos
@@ -604,7 +605,18 @@ class ChatDataManager @Inject constructor(
             category = "science",
             tags = listOf("science", "colors", "learning", "preschool")
         )
+
     )
+
+    // Stores recently recommended books/videos during this app session.
+    // This prevents the chatbot from giving the same recommendation again
+    // when the child asks for "another story" or "more like this".
+    private val recentChatRecommendationIds = mutableSetOf<String>()
+    private val recentChatRecommendationTitles = mutableSetOf<String>()
+
+    // Legacy title memory used while parsing Gemini's JSON response.
+    // Kept separate because Gemini may suggest titles before we attach curated content.
+    private val recentRecommendationTitles = mutableSetOf<String>()
 
 
     // get categories from Firestore
@@ -659,7 +671,8 @@ class ChatDataManager @Inject constructor(
     }
 
     // choose a better fallback book using category tags
-    // if no match is found, it returns the first curated book
+    // Important: this avoids books already shown in the current chat session.
+    // If all matching books have already been shown, it clears the memory and starts again.
     private fun pickBestFallbackBook(
         message: String,
         curatedBooks: List<Book>,
@@ -667,18 +680,33 @@ class ChatDataManager @Inject constructor(
     ): Book? {
         if (curatedBooks.isEmpty()) return null
 
+        // Remove books that were already recommended recently.
+        val availableBooks = curatedBooks.filter { book ->
+            book.id !in recentChatRecommendationIds &&
+                    normalizeText(book.title) !in recentChatRecommendationTitles
+        }.ifEmpty {
+            // If everything was already shown, reset so recommendations do not become empty forever.
+            recentChatRecommendationIds.clear()
+            recentChatRecommendationTitles.clear()
+            curatedBooks
+        }
+
         val matchedCategories = findMatchingCategoryNames(message, categories)
 
-        val categoryMatchedBook = curatedBooks.firstOrNull { book ->
+        // Prefer a category-matched book, but only from the available non-repeated list.
+        val categoryMatchedBook = availableBooks.firstOrNull { book ->
             bookMatchesAnyCategory(book, matchedCategories)
         }
 
-        if (categoryMatchedBook != null) return categoryMatchedBook
+        if (categoryMatchedBook != null) {
+            rememberChatRecommendation(categoryMatchedBook.id, categoryMatchedBook.title)
+            return categoryMatchedBook
+        }
 
         val cleanMessage = normalizeText(message)
         val messageWords = cleanMessage.split(Regex("\\s+")).filter { it.length > 2 }
 
-        val scoredBooks = curatedBooks.map { book ->
+        val scoredBooks = availableBooks.map { book ->
             var score = 0
 
             score += messageWords.count { word -> normalizeText(book.title).contains(word) } * 3
@@ -691,7 +719,36 @@ class ChatDataManager @Inject constructor(
         }
 
         val best = scoredBooks.maxByOrNull { it.second }
-        return if (best != null && best.second > 0) best.first else curatedBooks.first()
+        val selectedBook = if (best != null && best.second > 0) {
+            best.first
+        } else {
+            availableBooks.firstOrNull()
+        }
+
+        if (selectedBook != null) {
+            rememberChatRecommendation(selectedBook.id, selectedBook.title)
+        }
+
+        return selectedBook
+    }
+
+    // Saves a recommendation into recent memory so repeated "another..." requests
+    // do not keep returning the same title again and again.
+    private fun rememberChatRecommendation(id: String, title: String) {
+        if (id.isNotBlank()) {
+            recentChatRecommendationIds.add(id)
+        }
+
+        val cleanTitle = normalizeText(title)
+        if (cleanTitle.isNotBlank()) {
+            recentChatRecommendationTitles.add(cleanTitle)
+        }
+
+        // Keep memory small to avoid blocking too many future recommendations.
+        if (recentChatRecommendationIds.size > 40 || recentChatRecommendationTitles.size > 40) {
+            recentChatRecommendationIds.clear()
+            recentChatRecommendationTitles.clear()
+        }
     }
 
     // simple text cleanup for matching
@@ -819,6 +876,12 @@ class ChatDataManager @Inject constructor(
                 "No approved videos are currently available."
             }
 
+            val recentRecommendationContext = if (recentChatRecommendationTitles.isNotEmpty()) {
+                "Recently recommended titles to avoid repeating: ${recentChatRecommendationTitles.joinToString(", ")}"
+            } else {
+                "No recently recommended titles yet."
+            }
+
             val userMessage = ChatMessage(
                 id = firestore.collection("chatHistory")
                     .document(userId)
@@ -902,6 +965,8 @@ $approvedVideosContext
 
 $categoryMatchContext
 
+$recentRecommendationContext
+
 CRITICAL RULES:
 1. ALWAYS recommend content that DIRECTLY matches what the child asked about. Relevance is the #1 priority.
 2. For BOOKS: If a curated book matches the child's topic, use that exact title. Otherwise, suggest a real, well-known children's book about their specific topic.
@@ -918,6 +983,7 @@ CRITICAL RULES:
 11. Keep the response friendly and short for children.
 12. Explain recommendations in a simple way, like "Because you liked Animals..." when a category matches.
 13. Mention daily recommendations naturally if suitable.
+14. If the child asks for another story/book/video, DO NOT repeat any recently recommended title listed above.
 
 Response format:
 1. Friendly message: ONE short sentence only.
@@ -1149,7 +1215,17 @@ RULES FOR JSON:
                     val title = obj.optString("title").trim()
                     val stableId = "rec_" + (title + type.name).hashCode().toString()
 
-                    if (title.isNotBlank()) {
+                    if (
+                        title.isNotBlank() &&
+                        title.lowercase() !in recentRecommendationTitles
+                    ) {
+
+                        recentRecommendationTitles.add(title.lowercase())
+
+                        if (recentRecommendationTitles.size > 30) {
+                            recentRecommendationTitles.clear()
+                        }
+
                         recommendations.add(
                             Recommendation(
                                 id = stableId,
@@ -1185,18 +1261,30 @@ RULES FOR JSON:
                 RecommendationType.BOOK -> {
                     val matchedCategories = findMatchingCategoryNames(originalMessage, categories)
 
-                    val titleMatchedBook = curatedBooks.firstOrNull { book ->
+                    val availableBooks = curatedBooks.filter { book ->
+                        book.id !in recentChatRecommendationIds &&
+                                normalizeText(book.title) !in recentChatRecommendationTitles
+                    }.ifEmpty {
+                        // If every book has already been recommended, reset memory and allow all books again.
+                        recentChatRecommendationIds.clear()
+                        recentChatRecommendationTitles.clear()
+                        curatedBooks
+                    }
+
+                    val titleMatchedBook = availableBooks.firstOrNull { book ->
                         titlesMatch(book.title, rec.title)
                     }
 
-                    // if title does not match, use category tags
-                    val categoryMatchedBook = curatedBooks.firstOrNull { book ->
+                    // If title does not match, use category tags.
+                    val categoryMatchedBook = availableBooks.firstOrNull { book ->
                         bookMatchesAnyCategory(book, matchedCategories)
                     }
 
                     val matchingBook = titleMatchedBook ?: categoryMatchedBook
 
                     if (matchingBook != null) {
+                        rememberChatRecommendation(matchingBook.id, matchingBook.title)
+
                         val bookUrl = matchingBook.readerUrl.ifBlank { matchingBook.bookUrl }
                         rec.copy(
                             id = matchingBook.id,
@@ -1238,11 +1326,22 @@ RULES FOR JSON:
                 }
 
                 RecommendationType.VIDEO -> {
-                    val matchingVideo = approvedVideos.firstOrNull { video ->
+                    val availableVideos = approvedVideos.filter { video ->
+                        video.id !in recentChatRecommendationIds &&
+                                normalizeText(video.title) !in recentChatRecommendationTitles
+                    }.ifEmpty {
+                        recentChatRecommendationIds.clear()
+                        recentChatRecommendationTitles.clear()
+                        approvedVideos
+                    }
+
+                    val matchingVideo = availableVideos.firstOrNull { video ->
                         titlesMatch(video.title, rec.title)
                     }
 
                     if (matchingVideo != null) {
+                        rememberChatRecommendation(matchingVideo.id, matchingVideo.title)
+
                         rec.copy(
                             id = matchingVideo.id,
                             title = matchingVideo.title,
@@ -1253,8 +1352,10 @@ RULES FOR JSON:
                             isCurated = true
                         )
                     } else {
-                        val fallbackVideo = pickBestFallbackVideo("$originalMessage ${rec.title}", approvedVideos)
+                        val fallbackVideo = pickBestFallbackVideo("$originalMessage ${rec.title}", availableVideos)
                         if (fallbackVideo != null) {
+                            rememberChatRecommendation(fallbackVideo.id, fallbackVideo.title)
+
                             rec.copy(
                                 id = fallbackVideo.id,
                                 type = RecommendationType.VIDEO,
@@ -1308,6 +1409,8 @@ RULES FOR JSON:
             // use category tags to choose a better fallback book
             val fallbackBook = pickBestFallbackBook(originalMessage, curatedBooks, categories)
                 ?: curatedBooks.first()
+            rememberChatRecommendation(fallbackBook.id, fallbackBook.title)
+
             val fallbackUrl = fallbackBook.readerUrl.ifBlank { fallbackBook.bookUrl }
 
             mutable.add(
@@ -1327,6 +1430,8 @@ RULES FOR JSON:
         if (!hasVideo && approvedVideos.isNotEmpty()) {
             val fallbackVideo = pickBestFallbackVideo(originalMessage, approvedVideos)
             if (fallbackVideo != null) {
+                rememberChatRecommendation(fallbackVideo.id, fallbackVideo.title)
+
                 mutable.add(
                     Recommendation(
                         id = fallbackVideo.id,
@@ -1346,6 +1451,8 @@ RULES FOR JSON:
                     video.category.contains(topic.lowercase()) ||
                             video.tags.any { tag -> tag.contains(topic.lowercase()) }
                 } ?: approvedVideos.first()
+
+                rememberChatRecommendation(categoryFallback.id, categoryFallback.title)
 
                 mutable.add(
                     Recommendation(
