@@ -881,20 +881,26 @@ if (!active) {
           }));
           try { await sendEmailVerification(cred.user); } catch (_) { /* non-fatal */ }
           if (parentPlan === 'PREMIUM') {
-            showMsg('Account created! Verification email sent. Please verify your email before continuing to payment.', 'success');
+  showMsg(
+    'Account created! Redirecting to Premium payment...',
+    'success'
+  );
 
-setTimeout(async () => {
-  await auth.signOut();
-  window.location.href = '/login.html';
-}, 1500);
-          } else {
-            showMsg('Account created! Verification email sent. Please check your inbox or spam folder before logging in.', 'success');
+  setTimeout(() => {
+    window.location.href = '/payment.html';
+  }, 1200);
 
-setTimeout(async () => {
-  await auth.signOut();
-  window.location.href = '/login.html';
-}, 1500);
-          }
+} else {
+  showMsg(
+    'Account created! Verification email sent. Please check your inbox or spam folder before logging in.',
+    'success'
+  );
+
+  setTimeout(async () => {
+    await auth.signOut();
+    window.location.href = '/login.html';
+  }, 1500);
+}
         } else {
           const parentId = inviteResult.data.assignedParentId || inviteResult.data.createdBy;
           const parentInterests = Array.isArray(inviteResult.data.childInterests) ? inviteResult.data.childInterests : [];
