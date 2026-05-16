@@ -500,6 +500,10 @@ fun DinoChatPage(
                                 message = message,
                                 favoriteItems = favoriteItems,
                                 isGuest = false,
+                                // Premium feature:
+                                // FREE users can still see recommendations, but they do not see
+                                // the ANN/CF percentage match badge or scoring details.
+                                showPremiumInsights = !isFreeUser,
                                 onToggleFavorite = { rec ->
                                     val isFav = favoriteItems.any { it.itemId == rec.id }
                                     if (isFav) {
@@ -1172,6 +1176,10 @@ fun MessageBubble(
     message: ChatMessage,
     favoriteItems: List<com.kidsrec.chatbot.data.model.Favorite>,
     isGuest: Boolean = false,
+    // Controls whether premium-only recommendation insight badges are shown.
+    // true  = Premium users see "% Match" and Collaborative Filtering details.
+    // false = Free users only see the recommendation, without scoring details.
+    showPremiumInsights: Boolean = true,
     onToggleFavorite: (Recommendation) -> Unit,
     onOpenRecommendation: (String, String, Boolean, String, String, String) -> Unit,
     onGetBookPreviewUrl: (suspend (String) -> String)? = null
@@ -1255,6 +1263,8 @@ fun MessageBubble(
                         recommendation = recommendation,
                         isFavorited = isFavorited,
                         showFavoriteButton = !isGuest,
+                        // Pass premium/free plan display rule into each card.
+                        showPremiumInsights = showPremiumInsights,
                         onToggleFavorite = { onToggleFavorite(recommendation) },
                         onOpenRecommendation = onOpenRecommendation,
                         onGetBookPreviewUrl = onGetBookPreviewUrl
@@ -1270,6 +1280,9 @@ fun RecommendationCard(
     recommendation: Recommendation,
     isFavorited: Boolean,
     showFavoriteButton: Boolean = true,
+    // Premium-only UI flag.
+    // FREE users should not see "% Match" or CF scoring details.
+    showPremiumInsights: Boolean = true,
     onToggleFavorite: () -> Unit,
     onOpenRecommendation: (String, String, Boolean, String, String, String) -> Unit,
     onGetBookPreviewUrl: (suspend (String) -> String)? = null
@@ -1277,6 +1290,22 @@ fun RecommendationCard(
     val coroutineScope = rememberCoroutineScope()
     val isVideo = recommendation.type == RecommendationType.VIDEO
     val cardAccent = if (isVideo) SoftOrange else SoftPurple
+
+    // For FREE users, remove the visible percentage text from the reason.
+    // Example: "73% match because you like Animals." becomes "Because you like Animals."
+    val displayReason = if (showPremiumInsights) {
+        recommendation.reason
+    } else {
+        recommendation.reason
+            .replace(
+                Regex("^\\s*\\d+%\\s+match\\s*(because\\s*)?", RegexOption.IGNORE_CASE),
+                ""
+            )
+            .replaceFirstChar { char ->
+                if (char.isLowerCase()) char.titlecase() else char.toString()
+            }
+            .trim()
+    }
 
     Card(
         modifier = Modifier
@@ -1376,7 +1405,9 @@ fun RecommendationCard(
                     }
                 }
 
-                if (recommendation.relevanceScore > 0) {
+                // Only Premium users can see the recommendation match percentage
+                // and collaborative filtering badges.
+                if (showPremiumInsights && recommendation.relevanceScore > 0) {
                     Column(
                         modifier = Modifier
                             .padding(8.dp)
@@ -1448,7 +1479,8 @@ fun RecommendationCard(
                     color = Color(0xFF6A7985)
                 )
 
-                if (recommendation.userBasedScore > 0 || recommendation.itemBasedScore > 0) {
+                // Detailed CF formula is a Premium-only insight.
+                if (showPremiumInsights && (recommendation.userBasedScore > 0 || recommendation.itemBasedScore > 0)) {
                     Spacer(modifier = Modifier.height(6.dp))
                     Surface(
                         color = Color(0xFFF3E5F5),
@@ -1479,7 +1511,7 @@ fun RecommendationCard(
                     }
                 }
 
-                if (recommendation.reason.isNotBlank()) {
+                if (displayReason.isNotBlank()) {
                     Spacer(modifier = Modifier.height(6.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
@@ -1490,7 +1522,7 @@ fun RecommendationCard(
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = recommendation.reason,
+                            text = displayReason,
                             fontSize = 10.sp,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
