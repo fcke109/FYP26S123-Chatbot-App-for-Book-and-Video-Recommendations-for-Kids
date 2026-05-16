@@ -276,6 +276,62 @@
       color: #4a63d9;
     }
 
+
+
+    /* ==========================================================
+       LIVE FEEDBACK SCROLL FIX
+       This makes the feedback cards scroll horizontally instead
+       of being stuck or hidden on smaller laptop screens.
+       ========================================================== */
+    .testimonial-slider-wrapper {
+      width: 100%;
+      overflow-x: auto;
+      overflow-y: hidden;
+      padding-bottom: 1rem;
+      scrollbar-width: thin;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    #live-feedback-track {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 1.2rem;
+      width: max-content;
+      max-width: none;
+      overflow: visible;
+      padding: 0.5rem 0.25rem 1rem;
+      scroll-behavior: smooth;
+      animation: none !important;
+    }
+
+    #live-feedback-track .feedback-card {
+      flex: 0 0 320px;
+      width: 320px;
+      max-width: 320px;
+      min-height: 260px;
+      border-radius: 24px;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    #live-feedback-track .no-feedback-msg {
+      min-width: 280px;
+      padding: 2rem;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    .testimonial-slider-wrapper::-webkit-scrollbar {
+      height: 8px;
+    }
+
+    .testimonial-slider-wrapper::-webkit-scrollbar-thumb {
+      background: rgba(139, 92, 246, 0.35);
+      border-radius: 999px;
+    }
+
     @media (max-width: 700px) {
       .top-auth {
         gap: 0.5rem;
@@ -365,6 +421,7 @@
 
         <div class="drawer-section-title">Main Menu</div>
         <a href="#home"><span class="drawer-link-icon">🏠</span>Home</a>
+        <a href="#marketing-video"><span class="drawer-link-icon">🎬</span>Video</a>
         <a href="#features"><span class="drawer-link-icon">✨</span>Features</a>
         <a href="#app-preview"><span class="drawer-link-icon">📱</span>Inside the App</a>
         <a href="#how-it-works"><span class="drawer-link-icon">🧭</span>How It Works</a>
@@ -445,7 +502,7 @@
       </div>
     </section>
 
-   <section style="padding: 60px 20px; text-align: center;">
+   <section id="marketing-video" style="padding: 60px 20px; text-align: center;">
   <h2>Watch Little Dino in Action</h2>
   <p>
     See how Little Dino helps children discover safe books and videos through a friendly chatbot experience.
@@ -907,27 +964,33 @@
           </p>
         </div>
 
+        <!-- ======================================================
+             ANALYTICS CARDS
+             Start all counters at 0 so old/fake numbers do not flash
+             before Firestore CMS values finish loading.
+             The real values are filled by loadHomepageContent().
+             ====================================================== -->
         <div class="analytics-grid">
           <div class="analytics-card glass-card">
-            <h3>Registration Rate</h3>
+            <h3>Registered Users</h3>
             <div class="analytics-value">
-              <span class="count-up" data-target="78">0</span>%
+              <span class="count-up" data-target="0">0</span>
             </div>
-            <p>Visitors who proceed to register or create an account.</p>
+            <p>Total registered users in Little Dino.</p>
           </div>
 
           <div class="analytics-card glass-card">
-            <h3>Active Users</h3>
+            <h3>App Feedback</h3>
             <div class="analytics-value">
-              <span class="count-up" data-target="1240">0</span>+
+              <span class="count-up" data-target="0">0</span>
             </div>
-            <p>Monthly active users engaging with Little Dino features.</p>
+            <p>Published app feedback submitted by users.</p>
           </div>
 
           <div class="analytics-card glass-card">
             <h3>Books Available</h3>
             <div class="analytics-value">
-              <span class="count-up" data-target="420">0</span>+
+              <span class="count-up" data-target="0">0</span>
             </div>
             <p>Books currently available for safe and guided discovery.</p>
           </div>
@@ -1054,7 +1117,8 @@
     onSnapshot,
     doc,
     getDoc,
-    deleteDoc
+    deleteDoc,
+    getDocs
   } from '/js/firebase-config.js';
 
   initAuthUI?.();
@@ -1218,9 +1282,12 @@
         setText(`#analytics .analytics-card:nth-child(${i}) p`, analytics[`stat${i}Text`]);
 
         const numberEl = document.querySelector(`#analytics .analytics-card:nth-child(${i}) .count-up`);
-        if (numberEl && analytics[`stat${i}Value`] !== undefined) {
-          numberEl.textContent = analytics[`stat${i}Value`];
-          numberEl.setAttribute('data-target', analytics[`stat${i}Value`]);
+        if (numberEl) {
+          // Use the Firestore CMS value only after it is loaded.
+          // This prevents the old default numbers from showing first.
+          const value = analytics[`stat${i}Value`] ?? 0;
+          numberEl.textContent = value;
+          numberEl.setAttribute('data-target', value);
         }
       }
     }
@@ -1272,6 +1339,16 @@
 }
 
 loadHomepageContent();
+
+
+/* ==========================================================
+   IMPORTANT:
+   Removed loadRealAnalytics().
+   The homepage now reads analytics from site_content/analytics only.
+   This avoids permission errors and stops old/fake numbers flashing.
+   Your Android app/admin sync should update site_content/analytics.
+   ========================================================== */
+
   function setPremiumCtaAlreadyPremium() {
     if (!planPremiumBtn) return;
     planPremiumBtn.textContent = 'Already Premium';
