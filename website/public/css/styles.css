@@ -1958,4 +1958,26 @@ main,
 .moving-dino-logo {
   animation: dinoFloatAround 20s ease-in-out infinite;
 }
+.marketing-video-section {
+  padding: 100px 20px;
+  text-align: center;
+  background: linear-gradient(135deg, #fff7e6, #e9f9f0);
+}
+
+.youtube-style-wrapper {
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto;
+  border-radius: 20px;
+  overflow: hidden;
+  background: #000;
+}
+
+.youtube-style-wrapper video {
+  width: 350px;
+  max-width: 90vw;
+  height: auto;
+  display: block;
+  border-radius: 20px;
+}
 }
