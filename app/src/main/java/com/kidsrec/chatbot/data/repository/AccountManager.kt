@@ -26,36 +26,40 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import com.kidsrec.chatbot.data.model.RecommendationType
 
-/**
- * AccountManager: Handles all user login, registration, and profile data.
- */
+// * AccountManager: Handles authentication, account creation, user profiles, invite codes, child accounts, and account security.
 @Singleton
 class AccountManager @Inject constructor(
     private val auth: FirebaseAuth,
     private val firestore: FirebaseFirestore,
     private val functions: FirebaseFunctions
 ) {
+    // Currently logged in Firebase user
     @Suppress("unused")
     val currentUser: FirebaseUser?
         get() = auth.currentUser
 
     fun getCurrentUserId(): String? = auth.currentUser?.uid
 
+    //User sign in flow
     suspend fun signIn(email: String, password: String): Result<FirebaseUser> {
         return try {
             Log.d("AuthFlow", "signIn: calling FirebaseAuth")
+
+            // Login with Firebase Authentication
             val result = kotlinx.coroutines.withTimeout(15_000) {
                 auth.signInWithEmailAndPassword(email, password).await()
             }
             val user = result.user ?: return Result.failure(Exception("Sign in failed"))
             Log.d("AuthFlow", "signIn: auth ok uid=${user.uid}")
 
-            // Fire-and-forget — never block sign-in on the analytics write.
+            // Save login attempt for analytics/security tracking
             try {
                 trackLoginAttempt(email, user.uid, true, "")
             } catch (e: Exception) {
                 Log.w("AuthFlow", "trackLoginAttempt threw (ignored)", e)
             }
+
+            // Update login timestamp in Firestore
             try {
                 firestore.collection("users")
                     .document(user.uid)
@@ -82,6 +86,8 @@ class AccountManager @Inject constructor(
             Result.failure(Exception("Sign-in timed out. Check your internet connection."))
         } catch (e: Exception) {
             Log.e("AuthFlow", "signIn failed: ${e.message}", e)
+
+           // Track failed login attempt for analytics/security tracking
             try {
                 trackLoginAttempt(email, "", false, e.message ?: "Unknown error")
             } catch (_: Exception) { /* swallow */ }
@@ -89,6 +95,7 @@ class AccountManager @Inject constructor(
         }
     }
 
+    //Premium child account registration
     suspend fun signUp(
         email: String,
         password: String,
@@ -103,12 +110,10 @@ class AccountManager @Inject constructor(
             val user = result.user ?: return Result.failure(Exception("User creation failed"))
             createdUser = user
 
-            // Use the email Firebase Auth stored, not the typed input — the
-            // isValidUserCreate rule compares request.resource.data.email to
-            // request.auth.token.email exactly (case-sensitive), and the typed
-            // value can differ from what Firebase normalizes into the token.
+            // use Firebase-authenticated email for firestore consistency
             val authEmail = user.email ?: email
 
+           // Create Firestore user document
             val userDoc = User(
                 id = user.uid,
                 name = name,
@@ -125,17 +130,20 @@ class AccountManager @Inject constructor(
                 .set(userDoc)
                 .await()
 
-// Update website analytics
+           // Update website analytics
             AnalyticsStatsManager.incrementRegisteredUsers()
 
             Result.success(user)
         } catch (e: Exception) {
+
+            // Cleanup if signup fails
             createdUser?.delete()
             auth.signOut()
             Result.failure(e)
         }
     }
 
+    //Parent account registration
     suspend fun signUpParent(
         email: String,
         password: String,
@@ -147,6 +155,7 @@ class AccountManager @Inject constructor(
             val user = result.user ?: return Result.failure(Exception("User creation failed"))
             createdUser = user
 
+            // Send verification email
             user.sendEmailVerification().await()
 
             val authEmail = user.email ?: email
@@ -167,7 +176,7 @@ class AccountManager @Inject constructor(
                 .set(userDoc)
                 .await()
 
-// Update website analytics
+            // Update website analytics
             AnalyticsStatsManager.incrementRegisteredUsers()
 
             Result.success(user)
@@ -178,11 +187,13 @@ class AccountManager @Inject constructor(
         }
     }
 
+    // Checks whether current user verified their email
     suspend fun isEmailVerified(): Boolean {
         auth.currentUser?.reload()?.await()
         return auth.currentUser?.isEmailVerified ?: false
     }
 
+   // Resend verification email
     suspend fun resendVerificationEmail(): Result<Unit> {
         return try {
             auth.currentUser?.sendEmailVerification()?.await()
@@ -192,6 +203,7 @@ class AccountManager @Inject constructor(
         }
     }
 
+    //Free child account registration
     suspend fun signUpFreeKid(
         email: String,
         password: String,
@@ -237,6 +249,7 @@ class AccountManager @Inject constructor(
         }
     }
 
+   // child account signup using parent invite code
     suspend fun signUpChild(
         email: String,
         password: String,
@@ -256,6 +269,7 @@ class AccountManager @Inject constructor(
 
             user.getIdToken(true).await()
 
+           // Validate Invite code
             val codeResult = validateInviteCode(normalizedCode)
             if (codeResult.isFailure) {
                 user.delete().await()
@@ -270,22 +284,26 @@ class AccountManager @Inject constructor(
             val inviteRef = firestore.collection("inviteCodes").document(normalizedCode)
             val inviteSnapshot = inviteRef.get().await()
 
+            // Parent-selected intrests
             val parentSelectedInterests = (inviteSnapshot.get("childInterests") as? List<*>)
                 ?.mapNotNull { it as? String }
                 ?.map { it.trim() }
                 ?.filter { it.isNotBlank() }
                 .orEmpty()
 
+            // Child-selected interests
             val childSelectedInterests = interests
                 .map { it.trim() }
                 .filter { it.isNotBlank() }
 
+            //Merge parent and child interests
             val finalInterests = (parentSelectedInterests + childSelectedInterests)
                 .distinct()
                 .take(5)
 
             val authEmail = user.email ?: email
 
+           // Create child user doc
             val childDoc = User(
                 id = user.uid,
                 name = name,
@@ -305,6 +323,7 @@ class AccountManager @Inject constructor(
                 childDoc
             )
 
+            // Mark invite code as used
             batch.update(
                 inviteRef,
                 mapOf(
@@ -313,15 +332,11 @@ class AccountManager @Inject constructor(
                 )
             )
 
-            // NOTE: We deliberately do NOT update parent.childIds here. The Firestore
-            // rules forbid a non-owner from writing to that field, so the parent.childIds
-            // backfill happens via a Cloud Function trigger (or it stays empty and the
-            // parent dashboard discovers children via users.parentId == parentId).
-
             batch.commit().await()
             // Update website analytics
             AnalyticsStatsManager.incrementRegisteredUsers()
 
+            // Seed starter books into child favourites
             val starterBooks = (inviteSnapshot.get("starterBooks") as? List<*>).orEmpty()
             if (starterBooks.isNotEmpty()) {
                 try {
@@ -375,7 +390,7 @@ class AccountManager @Inject constructor(
                     starterBatch.commit().await()
                     Log.d("AccountManager", "Seeded ${starterBooks.size} starter books for child ${user.uid}")
                 } catch (e: Exception) {
-                    // Don't fail signup if starter book seeding fails - the child account itself is valid.
+                    //  Signup should still succeed even if starter books fail
                     Log.e("AccountManager", "Failed to seed starter books for child ${user.uid}", e)
                 }
             }
@@ -389,6 +404,7 @@ class AccountManager @Inject constructor(
         }
     }
 
+    // Generate invite code without starter content
     @Suppress("unused")
     suspend fun generateInviteCode(
         parentId: String,
@@ -402,6 +418,7 @@ class AccountManager @Inject constructor(
         )
     }
 
+    // Generate parent invite code for child registration
     @Suppress("unused")
     suspend fun generateInviteCode(
         parentId: String,
@@ -417,6 +434,7 @@ class AccountManager @Inject constructor(
                 return Result.failure(Exception("Parent ID does not match logged in user."))
             }
 
+            // Generate unique 6 pin code
             var code: String
             var attempts = 0
             var exists = true
@@ -440,21 +458,16 @@ class AccountManager @Inject constructor(
                 return Result.failure(Exception("Could not generate unique code. Try again."))
             }
 
-            // Snapshot the parent's plan onto the code so a kid redeeming on
-            // the website (which can't read the parent's user doc directly)
-            // inherits the correct plan. If the parent later upgrades, the
-            // existing FREE -> PREMIUM cascade in upgradeToPremium catches kids
-            // whose parentId points at the parent.
+            //Get parent's subscription plan
             val parentSnap = firestore.collection("users").document(currentUser.uid).get().await()
             val parentPlanType = parentSnap.getString("planType")
                 ?.takeIf { it == PlanType.FREE.name || it == PlanType.PREMIUM.name }
                 ?: PlanType.PREMIUM.name
 
-            // Free plan: cap parents at one child account. Block code generation
-            // if either an active child already exists OR a previous code is
-            // still outstanding (so they can't pre-stage a second code while
-            // waiting on the first to be redeemed).
+           // Free plan Limitations
             if (parentPlanType == PlanType.FREE.name) {
+
+                // Check active child count
                 val childrenSnap = firestore.collection("users")
                     .whereEqualTo("parentId", currentUser.uid)
                     .get()
@@ -468,6 +481,7 @@ class AccountManager @Inject constructor(
                     ))
                 }
 
+               // Check existing invite codes
                 val activeCodesSnap = firestore.collection("inviteCodes")
                     .whereEqualTo("assignedParentId", currentUser.uid)
                     .whereEqualTo("isActive", true)
@@ -485,6 +499,7 @@ class AccountManager @Inject constructor(
                 }
             }
 
+            // Invite code expiry (24 hrs)
             val now = Timestamp.now()
             val calendar = Calendar.getInstance().apply {
                 time = now.toDate()
@@ -525,6 +540,7 @@ class AccountManager @Inject constructor(
         }
     }
 
+    // Validate invite code before child registration
     suspend fun validateInviteCode(code: String): Result<InviteCode> {
         return try {
             val normalizedCode = code.trim().uppercase()
@@ -559,6 +575,7 @@ class AccountManager @Inject constructor(
         }
     }
 
+    //Real-time flow of parents child accounts
     @Suppress("unused")
     fun getChildrenFlow(parentId: String): Flow<List<User>> = callbackFlow {
         val listener = firestore.collection("users")
@@ -569,10 +586,6 @@ class AccountManager @Inject constructor(
                     trySend(emptyList())
                     return@addSnapshotListener
                 }
-                // Hide soft-deleted kids from the parent dashboard. Their docs
-                // are kept in Firestore so admins can restore them, but a
-                // BANNED kid should not look "still there" to the parent who
-                // just removed them.
                 val children = snapshot?.toObjects(User::class.java)
                     ?.filter { it.status != com.kidsrec.chatbot.data.model.UserStatus.BANNED }
                     ?: emptyList()
@@ -581,6 +594,7 @@ class AccountManager @Inject constructor(
         awaitClose { listener.remove() }
     }
 
+    // Real-time flow of child favorites
     fun getChildFavoritesFlow(childId: String): Flow<List<Favorite>> = callbackFlow {
         val listener = firestore.collection("favorites")
             .document(childId)
@@ -597,6 +611,7 @@ class AccountManager @Inject constructor(
         awaitClose { listener.remove() }
     }
 
+    // Real-time flow of child reading history
     fun getChildReadingHistoryFlow(childId: String): Flow<List<ReadingHistory>> = callbackFlow {
         val listener = firestore.collection("readingHistory")
             .document(childId)
@@ -615,6 +630,7 @@ class AccountManager @Inject constructor(
         awaitClose { listener.remove() }
     }
 
+    // Update content filters on child account
     suspend fun updateChildFilters(
         childId: String,
         maxAgeRating: Int,
@@ -636,6 +652,7 @@ class AccountManager @Inject constructor(
         }
     }
 
+    // Update parental PIN on child account
     suspend fun updateChildParentalPin(
         childId: String,
         pin: String
@@ -656,18 +673,7 @@ class AccountManager @Inject constructor(
         }
     }
 
-    /**
-     * Soft-delete a child account.
-     *
-     * Direct Firestore write path (Spark plan: no Cloud Function available).
-     * Authorization is split between client and rule:
-     *   - Server (Firestore rule isValidParentSoftDeleteChild) guarantees
-     *     ONLY the parent of this child can flip status -> BANNED and that
-     *     no other field on the user doc is mutated.
-     *   - Client (this function) verifies the parent typed the correct PIN
-     *     by reading child.parentalPin and comparing locally. The PIN is
-     *     a UX confirmation, not a server-enforced security boundary.
-     */
+    // Soft-delete child account
     suspend fun softDeleteChild(childId: String, pin: String): Result<Unit> {
         return try {
             if (childId.isBlank()) {
@@ -699,7 +705,7 @@ class AccountManager @Inject constructor(
                 return Result.failure(Exception("Incorrect PIN."))
             }
 
-            // Idempotent: already removed.
+            // Skip if already banned
             if (childSnap.getString("status") == com.kidsrec.chatbot.data.model.UserStatus.BANNED.name) {
                 Log.d("AccountManager", "Child $childId already soft-deleted")
                 return Result.success(Unit)
@@ -724,6 +730,7 @@ class AccountManager @Inject constructor(
         }
     }
 
+    //Anonymous guest login
     suspend fun signInAnonymously(): Result<FirebaseUser> {
         return try {
             val result = auth.signInAnonymously().await()
@@ -734,11 +741,13 @@ class AccountManager @Inject constructor(
         }
     }
 
+   // Sign out current user
     @Suppress("RedundantSuspendModifier")
     suspend fun signOut() {
         auth.signOut()
     }
 
+    //Fetch single user document
     suspend fun getUser(userId: String): User? {
         return try {
             Log.d("AuthFlow", "getUser: $userId")
@@ -757,6 +766,7 @@ class AccountManager @Inject constructor(
         }
     }
 
+    //Real-time user flow listener
     fun getUserFlow(userId: String): Flow<User?> = callbackFlow {
         val listener = firestore.collection("users")
             .document(userId)
@@ -773,6 +783,7 @@ class AccountManager @Inject constructor(
         awaitClose { listener.remove() }
     }
 
+    //Real-time flow of all users
     fun getAllUsersFlow(): Flow<List<User>> = callbackFlow {
         val listener = firestore.collection("users")
             .addSnapshotListener { snapshot, error ->
@@ -790,14 +801,9 @@ class AccountManager @Inject constructor(
         awaitClose { listener.remove() }
     }
 
+    // Upgrade free users to premium
     suspend fun upgradeToPremium(userId: String): Result<Unit> {
         return try {
-            // Spark plan: no Cloud Functions. The Firestore rules
-            // isValidSelfUpgradeToPremium and isValidParentUpgradeChildToPremium
-            // enable a one-way FREE -> PREMIUM client write, scoped to
-            // {planType, isGuest} only. Demo flow has no payment validation —
-            // same as the previous verifyPurchase call which passed an empty
-            // purchaseToken anyway.
             val authUid = auth.currentUser?.uid
                 ?: return Result.failure(Exception("Not signed in."))
             if (authUid != userId) {
@@ -810,7 +816,7 @@ class AccountManager @Inject constructor(
             val userDoc = userSnap.toObject(User::class.java)
                 ?: return Result.failure(Exception("User profile not found."))
 
-            // Idempotent — already premium (or admin).
+            // Skip if already premium/admin
             if (userDoc.planType != PlanType.FREE) {
                 Log.d("AccountManager", "User $userId already non-FREE (${userDoc.planType}), skipping")
                 return Result.success(Unit)
@@ -827,8 +833,7 @@ class AccountManager @Inject constructor(
                 .await()
             Log.d("AccountManager", "Upgraded $userId to PREMIUM (direct write)")
 
-            // Cascade to linked children. Discover them via parentId since
-            // the new invite-redeem flow doesn't backfill parent.childIds.
+            // Cascade upgrade to linked child accounts
             if (userDoc.accountType == AccountType.PARENT) {
                 val childrenSnap = firestore.collection("users")
                     .whereEqualTo("parentId", userId)
@@ -870,6 +875,7 @@ class AccountManager @Inject constructor(
         }
     }
 
+   // Update editable user profile fields
     suspend fun updateUser(user: User): Result<Unit> {
         return try {
 
@@ -894,6 +900,7 @@ class AccountManager @Inject constructor(
         }
     }
 
+    // Save FCM notification token
     @Suppress("unused")
     suspend fun updateFcmToken(userId: String, token: String): Result<Unit> {
         return try {
@@ -906,12 +913,13 @@ class AccountManager @Inject constructor(
             Result.failure(e)
         }
     }
+    // Detect suspicious login behaviour
     private suspend fun detectSuspiciousActivity(email: String) {
         try {
             val cutoffMillis = System.currentTimeMillis() - 5 * 60 * 1000
             val cutoffTimestamp = Timestamp(java.util.Date(cutoffMillis))
 
-            // Simpler query: only by email, then filter in app code
+            // Retrieve recent login attempts
             val recentAttemptsSnapshot = firestore.collection("loginAttempts")
                 .whereEqualTo("email", email)
                 .get()
@@ -923,12 +931,13 @@ class AccountManager @Inject constructor(
                 !success && ts != null && ts.toDate().time >= cutoffMillis
             }
 
+            // Trigger alert if too many failed logins
             if (failedAttempts.size < 5) {
                 Log.d("SECURITY", "Not enough failed attempts for $email: ${failedAttempts.size}")
                 return
             }
 
-            // Prevent duplicates: only one unresolved brute-force alert in the last 5 minutes
+            // Prevent duplicate alerts
             val existingAlertsSnapshot = firestore.collection("suspiciousActivities")
                 .whereEqualTo("email", email)
                 .get()
@@ -949,6 +958,7 @@ class AccountManager @Inject constructor(
                 return
             }
 
+            // Create suspicious activity record
             val activity = hashMapOf(
                 "id" to "",
                 "userId" to "",
@@ -972,6 +982,7 @@ class AccountManager @Inject constructor(
             Log.e("SECURITY", "Detection failed", e)
         }
     }
+    // Save login attempt history
     private suspend fun trackLoginAttempt(
         email: String,
         userId: String,
@@ -992,6 +1003,7 @@ class AccountManager @Inject constructor(
 
             Log.d("SECURITY", "Login attempt saved for $email success=$success")
 
+            // Check for suspicious activity after failed logins
             if (!success) {
                 detectSuspiciousActivity(email)
             }

@@ -11,12 +11,14 @@ import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
 
+// Handles Firestore operations for the curated book library
 @Singleton
 class BookDataManager @Inject constructor(
     private val firestore: FirebaseFirestore
 ) {
     private val collection = firestore.collection("content_books")
 
+    // Real-time listener for curated books
     fun getCuratedBooksFlow(): Flow<List<Book>> = callbackFlow {
         val subscription = collection
             .addSnapshotListener { snapshot, error ->
@@ -37,6 +39,7 @@ class BookDataManager @Inject constructor(
         awaitClose { subscription.remove() }
     }
 
+    // Loads curated books once from Firestore
     suspend fun getCuratedBooks(): Result<List<Book>> {
         return try {
             val snapshot = collection.get().await()
@@ -49,6 +52,7 @@ class BookDataManager @Inject constructor(
         }
     }
 
+    // Finds the next numeric book ID, for example 001, 002, 003
     suspend fun getNextSequentialId(): String {
         return try {
             val snapshot = collection.get().await()
@@ -65,6 +69,7 @@ class BookDataManager @Inject constructor(
         }
     }
 
+    // Adds or updates a curated book in Firestore
     suspend fun addBook(book: Book): Result<Unit> {
         return try {
             val finalId = if (book.id.isBlank() || !book.id.all { it.isDigit() }) {
@@ -88,6 +93,7 @@ class BookDataManager @Inject constructor(
         }
     }
 
+    // Deletes a curated book from Firestore
     suspend fun deleteBook(bookId: String): Result<Unit> {
         return try {
             collection.document(bookId).delete().await()

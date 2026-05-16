@@ -14,6 +14,7 @@ import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
 
+// Handles adding, removing, and loading user favorites
 @Singleton
 class FavoritesManager @Inject constructor(
     private val firestore: FirebaseFirestore
@@ -23,10 +24,12 @@ class FavoritesManager @Inject constructor(
         private const val TAG = "FavoritesManager"
         private const val TEST_TAG = "FAV_TEST"
 
+        // Free plan limits
         private const val FREE_BOOK_LIMIT = 2
         private const val FREE_VIDEO_LIMIT = 2
     }
 
+    // Loads all favorites for a user
     suspend fun getFavorites(userId: String): List<Favorite> {
         return try {
             val snapshot = firestore.collection("favorites")
@@ -44,6 +47,7 @@ class FavoritesManager @Inject constructor(
         }
     }
 
+    // Real-time favorites listener
     fun getFavoritesFlow(userId: String): Flow<List<Favorite>> = callbackFlow {
         val listener = firestore.collection("favorites")
             .document(userId)
@@ -66,6 +70,7 @@ class FavoritesManager @Inject constructor(
         awaitClose { listener.remove() }
     }
 
+    // Adds favorite using Recommendation object
     suspend fun addFavorite(
         userId: String,
         recommendation: Recommendation
@@ -81,6 +86,7 @@ class FavoritesManager @Inject constructor(
         )
     }
 
+    // Main add favorite function
     suspend fun addFavorite(
         userId: String,
         itemId: String,
@@ -93,7 +99,7 @@ class FavoritesManager @Inject constructor(
         return try {
             val safeItemId = itemId.ifBlank { generateFavoriteId(title, type) }
 
-            // Final plan check happens here so no screen can bypass the limit.
+            // Check if user has premium/unlimited favorites
             val hasUnlimited = hasUnlimitedFavorites(userId)
 
             Log.d(
@@ -101,18 +107,21 @@ class FavoritesManager @Inject constructor(
                 "Limit check: userId=$userId, type=$type, hasUnlimitedFavorites=$hasUnlimited"
             )
 
+            // Apply free-plan limits
             if (!hasUnlimited) {
                 val currentFavorites = getFavorites(userId)
 
                 val currentBooks = currentFavorites.count { it.type == RecommendationType.BOOK }
                 val currentVideos = currentFavorites.count { it.type == RecommendationType.VIDEO }
 
+                // Free book limit
                 if (type == RecommendationType.BOOK && currentBooks >= FREE_BOOK_LIMIT) {
                     return Result.failure(
                         Exception("Free plan allows up to $FREE_BOOK_LIMIT favorite books. Upgrade to Premium for unlimited favorites.")
                     )
                 }
 
+                // Free video limit
                 if (type == RecommendationType.VIDEO && currentVideos >= FREE_VIDEO_LIMIT) {
                     return Result.failure(
                         Exception("Free plan allows up to $FREE_VIDEO_LIMIT favorite videos. Upgrade to Premium for unlimited favorites.")
@@ -120,6 +129,7 @@ class FavoritesManager @Inject constructor(
                 }
             }
 
+            // Build favorite object
             val favorite = Favorite(
                 id = safeItemId,
                 userId = userId,
@@ -137,6 +147,7 @@ class FavoritesManager @Inject constructor(
                 "Writing favorite: userId=$userId, itemId=$safeItemId, title=$title, type=$type"
             )
 
+            // Ensure parent favorites document exists
             try {
                 firestore.collection("favorites")
                     .document(userId)
@@ -157,6 +168,7 @@ class FavoritesManager @Inject constructor(
                 )
             }
 
+            // Save favorite item
             firestore.collection("favorites")
                 .document(userId)
                 .collection("items")
@@ -175,6 +187,7 @@ class FavoritesManager @Inject constructor(
     }
 
 
+    // Checks whether user has premium/admin unlimited favorites
     private suspend fun hasUnlimitedFavorites(userId: String): Boolean {
         return try {
             val userDoc = firestore.collection("users")
@@ -202,6 +215,7 @@ class FavoritesManager @Inject constructor(
         }
     }
 
+    // Removes favorite item
     suspend fun removeFavorite(
         userId: String,
         itemId: String
@@ -223,6 +237,7 @@ class FavoritesManager @Inject constructor(
         }
     }
 
+    // Checks whether an item already exists in favorites
     suspend fun isFavorite(
         userId: String,
         itemId: String
@@ -242,6 +257,7 @@ class FavoritesManager @Inject constructor(
         }
     }
 
+    // Converts Firestore document data into Favorite object
     private fun mapDocumentToFavorite(
         userId: String,
         docId: String,
@@ -268,6 +284,7 @@ class FavoritesManager @Inject constructor(
         )
     }
 
+    // Generates fallback favorite ID if item ID is missing
     private fun generateFavoriteId(
         title: String,
         type: RecommendationType

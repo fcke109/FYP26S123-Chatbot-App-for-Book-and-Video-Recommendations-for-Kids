@@ -5,15 +5,16 @@ import com.google.firebase.functions.FirebaseFunctions
 import javax.inject.Inject
 import javax.inject.Singleton
 
+// Handles audit logging for important user/system actions
 @Singleton
 class AuditLogger @Inject constructor(
     private val functions: FirebaseFunctions
 ) {
-    /**
-     * Fire-and-forget audit log. Does not block or throw on failure.
-     */
+    // sends audit event to firebase cloud functions, does not block the app or crash if logging fails
     fun logAction(userId: String, action: String, details: String = "") {
         try {
+
+            // Call Firebase Cloud Function to store audit log
             functions.getHttpsCallable("logAuditEvent")
                 .call(mapOf("action" to action, "details" to details))
                 .addOnFailureListener { e ->

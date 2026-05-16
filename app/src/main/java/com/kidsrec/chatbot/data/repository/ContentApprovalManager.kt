@@ -12,12 +12,14 @@ import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
 
+// Handles parent approval requests for child content access
 @Singleton
 class ContentApprovalManager @Inject constructor(
     private val firestore: FirebaseFirestore
 ) {
     private val collection = firestore.collection("contentApprovals")
 
+    // Loads pending approval requests for a parent
     fun getPendingApprovalsFlow(parentId: String): Flow<List<ContentApproval>> = callbackFlow {
         val listener = collection
             .whereEqualTo("parentId", parentId)
@@ -34,6 +36,7 @@ class ContentApprovalManager @Inject constructor(
         awaitClose { listener.remove() }
     }
 
+    // Watches approval status for a specific child and content item
     fun getApprovalStatusFlow(childId: String, contentId: String): Flow<ApprovalStatus?> = callbackFlow {
         val listener = collection
             .whereEqualTo("childId", childId)
@@ -50,6 +53,7 @@ class ContentApprovalManager @Inject constructor(
         awaitClose { listener.remove() }
     }
 
+    // Creates a new approval request from child to parent
     suspend fun requestApproval(
         childId: String,
         parentId: String,
@@ -81,6 +85,7 @@ class ContentApprovalManager @Inject constructor(
         }
     }
 
+    // Marks requested content as approved
     suspend fun approveContent(approvalId: String): Result<Unit> {
         return try {
             collection.document(approvalId).update(
@@ -95,6 +100,7 @@ class ContentApprovalManager @Inject constructor(
         }
     }
 
+    // Marks requested content as rejected
     suspend fun rejectContent(approvalId: String): Result<Unit> {
         return try {
             collection.document(approvalId).update(
@@ -109,6 +115,7 @@ class ContentApprovalManager @Inject constructor(
         }
     }
 
+    // Checks once whether a content item has already been approved
     suspend fun isContentApproved(childId: String, contentId: String): Boolean {
         return try {
             val snapshot = collection

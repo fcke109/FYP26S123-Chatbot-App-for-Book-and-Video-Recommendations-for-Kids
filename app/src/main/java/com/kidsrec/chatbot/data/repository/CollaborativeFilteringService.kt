@@ -7,20 +7,26 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.tasks.await
 import kotlin.math.sqrt
 
+// Represents a recommendable item used in collaborative filtering
 data class CFItem(
     val id: String = "",
     val title: String = "",
     val description: String = "",
     val imageUrl: String = "",
     val url: String = "",
+
+    // BOOK or VIDEO
     val type: String = "BOOK", // BOOK or VIDEO
     val category: String = "",
     val ageMin: Int = 0,
     val ageMax: Int = 18,
+
+    // Safety filtering for children
     val isKidSafe: Boolean = true,
     val tags: List<String> = emptyList()
 )
 
+// Final recommendation result with scores
 data class CFRecommendation(
     val item: CFItem,
     val userBasedScore: Double,
@@ -29,16 +35,19 @@ data class CFRecommendation(
     val reason: String
 )
 
+// Stores user-item interaction data
 data class UserInteraction(
     val userId: String,
     val itemId: String,
     val weight: Double
 )
 
+// Hybrid collaborative filtering recommendation engine
 class CollaborativeFilteringService(
     private val db: FirebaseFirestore = FirebaseFirestore.getInstance()
 ) {
 
+    // Main recommendation generation function
     suspend fun getHybridRecommendations(
         targetUserId: String,
         allItems: List<CFItem>,
@@ -48,16 +57,20 @@ class CollaborativeFilteringService(
         val interactions = loadAllInteractions()
         if (interactions.isEmpty()) return emptyList()
 
+        // Only recommend kid-safe items
         val safeItems = allItems
             .filter { it.isKidSafe }
             .associateBy { it.id }
 
+        // Build user-item interaction matrix
         val userItemMatrix = buildUserItemMatrix(interactions)
         val targetVector = userItemMatrix[targetUserId] ?: emptyMap()
         if (targetVector.isEmpty()) return emptyList()
 
+        // Prevent recommending already seen items
         val seenItemIds = targetVector.keys.toSet()
 
+        // Calculate recommendation scores
         val userBasedScores = computeUserBasedScores(
             targetUserId = targetUserId,
             userItemMatrix = userItemMatrix,
@@ -70,6 +83,7 @@ class CollaborativeFilteringService(
             seenItemIds = seenItemIds
         )
 
+        // Merge recommendation candidates
         val candidateIds = (userBasedScores.keys + itemBasedScores.keys)
             .filter { it !in seenItemIds && safeItems.containsKey(it) }
 
@@ -77,6 +91,7 @@ class CollaborativeFilteringService(
             val item = safeItems[itemId] ?: return@mapNotNull null
             val uScore = userBasedScores[itemId] ?: 0.0
             val iScore = itemBasedScores[itemId] ?: 0.0
+            // Final hybrid score
             val finalScore = (0.5 * uScore) + (0.5 * iScore)
 
             if (finalScore <= 0.0) return@mapNotNull null
@@ -93,10 +108,10 @@ class CollaborativeFilteringService(
             .take(limit)
     }
 
+    // Loads favorites + reading history interactions from Firestore
     private suspend fun loadAllInteractions(): List<UserInteraction> = coroutineScope {
-        // Run both root reads in parallel, then fan out per-user item reads
-        // concurrently. Sequential await() per user used to make this an
-        // O(N) round-trip wait — perceptibly slow on the chat home screen.
+
+        // Load favorites and reading history in parallel
         val favoritesRootDeferred = async {
             db.collection("favorites").get().await()
         }
@@ -107,6 +122,7 @@ class CollaborativeFilteringService(
         val favoritesRoot = favoritesRootDeferred.await()
         val historyRoot = historyRootDeferred.await()
 
+        // Load favorite items per user
         val favoritesPerUser = favoritesRoot.documents.map { userDoc ->
             async {
                 val userId = userDoc.id
@@ -119,12 +135,14 @@ class CollaborativeFilteringService(
                     UserInteraction(
                         userId = userId,
                         itemId = doc.id,
+                        // Favorites have higher importance
                         weight = 3.0
                     )
                 }
             }
         }
 
+        // Load reading history per user
         val historyPerUser = historyRoot.documents.map { userDoc ->
             async {
                 val userId = userDoc.id
@@ -151,10 +169,12 @@ class CollaborativeFilteringService(
             }
         }
 
+        // Merge all interactions together
         val all = (favoritesPerUser.awaitAll() + historyPerUser.awaitAll()).flatten()
         mergeDuplicateInteractions(all)
     }
 
+    // Merges duplicate interactions into one weighted interaction
     private fun mergeDuplicateInteractions(
         interactions: List<UserInteraction>
     ): List<UserInteraction> {
@@ -164,6 +184,7 @@ class CollaborativeFilteringService(
                 UserInteraction(
                     userId = grouped.first().userId,
                     itemId = grouped.first().itemId,
+                    // Sum interaction weights
                     weight = grouped.sumOf { it.weight }
                 )
             }
@@ -179,6 +200,7 @@ class CollaborativeFilteringService(
             }
     }
 
+    // User-based collaborative filtering
     private fun computeUserBasedScores(
         targetUserId: String,
         userItemMatrix: Map<String, Map<String, Double>>,
@@ -209,6 +231,7 @@ class CollaborativeFilteringService(
         }
     }
 
+    // Item-based collaborative filtering
     private fun computeItemBasedScores(
         targetUserId: String,
         userItemMatrix: Map<String, Map<String, Double>>,
@@ -259,6 +282,7 @@ class CollaborativeFilteringService(
         return itemUserMap
     }
 
+    // Calculates cosine similarity between two vectors
     private fun cosineSimilarity(
         a: Map<String, Double>,
         b: Map<String, Double>
@@ -274,6 +298,7 @@ class CollaborativeFilteringService(
         return dot / (normA * normB)
     }
 
+    // Generates explanation text for recommendations
     private fun buildReason(
         userBasedScore: Double,
         itemBasedScore: Double,

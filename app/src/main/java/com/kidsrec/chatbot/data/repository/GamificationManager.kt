@@ -17,17 +17,21 @@ import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 
+// Singleton so only one instance of this manager exists in the app
 @Singleton
 class GamificationManager @Inject constructor(
+    // Firestore database instance
     private val firestore: FirebaseFirestore
 ) {
 
+    // Points system configuration
     companion object {
         private const val POINTS_BOOK = 10
         private const val POINTS_VIDEO = 5
         private const val POINTS_TOPIC = 8
     }
 
+    // List of all badges available in the app
     val defaultBadges = listOf(
         Badge("books_1", "Story Starter", "Completed your first book.", "book", "reading", 1),
         Badge("books_5", "5 Books Completed", "Completed 5 books.", "menu_book", "reading", 5),
@@ -43,8 +47,10 @@ class GamificationManager @Inject constructor(
         Badge("topics_10", "Curious Reader", "Explored 10 topics.", "psychology", "exploration", 10)
     )
 
+    // Recalculates points, levels and unlocked badges
     suspend fun refreshGamification(childUserId: String): Result<Unit> {
         return try {
+            // Get all learning events from Firestore
             val eventsSnapshot = firestore.collection("learningProgress")
                 .document(childUserId)
                 .collection("events")
@@ -53,10 +59,12 @@ class GamificationManager @Inject constructor(
 
             val events = eventsSnapshot.toObjects(LearningProgressEvent::class.java)
 
+            // Count books, videos and explored topics
             val booksRead = events.count { it.type == "BOOK_READ" }
             val videosWatched = events.count { it.type == "VIDEO_WATCHED" }
             val topicsExplored = events.count { it.type == "TOPIC_EXPLORED" }
 
+            // Count specific topics for special badges
             val animalTopicCount = events.count {
                 it.topic.contains("animal", ignoreCase = true) ||
                         it.topic.contains("shark", ignoreCase = true) ||
@@ -83,7 +91,7 @@ class GamificationManager @Inject constructor(
                 it.topic.contains("dinosaur", ignoreCase = true) ||
                         it.topic.contains("dino", ignoreCase = true)
             }
-
+           // Calculate total points and user level
             val totalPoints =
                 booksRead * POINTS_BOOK +
                         videosWatched * POINTS_VIDEO +
@@ -92,6 +100,7 @@ class GamificationManager @Inject constructor(
             val currentLevel = calculateLevel(totalPoints)
             val profileRef = firestore.collection("gamification").document(childUserId)
 
+            // Get existing profile data
             val existingProfile = profileRef.get().await().toObject(GamificationProfile::class.java)
             val existingUnlocked = existingProfile?.unlockedBadges ?: emptyList()
             val previousLevel = existingProfile?.currentLevel ?: 1
@@ -99,6 +108,7 @@ class GamificationManager @Inject constructor(
             val newUnlocked = mutableSetOf<String>()
             newUnlocked.addAll(existingUnlocked)
 
+            // Check and unlock badges if requirements are met
             checkAndUnlockBadge(childUserId, "books_1", booksRead, newUnlocked)
             checkAndUnlockBadge(childUserId, "books_5", booksRead, newUnlocked)
             checkAndUnlockBadge(childUserId, "books_10", booksRead, newUnlocked)
@@ -109,6 +119,7 @@ class GamificationManager @Inject constructor(
             checkAndUnlockBadge(childUserId, "space_5", spaceTopicCount, newUnlocked)
             checkAndUnlockBadge(childUserId, "dino_5", dinoTopicCount, newUnlocked)
 
+            // Store latest gamification profile into Firestore
             val profile = GamificationProfile(
                 childUserId = childUserId,
                 totalPoints = totalPoints,
@@ -120,6 +131,7 @@ class GamificationManager @Inject constructor(
 
             profileRef.set(profile).await()
 
+            // Send notification when user levels up
             if (currentLevel > previousLevel) {
                 storeRewardNotification(
                     userId = childUserId,
@@ -132,11 +144,13 @@ class GamificationManager @Inject constructor(
 
             Result.success(Unit)
         } catch (e: Exception) {
+            // Log Firestore or calculation errors
             Log.e("GamificationManager", "Failed to refresh gamification: ${e.message}", e)
             Result.failure(e)
         }
     }
 
+    // Unlocks and stores badge rewards
     private suspend fun checkAndUnlockBadge(
         childUserId: String,
         badgeId: String,
@@ -157,6 +171,7 @@ class GamificationManager @Inject constructor(
             unlockedAt = Timestamp.now()
         )
 
+        // Save unlocked badge into Firestore
         firestore.collection("gamification")
             .document(childUserId)
             .collection("badges")
@@ -164,6 +179,7 @@ class GamificationManager @Inject constructor(
             .set(unlock)
             .await()
 
+        // Send badge unlock notification
         storeRewardNotification(
             userId = childUserId,
             title = "Badge Unlocked!",
@@ -173,6 +189,7 @@ class GamificationManager @Inject constructor(
         )
     }
 
+    // Saves reward notifications into Firestore
     private suspend fun storeRewardNotification(
         userId: String,
         title: String,
@@ -197,6 +214,7 @@ class GamificationManager @Inject constructor(
         docRef.set(payload).await()
     }
 
+    // Realtime listener for profile updates
     fun getGamificationProfileFlow(childUserId: String): Flow<GamificationProfile> = callbackFlow {
         val listener = firestore.collection("gamification")
             .document(childUserId)
@@ -216,6 +234,7 @@ class GamificationManager @Inject constructor(
         awaitClose { listener.remove() }
     }
 
+    // Realtime listener for unlocked badges
     fun getUnlockedBadgesFlow(childUserId: String): Flow<List<BadgeUnlock>> = callbackFlow {
         val listener = firestore.collection("gamification")
             .document(childUserId)
@@ -236,6 +255,7 @@ class GamificationManager @Inject constructor(
         awaitClose { listener.remove() }
     }
 
+    // Converts points into user level
     private fun calculateLevel(points: Int): Int {
         return when {
             points >= 300 -> 4
@@ -245,6 +265,7 @@ class GamificationManager @Inject constructor(
         }
     }
 
+    // Returns today's date as yyyy-MM-dd
     private fun todayString(): String {
         return SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
     }

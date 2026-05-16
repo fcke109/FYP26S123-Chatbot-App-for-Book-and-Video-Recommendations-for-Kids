@@ -4,27 +4,32 @@ import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 
+// Handles homepage analytics numbers shown on the Little Dino website
 object AnalyticsStatsManager {
 
     private val db = FirebaseFirestore.getInstance()
 
+    // Main Firestore document that stores website analytics stats
     private val analyticsRef =
         db.collection("site_content")
             .document("analytics")
 
+    // Increases registered user count by 1
     fun incrementRegisteredUsers() {
         analyticsRef.update("stat1Value", FieldValue.increment(1))
     }
 
+    // Increases app feedback count by 1
     fun incrementAppFeedback() {
         analyticsRef.update("stat2Value", FieldValue.increment(1))
     }
 
+    // Increases available books count by 1
     fun incrementBooksAvailable() {
         analyticsRef.update("stat3Value", FieldValue.increment(1))
     }
 
-    // One-time/full sync from real Firestore collections
+    // Recalculates homepage analytics using real Firestore collection data
     suspend fun syncHomepageAnalytics() {
         val usersSnap = db.collection("users").get().await()
         val feedbackSnap = db.collection("feedback")
@@ -34,6 +39,7 @@ object AnalyticsStatsManager {
             .await()
         val booksSnap = db.collection("content_books").get().await()
 
+        // Updates the website analytics document with latest values and labels
         analyticsRef.update(
             mapOf(
                 "stat1Value" to usersSnap.size(),

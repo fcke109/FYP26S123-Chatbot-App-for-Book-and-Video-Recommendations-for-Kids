@@ -13,12 +13,14 @@ import javax.inject.Singleton
 import com.kidsrec.chatbot.data.model.Recommendation
 import com.kidsrec.chatbot.data.model.RecommendationType
 
+// Handles user feedback for chatbot recommendations
 @Singleton
 class FeedbackManager @Inject constructor(
     private val firestore: FirebaseFirestore
 ) {
     private val collection = firestore.collection("feedback")
 
+    // Loads feedback submitted by a specific user
     fun getUserFeedbackFlow(userId: String): Flow<List<Feedback>> = callbackFlow {
         val listener = collection
             .whereEqualTo("userId", userId)
@@ -35,6 +37,7 @@ class FeedbackManager @Inject constructor(
         awaitClose { listener.remove() }
     }
 
+    // Saves positive/negative feedback for a recommendation
     suspend fun submitFeedback(
         userId: String,
         recommendationId: String,
@@ -61,6 +64,7 @@ class FeedbackManager @Inject constructor(
         }
     }
 
+    // Deletes a feedback record
     suspend fun removeFeedback(feedbackId: String): Result<Unit> {
         return try {
             collection.document(feedbackId).delete().await()

@@ -19,6 +19,7 @@ class AnalyticsRepository @Inject constructor(
     private val firestore: FirebaseFirestore
 ) {
 
+    // Loads the most searched topics for the admin analytics dashboard
     fun getTopSearchedTopicsFlow(): Flow<List<TopSearchedTopic>> = callbackFlow {
         val listener = firestore.collection("analyticsSearches")
             .orderBy("count", Query.Direction.DESCENDING)
@@ -43,6 +44,7 @@ class AnalyticsRepository @Inject constructor(
         awaitClose { listener.remove() }
     }
 
+    // Loads the most viewed books/videos for analytics
     fun getTopViewedBooksFlow(): Flow<List<TopViewedBook>> = callbackFlow {
         val listener = firestore.collection("analyticsBookViews")
             .orderBy("viewCount", Query.Direction.DESCENDING)
@@ -71,6 +73,7 @@ class AnalyticsRepository @Inject constructor(
         awaitClose { listener.remove() }
     }
 
+    // Loads the top content items where users stopped reading/watching
     fun getTopDropOffsFlow(): Flow<List<TopDropOff>> = callbackFlow {
         val listener = firestore.collection("analyticsDropOffs")
             .orderBy("dropOffCount", Query.Direction.DESCENDING)
@@ -109,6 +112,7 @@ class AnalyticsRepository @Inject constructor(
         awaitClose { listener.remove() }
     }
 
+    // Tracks a user search and updates the search count
     suspend fun trackSearch(query: String, userId: String) {
         try {
             val normalizedQuery = query.trim().lowercase()
@@ -140,6 +144,7 @@ class AnalyticsRepository @Inject constructor(
         }
     }
 
+    // Tracks when a user opens/views a book or content item
     suspend fun trackBookView(bookId: String, bookTitle: String, userId: String) {
         try {
             val safeId = sanitizeAnalyticsDocId(
@@ -169,6 +174,7 @@ class AnalyticsRepository @Inject constructor(
         }
     }
 
+    // Tracks where users leave content and updates drop-off analytics
     suspend fun trackDropOffPoint(
         itemId: String,
         itemTitle: String,
@@ -201,6 +207,7 @@ class AnalyticsRepository @Inject constructor(
             // Aggregate summary doc
             val docRef = firestore.collection("analyticsDropOffs").document(safeItemId)
 
+            // Update aggregate drop-off count and average duration
             firestore.runTransaction { transaction ->
                 val snapshot = transaction.get(docRef)
                 val currentCount = snapshot.getLong("dropOffCount") ?: 0L
@@ -236,6 +243,7 @@ class AnalyticsRepository @Inject constructor(
         }
     }
 
+    // Makes text safe to use as a Firestore document ID
     private fun sanitizeAnalyticsDocId(raw: String): String {
         return raw
             .trim()

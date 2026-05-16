@@ -13,6 +13,7 @@ import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
 
+//// Handles Google Play Billing and premium subscription purchases
 @Singleton
 class BillingManager @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -20,17 +21,21 @@ class BillingManager @Inject constructor(
 ) : PurchasesUpdatedListener {
 
     companion object {
+        // Product ID registered in Google Play Console
         const val PREMIUM_PRODUCT_ID = "premium_monthly"
     }
 
     private var billingClient: BillingClient? = null
 
+    // Available subscription products
     private val _products = MutableStateFlow<List<ProductDetails>>(emptyList())
     val products: StateFlow<List<ProductDetails>> = _products.asStateFlow()
 
+    // Current purchase flow state
     private val _purchaseState = MutableStateFlow<PurchaseState>(PurchaseState.Idle)
     val purchaseState: StateFlow<PurchaseState> = _purchaseState.asStateFlow()
 
+    // Initializes Google Play Billing connection
     fun initialize() {
         billingClient = BillingClient.newBuilder(context)
             .setListener(this)
@@ -40,6 +45,7 @@ class BillingManager @Inject constructor(
         billingClient?.startConnection(object : BillingClientStateListener {
             override fun onBillingSetupFinished(billingResult: BillingResult) {
                 if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
+                    // Load available products after successful connection
                     queryProducts()
                 }
             }
@@ -50,6 +56,7 @@ class BillingManager @Inject constructor(
         })
     }
 
+    // Retrieves premium subscription product details
     private fun queryProducts() {
         val productList = listOf(
             QueryProductDetailsParams.Product.newBuilder()
@@ -69,6 +76,7 @@ class BillingManager @Inject constructor(
         }
     }
 
+    // Launches Google Play purchase screen
     fun launchPurchaseFlow(activity: Activity, productDetails: ProductDetails) {
         val offerToken = productDetails.subscriptionOfferDetails?.firstOrNull()?.offerToken ?: return
 
@@ -84,6 +92,7 @@ class BillingManager @Inject constructor(
         billingClient?.launchBillingFlow(activity, billingFlowParams)
     }
 
+    // Called when Google Play purchase result is returned
     override fun onPurchasesUpdated(billingResult: BillingResult, purchases: MutableList<Purchase>?) {
         when (billingResult.responseCode) {
             BillingClient.BillingResponseCode.OK -> {
@@ -102,6 +111,8 @@ class BillingManager @Inject constructor(
         }
     }
 
+
+    // Handles successful purchases
     private fun handlePurchase(purchase: Purchase) {
         _purchaseState.value = PurchaseState.Processing
 
@@ -120,6 +131,7 @@ class BillingManager @Inject constructor(
         }
     }
 
+    // Sends purchase token to Firebase backend for verification
     private fun verifyPurchaseOnServer(purchase: Purchase) {
         val productId = purchase.products.firstOrNull() ?: PREMIUM_PRODUCT_ID
 
@@ -139,11 +151,13 @@ class BillingManager @Inject constructor(
             }
     }
 
+    // Resets purchase state after purchase flow finishes
     fun resetPurchaseState() {
         _purchaseState.value = PurchaseState.Idle
     }
 }
 
+// Represents all possible purchase states in the app
 sealed class PurchaseState {
     object Idle : PurchaseState()
     object Processing : PurchaseState()

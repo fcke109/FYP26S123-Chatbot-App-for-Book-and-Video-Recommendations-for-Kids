@@ -29,6 +29,13 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.sqrt
 
+// Handles:
+// - AI chatbot responses
+// - Recommendations
+// - Collaborative filtering
+// - Analytics tracking
+// - Firestore chat history
+// - Approved safe videos
 @Singleton
 class ChatDataManager @Inject constructor(
     private val firestore: FirebaseFirestore,
@@ -58,6 +65,7 @@ class ChatDataManager @Inject constructor(
         val tags: List<String> = emptyList()
     )
 
+   // Hardcoded approved kid-safe videos
     private val approvedVideos = listOf(
         ApprovedVideo(
             id = "vid_baby_shark",
