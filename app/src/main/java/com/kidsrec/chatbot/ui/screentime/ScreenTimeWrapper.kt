@@ -28,21 +28,25 @@ import androidx.compose.ui.unit.sp
 import com.kidsrec.chatbot.R
 import com.kidsrec.chatbot.ui.auth.AuthViewModel
 
+// Wrapper that monitors the child's screen time while displaying the app content
 @Composable
 fun ScreenTimeWrapper(
     content: @Composable () -> Unit
 ) {
     val viewModel: ScreenTimeViewModel = hiltViewModel()
 
-    // screen time states
+    // Observes whether the child has reached the daily screen time limit
     val isTimeLimitReached by viewModel.isTimeLimitReached.collectAsState()
+    // Observes today's screen time session record
     val todaySession by viewModel.todaySession.collectAsState()
+    // Observes the parent's configured screen time settings
     val screenTimeConfig by viewModel.screenTimeConfig.collectAsState()
 
     // start real-time tracking
     DisposableEffect(Unit) {
         viewModel.startTracking()
 
+        // Stops tracking when the wrapper is removed from the screen
         onDispose {
             viewModel.stopTracking()
         }
@@ -50,12 +54,12 @@ fun ScreenTimeWrapper(
 
     Box(modifier = Modifier.fillMaxSize()) {
 
-        // show app only if time is not finished
+        // Shows the normal app content only if the child still has available screen time
         if (!isTimeLimitReached) {
             content()
         }
 
-        // block whole child app when time is finished
+        // Blocks the app and shows the time limit screen once the daily limit is reached
         if (isTimeLimitReached) {
             TimeLimitReachedScreen(
                 usedMinutes = todaySession?.totalMinutes ?: 0,
@@ -65,6 +69,7 @@ fun ScreenTimeWrapper(
     }
 }
 
+// Screen displayed when the child has used up their allowed screen time
 @Composable
 private fun TimeLimitReachedScreen(
     usedMinutes: Int,
@@ -80,7 +85,7 @@ private fun TimeLimitReachedScreen(
         verticalArrangement = Arrangement.Center
     ) {
 
-        // big sad dino
+        // Displays sad little dino image to make the message child-friendly
         Image(
             painter = painterResource(id = R.drawable.sad_dino),
             contentDescription = "Sad dino",
@@ -89,6 +94,7 @@ private fun TimeLimitReachedScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
+        // Main warning title
         Text(
             text = "Time's Up!",
             fontSize = 34.sp,
@@ -98,6 +104,7 @@ private fun TimeLimitReachedScreen(
 
         Spacer(modifier = Modifier.height(12.dp))
 
+        // Explains that today's screen time has been used up
         Text(
             text = "Your screen time is finished for today 😢",
             fontSize = 18.sp,
@@ -106,6 +113,7 @@ private fun TimeLimitReachedScreen(
 
         Spacer(modifier = Modifier.height(8.dp))
 
+        // Suggests returning later or asking a parent for extra time
         Text(
             text = "Come back tomorrow or ask your parent for more time.",
             fontSize = 15.sp,
@@ -114,6 +122,7 @@ private fun TimeLimitReachedScreen(
 
         Spacer(modifier = Modifier.height(20.dp))
 
+        // Shows screen time usage progress for the day
         Text(
             text = "Used: $usedMinutes / $limitMinutes mins",
             fontSize = 13.sp
@@ -121,6 +130,7 @@ private fun TimeLimitReachedScreen(
 
         Spacer(modifier = Modifier.height(28.dp))
 
+        // Allows the child to log out after the time limit is reached
         Button(
             onClick = {
                 authViewModel.signOut()

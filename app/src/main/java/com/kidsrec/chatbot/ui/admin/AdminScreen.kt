@@ -71,9 +71,11 @@ fun AdminScreen(
     onViewBook: (String, String, Boolean) -> Unit
 
 ) {
+    // Snackbar state used to show admin action feedback messages
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var selectedTabIndex by remember { mutableIntStateOf(0) }
+    // Drawer tab labels shown in the admin navigation menu
     val tabs = listOf(
         "Dashboard",
         "Users",
@@ -86,6 +88,7 @@ fun AdminScreen(
     )
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
 
+    // Collect live data from the ViewModel for display in the dashboard
     val users by viewModel.users.collectAsState()
     val books by viewModel.curatedBooks.collectAsState()
     val adminStats by viewModel.adminStats.collectAsState()
@@ -211,17 +214,21 @@ fun AdminScreen(
     }
 }
 
+// Displays high-level user, plan, activity, and library statistics
 @Composable
 fun DashboardTab(users: List<User>, books: List<Book>, stats: AdminStats, isLoadingStats: Boolean) {
+    // User status summary values
     val totalUsers = users.size
     val activeUsers = users.count { it.status == UserStatus.ACTIVE }
     val suspendedUsers = users.count { it.status == UserStatus.SUSPENDED }
     val bannedUsers = users.count { it.status == UserStatus.BANNED }
 
+    // Plan distribution summary values
     val freeUsers = users.count { it.planType == PlanType.FREE }
     val premiumUsers = users.count { it.planType == PlanType.PREMIUM }
     val adminUsers = users.count { it.planType == PlanType.ADMIN }
 
+    // Content and demographic summary values
     val totalBooks = books.size
     val avgAge = if (users.isNotEmpty()) users.map { it.age }.average().toInt() else 0
 
@@ -442,6 +449,7 @@ fun DashboardTab(users: List<User>, books: List<Book>, stats: AdminStats, isLoad
     }
 }
 
+// Displays analytics generated from tracked searches, views, and drop-offs
 @Composable
 fun AnalyticsTab(
     topSearchedTopics: List<TopSearchedTopic>,
@@ -449,19 +457,25 @@ fun AnalyticsTab(
     topDropOffs: List<TopDropOff>
 ) {
     val scope = rememberCoroutineScope()
+
+    // Total searches follows the analytics counter logic:
+    // each tracked search topic stores a count, and the dashboard sums all counts.
     val totalSearches = topSearchedTopics.sumOf { it.count }
     val totalViews = topViewedBooks.sumOf { it.viewCount }
     val totalDropOffs = topDropOffs.sumOf { it.dropOffCount }
 
+    // Highlight the highest-count analytics item for quick admin insight
     val trendingTopic = topSearchedTopics.maxByOrNull { it.count }?.query ?: "No data yet"
     val mostViewedBook = topViewedBooks.maxByOrNull { it.viewCount }?.bookTitle ?: "No data yet"
     val highestDropOff = topDropOffs.maxByOrNull { it.dropOffCount }?.itemTitle ?: "No data yet"
 
+    // Engagement percentage estimates how many viewed items did not lead to drop-offs
     val engagementScore = when {
         totalViews == 0L -> 0
         else -> (((totalViews - totalDropOffs).coerceAtLeast(0).toDouble() / totalViews.toDouble()) * 100).toInt()
     }
 
+    // Generates a short interpretation of the current recommendation performance
     val recommendationInsight = when {
         totalViews == 0L && totalSearches == 0L ->
             "Not enough analytics data yet."
@@ -652,6 +666,7 @@ fun AnalyticsTab(
     }
 }
 
+// Reusable horizontal bar chart card used for top searches, views, and drop-offs
 @Composable
 fun AnalyticsBarCard(
     title: String,
@@ -672,6 +687,7 @@ fun AnalyticsBarCard(
             )
             Spacer(modifier = Modifier.height(12.dp))
 
+            // Show a fallback message when no analytics data has been collected yet
             if (items.isEmpty()) {
                 Text(emptyText, color = AdminTextSecondary)
             } else {
@@ -729,6 +745,7 @@ fun AnalyticsBarCard(
     }
 }
 
+// Simple label-value row used for analytics insights
 @Composable
 fun InsightRow(label: String, value: String) {
     Column {
@@ -745,6 +762,8 @@ fun InsightRow(label: String, value: String) {
         )
     }
 }
+
+// Reusable dashboard statistic card with a coloured indicator bar
 @Composable
 fun StatCard(label: String, value: String, color: Color, modifier: Modifier = Modifier) {
     Card(
@@ -785,6 +804,8 @@ fun StatCard(label: String, value: String, color: Color, modifier: Modifier = Mo
         }
     }
 }
+
+// Allows admins to search external book sources and add selected books to the curated library
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CuratorSearchTab(
@@ -923,7 +944,7 @@ fun CuratorSearchTab(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-// age input
+        // age input
         Text(
             text = "Age Suitable For",
             fontWeight = FontWeight.SemiBold
@@ -1009,6 +1030,7 @@ fun CuratorSearchTab(
     }
 }
 
+// Allows admins to create, edit, and delete book categories
 @Composable
 fun CategoryManagementTab(viewModel: AdminViewModel) {
     val categories by viewModel.categories.collectAsState()
@@ -1168,6 +1190,7 @@ fun CategoryManagementTab(viewModel: AdminViewModel) {
     }
 }
 
+// Dialog used for both adding and editing a category
 @Composable
 fun CategoryDialog(
     title: String,
@@ -1223,7 +1246,7 @@ fun CategoryDialog(
     )
 }
 
-
+// Shows the curated Firestore book library and supports filtering, editing, and deletion
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BookLibraryTab(
@@ -1484,6 +1507,7 @@ fun BookLibraryTab(
     }
 }
 
+// Dialog for updating a curated book's categories and age suitability range
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditBookCategoriesDialog(
@@ -1630,6 +1654,7 @@ fun EditBookCategoriesDialog(
     )
 }
 
+// Category filter chip used in the curated library tab
 @Composable
 fun AdminCategoryChip(
     label: String,
@@ -1657,6 +1682,7 @@ fun AdminCategoryChip(
     }
 }
 
+// Small visual tag used to display a book's main category
 @Composable
 fun ProfessionalCategoryTag(text: String) {
     Surface(
@@ -1677,6 +1703,7 @@ fun ProfessionalCategoryTag(text: String) {
     }
 }
 
+// Compact book card used for search results before adding content to the library
 @Composable
 fun BookAdminCard(
     book: Book,
@@ -1722,6 +1749,7 @@ fun BookAdminCard(
     }
 }
 
+// User management screen for filtering users and performing account actions
 @Composable
 fun UserManagementTab(
     users: List<User>,
@@ -1769,6 +1797,7 @@ fun UserManagementTab(
     var ageExpanded by remember { mutableStateOf(false) }
     var accountExpanded by remember { mutableStateOf(false) }
 
+    // Applies the admin-selected filters only after the Apply Filters button is pressed
     val filteredUsers = remember(
         users,
         appliedSearch,
@@ -2269,6 +2298,7 @@ fun UserManagementTab(
     }
 }
 
+// Displays one login attempt in the security panel
 @Composable
 fun LoginAttemptCard(attempt: LoginAttempt) {
     val statusColor = if (attempt.success) AdminSuccess else AdminDanger
@@ -2328,6 +2358,7 @@ fun LoginAttemptCard(attempt: LoginAttempt) {
     }
 }
 
+// Displays one suspicious activity record and allows unresolved items to be marked as resolved
 @Composable
 fun SuspiciousActivityCard(
     activity: SuspiciousActivity,
@@ -2436,6 +2467,7 @@ fun SuspiciousActivityCard(
     }
 }
 
+// Dialog that shows a selected user's account details, reading history, and chat history
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UserActivityDialog(
@@ -2682,6 +2714,7 @@ fun UserActivityDialog(
     )
 }
 
+// Security dashboard for recent login attempts and suspicious activity monitoring
 @Composable
 fun SecurityControlPanel(
     viewModel: AdminViewModel,
@@ -2825,6 +2858,7 @@ fun SecurityControlPanel(
     }
 }
 
+// Notification tab that connects the notification form to ViewModel send logic
 @Composable
 fun NotificationTab(
     viewModel: AdminViewModel,
@@ -2833,6 +2867,7 @@ fun NotificationTab(
     val scope = rememberCoroutineScope()
     var notificationState by remember { mutableStateOf(AdminNotificationUiState()) }
 
+    // Sends either an announcement or personalized notification through the ViewModel
     val onSendClick: () -> Unit = {
         scope.launch {
             try {
@@ -2860,6 +2895,7 @@ fun NotificationTab(
     )
 }
 
+// Reusable exposed dropdown used for user filtering controls
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FilterDropdown(
@@ -2910,6 +2946,7 @@ fun FilterDropdown(
     }
 }
 
+// Visual badge for displaying a user's subscription plan
 @Composable
 fun PlanBadge(planType: PlanType) {
     val color = when (planType) {
@@ -2932,6 +2969,7 @@ fun PlanBadge(planType: PlanType) {
     }
 }
 
+// Visual badge for displaying a user's account status
 @Composable
 fun StatusBadge(status: UserStatus) {
     val (color, text) = when (status) {
@@ -2954,6 +2992,7 @@ fun StatusBadge(status: UserStatus) {
     }
 }
 
+// Returns a friendly emoji for a category name shown in admin category selectors
 fun getEmoji(category: String): String {
     return when (category.trim().lowercase()) {
         "dinosaurs", "dinosaur", "prehistoric" -> "🦖"

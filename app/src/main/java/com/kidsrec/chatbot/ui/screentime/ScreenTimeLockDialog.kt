@@ -12,6 +12,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+// Dialog shown when the child reaches their daily screen time limit
 @Composable
 fun ScreenTimeLockDialog(
     usedMinutes: Int,
@@ -21,7 +22,10 @@ fun ScreenTimeLockDialog(
     onDismiss: () -> Unit
 ) {
     AlertDialog(
+        // Prevents normal dismissal by tapping outside the dialog
         onDismissRequest = { /* Non-dismissable */ },
+
+        // Timer icon represents screen time control
         icon = {
             Icon(
                 Icons.Default.Timer,
@@ -30,6 +34,7 @@ fun ScreenTimeLockDialog(
                 tint = MaterialTheme.colorScheme.primary
             )
         },
+        // Main dialog title shown when the limit is reached
         title = {
             Text(
                 text = "Time's Up!",
@@ -38,17 +43,21 @@ fun ScreenTimeLockDialog(
                 textAlign = TextAlign.Center
             )
         },
+        // Dialog body showing usage details and request status
         text = {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.fillMaxWidth()
             ) {
+                // Shows how much time has been used compared to the daily limit
                 Text(
                     text = "You've used $usedMinutes minutes of your $limitMinutes minute daily limit.",
                     textAlign = TextAlign.Center,
                     fontSize = 15.sp
                 )
                 Spacer(modifier = Modifier.height(12.dp))
+
+                // Shows confirmation if a time extension request has already been sent
                 if (extensionRequested) {
                     Text(
                         text = "Your request for more time has been sent to your parent!",
@@ -57,6 +66,7 @@ fun ScreenTimeLockDialog(
                         color = MaterialTheme.colorScheme.primary
                     )
                 } else {
+                    // Encourages the child to ask their parent for additional time
                     Text(
                         text = "You can ask your parent for more time.",
                         textAlign = TextAlign.Center,
@@ -66,6 +76,7 @@ fun ScreenTimeLockDialog(
                 }
             }
         },
+        // Shows the request button only if no extension request has been sent yet
         confirmButton = {
             if (!extensionRequested) {
                 Button(onClick = onRequestMoreTime) {
@@ -73,6 +84,7 @@ fun ScreenTimeLockDialog(
                 }
             }
         },
+        // Allows the child to acknowledge and close the dialog
         dismissButton = {
             OutlinedButton(onClick = onDismiss) {
                 Text("OK")

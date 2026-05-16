@@ -14,11 +14,14 @@ import androidx.compose.ui.unit.dp
 fun AdminUpgradeScreen(
     onBack: () -> Unit
 ) {
+    // Main screen layout with a top app bar and body content area
     Scaffold(
         topBar = {
+            // Top navigation bar for the Admin CMS Upgrade screen
             TopAppBar(
                 title = { Text("Admin CMS Upgrade") },
                 navigationIcon = {
+                    // Back button that triggers the onBack callback
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
@@ -26,6 +29,7 @@ fun AdminUpgradeScreen(
             )
         }
     ) { padding ->
+        // Main content container, centered within the available screen space
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -33,6 +37,7 @@ fun AdminUpgradeScreen(
             contentAlignment = Alignment.Center
         ) {
             Text(
+                // Placeholder text shown until Admin CMS upgrade features are implemented
                 text = "Admin CMS Upgrade features coming soon.",
                 style = MaterialTheme.typography.bodyLarge
             )

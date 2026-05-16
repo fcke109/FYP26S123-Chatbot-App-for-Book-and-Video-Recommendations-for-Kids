@@ -8,12 +8,14 @@ import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
 
+// Repository used by the admin module to handle content safety actions
 @Singleton
 class AdminUpgradeRepository @Inject constructor(
     private val firestore: FirebaseFirestore,
     private val bookDataManager: BookDataManager
 ) {
 
+    // Removes unsafe content from the curated library and records the reason for audit purposes
     suspend fun removeUnsafeContent(bookId: String, reason: String) {
         // Log the removal for audit
         firestore.collection("contentRemovals").add(
@@ -27,6 +29,7 @@ class AdminUpgradeRepository @Inject constructor(
         // Delete the book from the library
         bookDataManager.deleteBook(bookId)
 
+        // Log the removal action for debugging and monitoring
         Log.d("AdminUpgradeRepo", "Removed unsafe content: $bookId, reason: $reason")
     }
 }

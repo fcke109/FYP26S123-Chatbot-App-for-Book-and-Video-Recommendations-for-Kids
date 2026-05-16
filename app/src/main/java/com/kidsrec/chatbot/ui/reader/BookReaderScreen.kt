@@ -66,19 +66,27 @@ fun BookReaderScreen(
     url: String,
     onBack: (durationSeconds: Long) -> Unit
 ) {
+    // Records when the reader was opened so reading duration can be calculated later
     val openedAtMs = remember { System.currentTimeMillis() }
+    // Holds the WebView instance so back navigation can be controlled
     var webView by remember { mutableStateOf<WebView?>(null) }
+    // Tracks whether the WebView has browsing history to go back to
     var canGoBack by remember { mutableStateOf(false) }
+    // Tracks whether the app is currently saving the completed reading reward
     var isFinishing by remember { mutableStateOf(false) }
+    // Controls whether the reward/celebration overlay should be shown
     var showCelebrate by remember { mutableStateOf(false) }
+    // Reward message states displayed after completing a book
     var rewardTitle by remember { mutableStateOf("🎉 Great Job!") }
     var rewardMessage by remember { mutableStateOf("You finished reading!") }
     var rewardSubtitle by remember { mutableStateOf("Keep going, superstar reader!") }
 
+    // Calculates reading duration and exits the reader screen
     fun exitReader() {
         onBack((System.currentTimeMillis() - openedAtMs) / 1000)
     }
 
+    // Saves reading progress, refreshes gamification, and prepares reward feedback
     suspend fun completeBook() {
         val currentUid = FirebaseAuth.getInstance().currentUser?.uid
         if (currentUid == null) {
@@ -93,12 +101,14 @@ fun BookReaderScreen(
         val learningProgressManager = LearningProgressManager(firestore)
         val gamificationManager = GamificationManager(firestore)
 
+        // Captures gamification state before saving progress to detect level-ups
         val beforeProfile = firestore.collection("gamification")
             .document(currentUid)
             .get()
             .await()
             .toObject(GamificationProfile::class.java)
 
+        // Captures existing badges before progress update to detect newly unlocked badges
         val beforeBadges = firestore.collection("gamification")
             .document(currentUid)
             .collection("badges")
@@ -108,8 +118,10 @@ fun BookReaderScreen(
             .map { it.badgeId }
             .toSet()
 
+        // Uses the URL hash as a simple content identifier for tracking
         val contentId = url.hashCode().toString()
 
+        // Records that the child completed reading this book
         val trackingResult = learningProgressManager.trackBookRead(
             childUserId = currentUid,
             contentId = contentId,
@@ -118,6 +130,7 @@ fun BookReaderScreen(
             readingLevel = "Beginner"
         )
 
+        // If progress tracking fails, still show a friendly completion message
         if (trackingResult.isFailure) {
             rewardTitle = "📚 Book Completed!"
             rewardMessage = "Nice reading!"
@@ -126,7 +139,9 @@ fun BookReaderScreen(
             return
         }
 
+        // Refreshes points, badges, streaks, or level after reading progress is saved
         val refreshResult = gamificationManager.refreshGamification(currentUid)
+        // If gamification refresh fails, show a fallback reward message
         if (refreshResult.isFailure) {
             rewardTitle = "🎉 Great Job!"
             rewardMessage = "Progress saved locally!"
@@ -135,12 +150,14 @@ fun BookReaderScreen(
             return
         }
 
+        // Loads updated gamification profile after refresh
         val afterProfile = firestore.collection("gamification")
             .document(currentUid)
             .get()
             .await()
             .toObject(GamificationProfile::class.java)
 
+        // Loads updated badges after refresh
         val afterBadges = firestore.collection("gamification")
             .document(currentUid)
             .collection("badges")
@@ -148,13 +165,16 @@ fun BookReaderScreen(
             .await()
             .toObjects(BadgeUnlock::class.java)
 
+        // Finds a badge that was unlocked during this reading completion
         val unlockedNow = afterBadges.firstOrNull { badge ->
             badge.badgeId !in beforeBadges
         }
 
+        // Checks whether the child moved to a higher level
         val leveledUpNow =
             (afterProfile?.currentLevel ?: 1) > (beforeProfile?.currentLevel ?: 1)
 
+        // Chooses the most meaningful reward message to display
         when {
             unlockedNow != null -> {
                 rewardTitle = "🏅 Badge Unlocked!"
@@ -179,6 +199,7 @@ fun BookReaderScreen(
         }
     }
 
+    // Handles Android back press while the celebration overlay is not visible
     BackHandler(enabled = !showCelebrate) {
         if (canGoBack) {
             webView?.goBack()
@@ -191,6 +212,7 @@ fun BookReaderScreen(
         Scaffold(
             topBar = {
                 CenterAlignedTopAppBar(
+                    // Top app bar with reader title and close button
                     title = { Text("Visual Storybook") },
                     navigationIcon = {
                         IconButton(onClick = { exitReader() }) {
@@ -200,6 +222,7 @@ fun BookReaderScreen(
                 )
             },
             bottomBar = {
+                // Bottom action button for marking the book as completed
                 Surface(shadowElevation = 8.dp) {
                     Button(
                         onClick = {
@@ -224,11 +247,13 @@ fun BookReaderScreen(
                         .padding(padding)
                         .fillMaxSize()
                 ) {
+                    // Embeds an Android WebView inside Compose to display online reading content
                     AndroidView(
                         factory = { context ->
                             WebView(context).apply {
                                 webView = this
 
+                                // Enables required WebView settings for online book readers
                                 @SuppressLint("SetJavaScriptEnabled")
                                 settings.javaScriptEnabled = true
                                 settings.domStorageEnabled = true
@@ -242,6 +267,7 @@ fun BookReaderScreen(
                                     ): Boolean {
                                         val target = request?.url?.toString().orEmpty()
 
+                                        // Allows only known safe reading/content domains
                                         val allowed = listOf(
                                             "childrenslibrary.org",
                                             "archive.org",
@@ -251,15 +277,18 @@ fun BookReaderScreen(
                                             "covers.openlibrary.org"
                                         )
 
+                                        // Blocks navigation to any domain outside the approved list
                                         return !allowed.any { domain -> target.contains(domain) }
                                     }
 
                                     override fun onPageFinished(view: WebView?, url: String?) {
                                         super.onPageFinished(view, url)
+                                        // Updates back-navigation state after each page finishes loading
                                         canGoBack = view?.canGoBack() ?: false
                                     }
                                 }
 
+                                // Loads the selected book/story URL
                                 loadUrl(url)
                             }
                         },
@@ -267,6 +296,7 @@ fun BookReaderScreen(
                     )
                 }
 
+                // Shows a loading overlay while reading completion is being saved
                 if (isFinishing) {
                     LaunchedEffect(Unit) {
                         completeBook()
@@ -296,6 +326,7 @@ fun BookReaderScreen(
             }
         }
 
+        // Displays reward, badge, or level-up celebration after completion
         if (showCelebrate) {
             CelebrationOverlay(
                 title = rewardTitle,
@@ -310,6 +341,7 @@ fun BookReaderScreen(
     }
 }
 
+// Overlay shown after a child finishes reading and earns progress/rewards
 @Composable
 private fun CelebrationOverlay(
     title: String,
@@ -319,6 +351,7 @@ private fun CelebrationOverlay(
 ) {
     val dismissState by rememberUpdatedState(onDismiss)
 
+    // Automatically dismisses the celebration after a short delay
     LaunchedEffect(title, message, subtitle) {
         delay(3200)
         dismissState()
@@ -330,8 +363,10 @@ private fun CelebrationOverlay(
             .background(Color.Black.copy(alpha = 0.12f)),
         contentAlignment = Alignment.Center
     ) {
+        // Animated confetti background
         SuperConfetti()
 
+        // Central reward card
         Card(
             modifier = Modifier.padding(24.dp),
             shape = RoundedCornerShape(28.dp),
@@ -343,6 +378,7 @@ private fun CelebrationOverlay(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
+                // Selects an emoji based on the reward type
                 Text(
                     text = when {
                         "Badge" in title -> "🏅"
@@ -368,6 +404,7 @@ private fun CelebrationOverlay(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
+                // Allows the child to manually close the celebration
                 TextButton(onClick = onDismiss) {
                     Text("Awesome!")
                 }
@@ -376,10 +413,12 @@ private fun CelebrationOverlay(
     }
 }
 
+// Creates an animated confetti effect for the celebration overlay
 @Composable
 private fun SuperConfetti() {
     val infinite = rememberInfiniteTransition(label = "super_confetti")
 
+    // First confetti animation path
     val a by infinite.animateFloat(
         initialValue = -80f,
         targetValue = 1100f,
@@ -393,6 +432,7 @@ private fun SuperConfetti() {
         label = "a"
     )
 
+    // Second confetti animation path
     val b by infinite.animateFloat(
         initialValue = -160f,
         targetValue = 1150f,
@@ -406,6 +446,7 @@ private fun SuperConfetti() {
         label = "b"
     )
 
+    // Third confetti animation path
     val c by infinite.animateFloat(
         initialValue = -120f,
         targetValue = 1180f,
@@ -419,6 +460,7 @@ private fun SuperConfetti() {
         label = "c"
     )
 
+    // Places multiple colorful animated confetti pieces across the screen
     Box(modifier = Modifier.fillMaxSize()) {
         CelebrationPiece(10.dp, a.dp, Color(0xFFFF1744), 16.dp)
         CelebrationPiece(40.dp, (b * 0.7f).dp, Color(0xFFFFC400), 12.dp)
@@ -433,6 +475,7 @@ private fun SuperConfetti() {
     }
 }
 
+// Single animated confetti piece used by the celebration overlay
 @Composable
 private fun CelebrationPiece(
     x: androidx.compose.ui.unit.Dp,

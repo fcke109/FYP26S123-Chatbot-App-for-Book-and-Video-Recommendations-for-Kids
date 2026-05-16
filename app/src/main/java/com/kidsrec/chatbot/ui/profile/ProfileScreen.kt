@@ -29,6 +29,8 @@ import com.kidsrec.chatbot.data.model.ReadingHistory
 import com.kidsrec.chatbot.ui.auth.AuthViewModel
 import com.kidsrec.chatbot.ui.parental.ChildSettingsEntry
 
+// Main profile screen where users can view/edit their profile, access rewards,
+// parental controls, upgrade options, and recent reading/video history.
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun ProfileScreen(
@@ -39,12 +41,14 @@ fun ProfileScreen(
     onNavigateToBadgesRewards: () -> Unit = {},
     onNavigateToUpgrade: () -> Unit = {}
 ) {
+    // Collects user, update, reading history, error, and loading states from the ViewModels
     val user by authViewModel.currentUser.collectAsState()
     val updateSuccess by profileViewModel.updateSuccess.collectAsState()
     val readingHistory by profileViewModel.readingHistory.collectAsState()
     val profileError by profileViewModel.error.collectAsState()
     val isSaving by profileViewModel.isLoading.collectAsState()
 
+    // Local UI state used by the editable profile form
     var isEditing by remember { mutableStateOf(false) }
     var name by remember { mutableStateOf("") }
     var age by remember { mutableStateOf("") }
@@ -52,6 +56,7 @@ fun ProfileScreen(
     var readingLevel by remember { mutableStateOf("Beginner") }
     var interestsExpanded by remember { mutableStateOf(false) }
 
+    // Available interest options used for profile personalisation and recommendations
     val interests = listOf(
         "Reading", "Science", "Animals", "Adventure",
         "Fantasy", "Art", "Music", "Sports", "History", "Nature",
@@ -59,6 +64,7 @@ fun ProfileScreen(
         "Fairy Tales", "Superheroes", "Ocean", "Puzzles", "Travel"
     )
 
+    // Reading level options used to personalise book difficulty
     val readingLevels = listOf("Beginner", "Early Reader", "Intermediate", "Advanced")
 
     // Load user details into the form
@@ -79,17 +85,20 @@ fun ProfileScreen(
         }
     }
 
+    // Main screen layout with a profile top bar and scrollable body content
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Profile") },
                 actions = {
+                    // Allows the user to switch into edit mode
                     if (!isEditing) {
                         IconButton(onClick = { isEditing = true }) {
                             Icon(Icons.Default.Edit, contentDescription = "Edit Profile")
                         }
                     }
 
+                    // Logs the current user out of the app
                     IconButton(onClick = { authViewModel.signOut() }) {
                         Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "Logout")
                     }
@@ -98,6 +107,7 @@ fun ProfileScreen(
         }
     ) { paddingValues ->
 
+        // Scrollable container for profile information and actions
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -106,7 +116,7 @@ fun ProfileScreen(
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Avatar
+            // Displays a simple avatar using the first letter of the user's name
             Surface(
                 color = MaterialTheme.colorScheme.primaryContainer,
                 shape = MaterialTheme.shapes.large,
@@ -125,7 +135,8 @@ fun ProfileScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             if (isEditing) {
-                // Edit form
+                // Editable profile form shown when the user taps the edit icon
+                // Name input field
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
@@ -136,6 +147,7 @@ fun ProfileScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
+                // Age input field restricted to numeric characters
                 OutlinedTextField(
                     value = age,
                     onValueChange = {
@@ -244,6 +256,7 @@ fun ProfileScreen(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
+                // Reading level selector chips
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -260,6 +273,7 @@ fun ProfileScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
+                // Displays validation or save errors
                 profileError?.let { errorMsg ->
                     Text(
                         text = errorMsg,
@@ -275,6 +289,7 @@ fun ProfileScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    // Cancels editing and clears any displayed profile error
                     OutlinedButton(
                         onClick = {
                             profileViewModel.clearError()
@@ -286,6 +301,7 @@ fun ProfileScreen(
                         Text("Cancel")
                     }
 
+                    // Saves edited profile details through ProfileViewModel
                     Button(
                         onClick = {
                             profileViewModel.updateProfile(
@@ -310,6 +326,7 @@ fun ProfileScreen(
                     }
                 }
             } else {
+                // Read-only profile view shown when the user is not editing
                 user?.let { currentUser ->
                     val isFreeChild = currentUser.planType == PlanType.FREE
 
@@ -384,7 +401,7 @@ fun ProfileScreen(
 
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    // Free plan section
+                    // Free plan section explains current limits and upgrade benefits
                     if (isFreeChild) {
                         Surface(
                             color = Color(0xFFFFF8E1),
@@ -445,7 +462,7 @@ fun ProfileScreen(
                         }
                     }
 
-                    // Premium-only sections
+                    // Premium-only sections for rewards, parental controls, and reading
                     if (!isFreeChild) {
                         BadgesRewardsEntryCard(
                             onClick = onNavigateToBadgesRewards
@@ -482,6 +499,7 @@ fun ProfileScreen(
     }
 }
 
+// Card entry point that navigates premium users to the full badges and rewards page
 @Composable
 private fun BadgesRewardsEntryCard(
     onClick: () -> Unit
@@ -509,6 +527,7 @@ private fun BadgesRewardsEntryCard(
             Column(
                 modifier = Modifier.fillMaxWidth()
             ) {
+                // Header row with trophy icon, text, and navigation indicator
                 Row(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -551,6 +570,7 @@ private fun BadgesRewardsEntryCard(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
+                // Opens the rewards page from the card
                 Button(
                     onClick = onClick,
                     shape = RoundedCornerShape(14.dp)
@@ -565,6 +585,7 @@ private fun BadgesRewardsEntryCard(
 }
 
 @Composable
+// Horizontal list showing recently opened books and watched videos
 fun RecentlyReadSection(
     history: List<ReadingHistory>,
     onItemClick: (url: String, title: String, isVideo: Boolean) -> Unit
@@ -589,10 +610,12 @@ fun RecentlyReadSection(
 
         Spacer(modifier = Modifier.height(12.dp))
 
+        // Displays recent items as horizontally scrollable cards
         LazyRow(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(history) { entry ->
+                // Opens the selected reading/video history entry when tapped
                 Card(
                     modifier = Modifier
                         .width(120.dp)
@@ -612,6 +635,7 @@ fun RecentlyReadSection(
                                 ),
                             contentAlignment = Alignment.Center
                         ) {
+                            // Uses the saved cover image when available; otherwise shows a fallback icon
                             if (entry.coverUrl.isNotBlank() && entry.coverUrl != "none") {
                                 AsyncImage(
                                     model = entry.coverUrl,

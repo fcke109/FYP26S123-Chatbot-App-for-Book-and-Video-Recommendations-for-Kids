@@ -12,6 +12,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+// Dialog shown when a child tries to access content that requires parent approval
 @Composable
 fun ContentApprovalDialog(
     contentTitle: String,
@@ -20,7 +21,9 @@ fun ContentApprovalDialog(
     onDismiss: () -> Unit
 ) {
     AlertDialog(
+        // Allows the dialog to be dismissed when the user taps outside or presses back
         onDismissRequest = onDismiss,
+        // Lock icon visually indicates restricted content
         icon = {
             Icon(
                 Icons.Default.Lock,
@@ -29,6 +32,7 @@ fun ContentApprovalDialog(
                 tint = MaterialTheme.colorScheme.primary
             )
         },
+        // Main dialog title
         title = {
             Text(
                 text = "Parent Approval Required",
@@ -37,11 +41,13 @@ fun ContentApprovalDialog(
                 textAlign = TextAlign.Center
             )
         },
+        // Dialog message explaining why approval is needed
         text = {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.fillMaxWidth()
             ) {
+                // Explanation shown to the child
                 Text(
                     text = "Your parent needs to approve this $contentType before you can access it:",
                     textAlign = TextAlign.Center,
@@ -49,6 +55,7 @@ fun ContentApprovalDialog(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(8.dp))
+                // Displays the specific content title requiring approval
                 Text(
                     text = contentTitle,
                     fontWeight = FontWeight.Medium,
@@ -57,11 +64,13 @@ fun ContentApprovalDialog(
                 )
             }
         },
+        // Sends an approval request to the parent
         confirmButton = {
             Button(onClick = onRequestApproval) {
                 Text("Request Approval")
             }
         },
+        // Closes the dialog without sending a request
         dismissButton = {
             OutlinedButton(onClick = onDismiss) {
                 Text("Maybe Later")

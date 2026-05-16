@@ -16,18 +16,20 @@ fun AdminNotificationScreen(
     onTargetChange: (String) -> Unit,
     onSendClick: () -> Unit
 ) {
+    // Main vertical layout for the notification form
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        // Screen title
         Text(
             text = "Send Notification",
             style = MaterialTheme.typography.headlineSmall
         )
 
-        // Notification Type Selector
+        // Allows admin to choose between announcement and personalized notification
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             NotificationType.entries.forEach { type ->
                 FilterChip(
@@ -38,6 +40,7 @@ fun AdminNotificationScreen(
             }
         }
 
+        // Input field for notification title
         OutlinedTextField(
             value = state.title,
             onValueChange = onTitleChange,
@@ -46,6 +49,7 @@ fun AdminNotificationScreen(
             singleLine = true
         )
 
+        // Input field for notification message content
         OutlinedTextField(
             value = state.body,
             onValueChange = onBodyChange,
@@ -55,6 +59,7 @@ fun AdminNotificationScreen(
             maxLines = 5
         )
 
+        // Shows target category field only when personalized notification is selected
         if (state.type == NotificationType.PERSONALIZED) {
             OutlinedTextField(
                 value = state.targetValue,
@@ -66,6 +71,7 @@ fun AdminNotificationScreen(
             )
         }
 
+        // Send button is enabled only when title and body are not blank
         Button(
             onClick = onSendClick,
             modifier = Modifier.fillMaxWidth(),

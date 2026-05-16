@@ -27,8 +27,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
+// System admin email is excluded from normal user notification broadcasts
 private const val ADMIN_NOTIFICATION_EMAIL = "admin@littledino.com"
 
+// Checks whether a user document is allowed to receive admin notifications
 private fun isEligibleNotificationRecipient(
     doc: com.google.firebase.firestore.DocumentSnapshot
 ): Boolean {
@@ -39,6 +41,7 @@ private fun isEligibleNotificationRecipient(
     return status.isNullOrBlank() || status == "ACTIVE"
 }
 
+// Extracts user interests from Firestore and normalizes them for matching
 private fun extractNormalizedInterests(
     doc: com.google.firebase.firestore.DocumentSnapshot
 ): Set<String> {
@@ -77,6 +80,7 @@ class AdminViewModel @Inject constructor(
     private val _searchResults = MutableStateFlow<List<Book>>(emptyList())
     val searchResults: StateFlow<List<Book>> = _searchResults.asStateFlow()
 
+    // Tracks whether the Open Library search is currently loading
     private val _isSearching = MutableStateFlow(false)
     val isSearching: StateFlow<Boolean> = _isSearching.asStateFlow()
 
@@ -84,9 +88,11 @@ class AdminViewModel @Inject constructor(
     private val _adminStats = MutableStateFlow(AdminStats())
     val adminStats: StateFlow<AdminStats> = _adminStats.asStateFlow()
 
+    // Tracks loading state for dashboard usage statistics
     private val _isLoadingAdminStats = MutableStateFlow(false)
     val isLoadingAdminStats: StateFlow<Boolean> = _isLoadingAdminStats.asStateFlow()
 
+    // Stores recent reading history for the selected user activity view
     private val _userReadingHistory = MutableStateFlow<List<ReadingHistory>>(emptyList())
     val userReadingHistory: StateFlow<List<ReadingHistory>> = _userReadingHistory.asStateFlow()
 
@@ -107,6 +113,7 @@ class AdminViewModel @Inject constructor(
     private val _isLoadingSecurityData = MutableStateFlow(false)
     val isLoadingSecurityData: StateFlow<Boolean> = _isLoadingSecurityData.asStateFlow()
 
+    // Communicates the result of a delete operation back to the UI
     private val _deleteResult = MutableStateFlow<String?>(null)
     val deleteResult: StateFlow<String?> = _deleteResult.asStateFlow()
 
@@ -131,10 +138,12 @@ class AdminViewModel @Inject constructor(
     private var topViewedJob: Job? = null
     private var topDropOffJob: Job? = null
 
+    // Load initial admin data when the ViewModel is created
     init {
         refreshAllAdminData()
     }
 
+    // Refreshes all major admin dashboard data sources
     fun refreshAllAdminData() {
         startManagingUsers()
         loadCuratedBooks()
@@ -143,8 +152,10 @@ class AdminViewModel @Inject constructor(
         loadAnalytics()
     }
 
+    // Returns the currently signed-in admin user ID
     fun getCurrentUserId(): String? = accountManager.getCurrentUserId()
 
+    // Starts observing the user list for the Users tab and dashboard counts
     fun startManagingUsers() {
         usersJob?.cancel()
         usersJob = viewModelScope.launch {
@@ -154,6 +165,7 @@ class AdminViewModel @Inject constructor(
         }
     }
 
+    // Starts observing the curated book library from Firestore
     private fun loadCuratedBooks() {
         booksJob?.cancel()
         booksJob = viewModelScope.launch {
@@ -163,6 +175,7 @@ class AdminViewModel @Inject constructor(
         }
     }
 
+    // Loads all book categories used for filtering and assigning books
     fun loadCategories() {
         viewModelScope.launch {
             try {
@@ -179,6 +192,7 @@ class AdminViewModel @Inject constructor(
         }
     }
 
+    // Adds a new category document using a sanitized category ID
     fun addCategory(name: String, description: String) {
         viewModelScope.launch {
             try {
@@ -214,6 +228,7 @@ class AdminViewModel @Inject constructor(
         }
     }
 
+    // Updates the name and description of an existing category
     fun updateCategory(id: String, name: String, description: String) {
         viewModelScope.launch {
             try {
@@ -243,6 +258,7 @@ class AdminViewModel @Inject constructor(
         }
     }
 
+    // Deletes a category document from Firestore
     fun deleteCategory(id: String) {
         viewModelScope.launch {
             try {
@@ -259,6 +275,7 @@ class AdminViewModel @Inject constructor(
         }
     }
 
+    // Calculates dashboard statistics such as users, active users, and chatbot sessions
     fun refreshAdminStats() {
         viewModelScope.launch {
             _isLoadingAdminStats.value = true
@@ -267,6 +284,7 @@ class AdminViewModel @Inject constructor(
                 val twentyFourHoursAgo = Timestamp(Date(nowMillis - 24 * 60 * 60 * 1000))
                 val thirtyDaysAgo = Timestamp(Date(nowMillis - 30L * 24 * 60 * 60 * 1000))
 
+                // Count registered users while excluding synthetic seed/test users
                 val totalUsers = firestore.collection("users")
                     .get()
                     .await()
@@ -274,6 +292,7 @@ class AdminViewModel @Inject constructor(
                     .count { !it.id.startsWith("synthetic_") }
                     .toLong()
 
+                // Daily active users are users with recent login activity in the last 24 hours
                 val dailyActiveUsers = try {
                     firestore.collection("users")
                         .whereGreaterThan("lastLoggedInAt", twentyFourHoursAgo)
@@ -299,6 +318,7 @@ class AdminViewModel @Inject constructor(
                         .toLong()
                 }
 
+                // Monthly active users are users with recent login activity in the last 30 days
                 val monthlyActiveUsers = try {
                     firestore.collection("users")
                         .whereGreaterThan("lastLoggedInAt", thirtyDaysAgo)
@@ -352,6 +372,8 @@ class AdminViewModel @Inject constructor(
         }
     }
 
+
+    // Starts collecting analytics flows for searches, views, and drop-offs
     private fun loadAnalytics() {
         topSearchJob?.cancel()
         topViewedJob?.cancel()
@@ -374,6 +396,7 @@ class AdminViewModel @Inject constructor(
         }
     }
 
+    // Searches Open Library for child-friendly books and tracks the search query for analytics
     fun searchBooks(query: String) {
         if (query.isBlank()) return
         val lowerQuery = query.lowercase().trim()
@@ -427,6 +450,7 @@ class AdminViewModel @Inject constructor(
         }
     }
 
+    // Records a book view event for the analytics dashboard
     fun trackBookView(bookTitle: String, bookId: String = "") {
         viewModelScope.launch {
             val currentUserId = accountManager.getCurrentUserId() ?: "unknown"
@@ -434,6 +458,7 @@ class AdminViewModel @Inject constructor(
         }
     }
 
+    // Adds a selected book search result into the curated Firestore library
     fun addBookToLibrary(book: Book) {
         viewModelScope.launch {
             // data manager creates the book id
@@ -443,6 +468,7 @@ class AdminViewModel @Inject constructor(
 
     // clean book ids
     @SuppressLint("DefaultLocale")
+    // Reorders curated library book IDs into a clean numeric format
     fun cleanLibraryIds() {
         viewModelScope.launch {
             val currentBooks = _curatedBooks.value.toList()
@@ -460,6 +486,7 @@ class AdminViewModel @Inject constructor(
 
 
     // update book categories
+    // Updates the main category and additional tags for a curated book
     fun updateBookCategories(
         bookId: String,
         category: String,
@@ -485,10 +512,12 @@ class AdminViewModel @Inject constructor(
         }
     }
 
+    // Deletes a book from the curated library
     fun deleteBookFromLibrary(bookId: String) {
         viewModelScope.launch { bookDataManager.deleteBook(bookId) }
     }
 
+    // Removes unsafe content and stores an audit record through the admin repository
     fun removeUnsafeContent(bookId: String, reason: String) {
         viewModelScope.launch {
             try {
@@ -500,10 +529,12 @@ class AdminViewModel @Inject constructor(
         }
     }
 
+    // Clears the latest delete result after the UI has handled it
     fun clearDeleteResult() {
         _deleteResult.value = null
     }
 
+    // Deletes a user profile and related Firestore data, then attempts Auth cleanup through Cloud Functions
     fun deleteUser(userId: String) {
         viewModelScope.launch {
             try {
@@ -557,6 +588,7 @@ class AdminViewModel @Inject constructor(
         }
     }
 
+    // Changes a user account status to suspended
     fun suspendUser(userId: String) {
         viewModelScope.launch {
             try {
@@ -573,6 +605,7 @@ class AdminViewModel @Inject constructor(
         }
     }
 
+    // Changes a user account status to banned
     fun banUser(userId: String) {
         viewModelScope.launch {
             try {
@@ -589,6 +622,7 @@ class AdminViewModel @Inject constructor(
         }
     }
 
+    // Reactivates a suspended or banned user account
     fun activateUser(userId: String) {
         viewModelScope.launch {
             try {
@@ -605,6 +639,7 @@ class AdminViewModel @Inject constructor(
         }
     }
 
+    // Loads recent reading and chat history for the selected user activity dialog
     fun loadUserActivity(userId: String) {
         viewModelScope.launch {
             _isLoadingUserActivity.value = true
@@ -653,6 +688,7 @@ class AdminViewModel @Inject constructor(
         }
     }
 
+    // Loads recent login attempts and suspicious activity for the security panel
     fun loadSecurityData() {
         viewModelScope.launch {
             _isLoadingSecurityData.value = true
@@ -710,6 +746,7 @@ class AdminViewModel @Inject constructor(
         }
     }
 
+    // Marks a suspicious activity record as resolved
     fun markSuspiciousActivityResolved(activityId: String) {
         if (activityId.isBlank()) {
             Log.e("AdminVM", "Cannot resolve suspicious activity because activityId is blank")
@@ -734,6 +771,7 @@ class AdminViewModel @Inject constructor(
         }
     }
 
+    // Sends either a general announcement or a personalized interest-based notification
     fun sendNotification(
         title: String,
         body: String,
@@ -761,6 +799,7 @@ class AdminViewModel @Inject constructor(
         }
     }
 
+    // Sends an announcement notification to all eligible non-admin active users
     private suspend fun sendAnnouncementToAllUsers(title: String, body: String) {
         val recipientIds = firestore.collection("users")
             .get()
@@ -795,6 +834,7 @@ class AdminViewModel @Inject constructor(
         Log.d("AdminVM", "Announcement sent to ${recipientIds.size} users")
     }
 
+    // Sends a personalized notification only to users whose interests match the chosen category
     private suspend fun sendPersonalizedAlert(
         title: String,
         body: String,
@@ -842,6 +882,7 @@ class AdminViewModel @Inject constructor(
         )
     }
 
+    // Signs out the current admin and triggers the navigation callback
     fun logout(onSuccess: () -> Unit) {
         viewModelScope.launch {
             accountManager.signOut()
@@ -849,6 +890,7 @@ class AdminViewModel @Inject constructor(
         }
     }
 
+    // Updates a curated book’s category, tags, and suitable age range
     fun updateBookCategoryAndAge(
         bookId: String,
         category: String,

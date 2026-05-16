@@ -15,32 +15,40 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+// ViewModel responsible for managing the user's profile screen data and actions
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
     private val accountManager: AccountManager,
     private val readingHistoryManager: ReadingHistoryManager
 ) : ViewModel() {
 
+    // Stores the current logged-in user's profile data
     private val _user = MutableStateFlow<User?>(null)
     val user: StateFlow<User?> = _user.asStateFlow()
 
+    // Tracks whether profile data is currently loading or being updated
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    // Indicates whether a profile update was completed successfully
     private val _updateSuccess = MutableStateFlow(false)
     val updateSuccess: StateFlow<Boolean> = _updateSuccess.asStateFlow()
 
+    // Stores the user's recent reading history shown on the profile screen
     private val _readingHistory = MutableStateFlow<List<ReadingHistory>>(emptyList())
     val readingHistory: StateFlow<List<ReadingHistory>> = _readingHistory.asStateFlow()
 
+    // Stores any error message that should be shown to the user
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
+    // Loads profile information and reading history when the ViewModel is created
     init {
         loadUser()
         loadReadingHistory()
     }
 
+    // Loads the current user's profile and listens for realtime updates
     private fun loadUser() {
         viewModelScope.launch {
             val userId = accountManager.getCurrentUserId() ?: return@launch
@@ -59,6 +67,7 @@ class ProfileViewModel @Inject constructor(
         }
     }
 
+    // Loads the latest reading history entries for the current user
     private fun loadReadingHistory() {
         viewModelScope.launch {
             val userId = accountManager.getCurrentUserId() ?: return@launch
@@ -72,6 +81,7 @@ class ProfileViewModel @Inject constructor(
         }
     }
 
+    // Updates the user's editable profile fields after validating input
     fun updateProfile(
         name: String,
         age: Int,
@@ -81,10 +91,12 @@ class ProfileViewModel @Inject constructor(
         viewModelScope.launch {
             _error.value = null
 
+            // Validates that the user entered a name
             if (name.isBlank()) {
                 _error.value = "Name cannot be empty."
                 return@launch
             }
+            // Validates that the age is within the allowed range
             if (age !in 1..18) {
                 _error.value = "Age must be between 1 and 18."
                 return@launch
@@ -99,6 +111,7 @@ class ProfileViewModel @Inject constructor(
                 }
                 accountManager.getUser(userId)
             }
+            // Stops the update if the profile could not be loaded
             if (currentUser == null) {
                 _error.value = "Could not load your profile. Please try again."
                 return@launch
@@ -106,6 +119,7 @@ class ProfileViewModel @Inject constructor(
 
             _isLoading.value = true
 
+            // Creates an updated copy of the current user with the edited profile details
             val updatedUser = currentUser.copy(
                 name = name.trim(),
                 age = age,
@@ -113,6 +127,7 @@ class ProfileViewModel @Inject constructor(
                 readingLevel = readingLevel
             )
 
+            // Saves the updated profile through AccountManager
             val result = accountManager.updateUser(updatedUser)
             result.fold(
                 onSuccess = {
@@ -129,14 +144,17 @@ class ProfileViewModel @Inject constructor(
         }
     }
 
+    // Resets the update success flag after the UI has handled it
     fun resetUpdateSuccess() {
         _updateSuccess.value = false
     }
 
+    // Clears the current error message
     fun clearError() {
         _error.value = null
     }
 
+    // Adds a book or video entry to the user's reading history
     fun trackReading(title: String, url: String, coverUrl: String = "", isVideo: Boolean = false) {
         viewModelScope.launch {
             val userId = accountManager.getCurrentUserId() ?: return@launch
