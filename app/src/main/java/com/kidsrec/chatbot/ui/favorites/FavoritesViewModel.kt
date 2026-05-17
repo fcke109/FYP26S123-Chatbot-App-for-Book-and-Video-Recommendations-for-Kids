@@ -29,30 +29,42 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 
+// Filter options for favorites screen
 enum class FavoriteFilter { ALL, BOOKS, VIDEOS }
 
+// ViewModel for handling favorites logic
 @HiltViewModel
 class FavoritesViewModel @Inject constructor(
+    // Handles Firestore favorite operations
     private val favoritesManager: FavoritesManager,
+    // Handles user account and plan data
     private val accountManager: AccountManager
 ) : ViewModel() {
 
     companion object {
+        // Log tags for debugging
         private const val TAG = "FavoritesVM"
         private const val TEST_TAG = "FAV_TEST"
 
+        // Free plan favorite limits
         const val FREE_BOOK_LIMIT = 2
         const val FREE_VIDEO_LIMIT = 2
 
+        // Timeout while waiting for user plan
         private const val PLAN_LOAD_TIMEOUT_MS = 8_000L
     }
 
+    // Stores all favorite items
     private val _favorites = MutableStateFlow<List<Favorite>>(emptyList())
+    // Public favorites state
     val favorites: StateFlow<List<Favorite>> = _favorites.asStateFlow()
 
+    // Current selected filter
     private val _selectedFilter = MutableStateFlow(FavoriteFilter.ALL)
+    // Public filter state
     val selectedFilter: StateFlow<FavoriteFilter> = _selectedFilter.asStateFlow()
 
+    // Filters favorites based on selected filter
     val filteredFavorites: StateFlow<List<Favorite>> =
         combine(_favorites, _selectedFilter) { favs, filter ->
             when (filter) {
@@ -66,6 +78,7 @@ class FavoritesViewModel @Inject constructor(
         _favorites.map { it.size }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
+    // Total favorite books count
     val bookFavoritesCount: StateFlow<Int> =
         _favorites.map { favs -> favs.count { it.type == RecommendationType.BOOK } }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
@@ -110,6 +123,7 @@ class FavoritesViewModel @Inject constructor(
         loadFavorites()
     }
 
+    // Watches user plan updates
     private fun observeUserPlan() {
         userObserverJob?.cancel()
 

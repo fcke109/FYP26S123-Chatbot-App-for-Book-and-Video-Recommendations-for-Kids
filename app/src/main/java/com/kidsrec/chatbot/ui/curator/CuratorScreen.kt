@@ -11,15 +11,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 
-/**
- * CuratorScreen: A placeholder screen directing admins to use the modern search tool.
- */
+// Curator screen shown for manual content curation
 @Composable
 fun CuratorScreen() {
     Box(
+        // Centers content on screen
         modifier = Modifier.fillMaxSize().padding(16.dp),
         contentAlignment = Alignment.Center
     ) {
+        // Main content layout
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(
                 imageVector = Icons.Default.Info,
@@ -33,6 +33,7 @@ fun CuratorScreen() {
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold
             )
+            // Description message for admins
             Text(
                 text = "The AI Curator has been replaced by the 'Add Books' search tab. Please use the search bar to discover and add new visual stories to your library.",
                 style = MaterialTheme.typography.bodyMedium,

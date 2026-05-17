@@ -32,10 +32,13 @@ import java.net.URLEncoder
 import com.kidsrec.chatbot.data.model.Recommendation
 import com.kidsrec.chatbot.data.model.RecommendationType
 
+// Favorites screen UI
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FavoritesScreen(
+    // Favorites ViewModel
     viewModel: FavoritesViewModel,
+    // Opens selected favorite item
     onOpenFavorite: (String, String, Boolean, String, String, String) -> Unit
 ) {
     val favorites by viewModel.filteredFavorites.collectAsState()
@@ -46,6 +49,7 @@ fun FavoritesScreen(
     val bookCount by viewModel.bookFavoritesCount.collectAsState()
     val videoCount by viewModel.videoFavoritesCount.collectAsState()
 
+    // Main screen layout
     Scaffold(
         topBar = {
             TopAppBar(
@@ -82,7 +86,7 @@ fun FavoritesScreen(
                 }
             }
 
-            // Filter chips row
+            // Favorites filter chips
             if (!isLoading && totalCount > 0) {
                 Row(
                     modifier = Modifier
@@ -90,6 +94,7 @@ fun FavoritesScreen(
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    // Show all favorites
                     FilterChip(
                         selected = selectedFilter == FavoriteFilter.ALL,
                         onClick = { viewModel.setFilter(FavoriteFilter.ALL) },
@@ -98,6 +103,7 @@ fun FavoritesScreen(
                             Icon(Icons.Default.Star, contentDescription = null, modifier = Modifier.size(18.dp))
                         }
                     )
+                    // Show only books
                     FilterChip(
                         selected = selectedFilter == FavoriteFilter.BOOKS,
                         onClick = { viewModel.setFilter(FavoriteFilter.BOOKS) },
@@ -106,6 +112,7 @@ fun FavoritesScreen(
                             Icon(Icons.Default.Book, contentDescription = null, modifier = Modifier.size(18.dp))
                         }
                     )
+                    // Show only videos
                     FilterChip(
                         selected = selectedFilter == FavoriteFilter.VIDEOS,
                         onClick = { viewModel.setFilter(FavoriteFilter.VIDEOS) },
@@ -117,8 +124,10 @@ fun FavoritesScreen(
                 }
             }
 
+            // Main content area
             Box(modifier = Modifier.fillMaxSize()) {
                 when {
+                    // Loading spinner while data loads
                     isLoading -> {
                         CircularProgressIndicator(
                             modifier = Modifier.align(Alignment.Center)
@@ -162,6 +171,7 @@ fun FavoritesScreen(
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
+                            // Display each favorite item
                             items(favorites) { favorite ->
                                 FavoriteCard(
                                     favorite = favorite,
@@ -195,15 +205,18 @@ fun FavoritesScreen(
     }
 }
 
+// Single favorite item card
 @Composable
 fun FavoriteCard(
     favorite: Favorite,
     onRemove: () -> Unit,
     onOpen: () -> Unit
 ) {
+    // Checks if favorite is a video
     val isVideo = favorite.type == RecommendationType.VIDEO
 
     Card(
+        // Open content when clicked
         modifier = Modifier
             .fillMaxWidth()
             .height(280.dp)
@@ -216,6 +229,7 @@ fun FavoriteCard(
                     .fillMaxWidth()
                     .height(150.dp)
             ) {
+                // Show content image if available
                 if (favorite.imageUrl.isNotEmpty()) {
                     AsyncImage(
                         model = favorite.imageUrl,
@@ -245,6 +259,7 @@ fun FavoriteCard(
                     }
                 }
 
+                // Remove favorite button
                 IconButton(
                     onClick = onRemove,
                     modifier = Modifier
@@ -262,6 +277,7 @@ fun FavoriteCard(
                 }
             }
 
+            // Bottom content section
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
