@@ -14,30 +14,37 @@ import retrofit2.converter.gson.GsonConverterFactory
 import javax.inject.Named
 import javax.inject.Singleton
 
+// Provides app-wide dependencies using Hilt
 @Module
 @InstallIn(SingletonComponent::class)
 object AppModule {
 
+    // Firebase Authentication instance
     @Provides
     @Singleton
     fun provideFirebaseAuth(): FirebaseAuth = FirebaseAuth.getInstance()
 
+    // Firebase Firestore database instance
     @Provides
     @Singleton
     fun provideFirebaseFirestore(): FirebaseFirestore = FirebaseFirestore.getInstance()
 
+    // Firebase Cloud Functions instance
     @Provides
     @Singleton
     fun provideFirebaseFunctions(): FirebaseFunctions = FirebaseFunctions.getInstance()
 
+    // Firebase Storage instance
     @Provides
     @Singleton
     fun provideFirebaseStorage(): FirebaseStorage = FirebaseStorage.getInstance()
 
+    // YouTube service using Firebase Functions
     @Provides
     @Singleton
     fun provideYouTubeService(functions: FirebaseFunctions): YouTubeService = YouTubeService(functions)
 
+    // Retrofit setup for Storyweaver API
     @Provides
     @Singleton
     @Named("SWRetrofit")
@@ -47,12 +54,13 @@ object AppModule {
             .addConverterFactory(GsonConverterFactory.create())
             .build()
     }
-
+    // Storyweaver API service
     @Provides
     @Singleton
     fun provideStoryweaverService(@Named("SWRetrofit") retrofit: Retrofit): StoryweaverService =
         retrofit.create(StoryweaverService::class.java)
 
+    // Retrofit setup for Gutendex API
     @Provides
     @Singleton
     @Named("GutendexRetrofit")
@@ -63,11 +71,14 @@ object AppModule {
             .build()
     }
 
+    // Gutendex API service
     @Provides
     @Singleton
     fun provideGutendexService(@Named("GutendexRetrofit") retrofit: Retrofit): GutendexService =
         retrofit.create(GutendexService::class.java)
 
+
+    // Retrofit setup for Open Library API
     @Provides
     @Singleton
     @Named("OpenLibraryRetrofit")
@@ -78,11 +89,13 @@ object AppModule {
             .build()
     }
 
+    // Open Library API service
     @Provides
     @Singleton
     fun provideOpenLibraryService(@Named("OpenLibraryRetrofit") retrofit: Retrofit): OpenLibraryService =
         retrofit.create(OpenLibraryService::class.java)
 
+    // Retrofit setup for Google Books API
     @Provides
     @Singleton
     @Named("GoogleBooksRetrofit")
@@ -93,6 +106,7 @@ object AppModule {
             .build()
     }
 
+    // Google Books API service
     @Provides
     @Singleton
     fun provideGoogleBooksService(@Named("GoogleBooksRetrofit") retrofit: Retrofit): GoogleBooksService =

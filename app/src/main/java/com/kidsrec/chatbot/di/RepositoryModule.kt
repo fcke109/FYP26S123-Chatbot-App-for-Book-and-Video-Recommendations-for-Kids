@@ -11,10 +11,12 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
+// Hilt module for providing repository-related classes
 @Module
 @InstallIn(SingletonComponent::class)
 object RepositoryModule {
 
+    // Provides LearningProgressManager instance
     @Provides
     @Singleton
     fun provideLearningProgressManager(
@@ -23,6 +25,7 @@ object RepositoryModule {
         return LearningProgressManager(firestore)
     }
 
+    // Provides GamificationManager instance
     @Provides
     @Singleton
     fun provideGamificationManager(
@@ -31,12 +34,14 @@ object RepositoryModule {
         return GamificationManager(firestore)
     }
 
+    // Provides ContentRepository instance
     @Provides
     @Singleton
     fun provideContentRepository(
         firestore: FirebaseFirestore
     ): ContentRepository = ContentRepository(firestore)
 
+    // Provides collaborative filtering recommendation service
     @Provides
     @Singleton
     fun provideCollaborativeFilteringService(
