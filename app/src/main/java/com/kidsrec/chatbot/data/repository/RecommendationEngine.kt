@@ -9,10 +9,13 @@ import javax.inject.Singleton
 import kotlin.math.abs
 import com.kidsrec.chatbot.data.model.Recommendation
 import com.kidsrec.chatbot.data.model.RecommendationType
+
+// Main recommendation engine for books and videos
 @Singleton
 class RecommendationEngine @Inject constructor() {
 
     companion object {
+        // These values decide how important each factor is when calculating recommendation scores
         const val WEIGHT_INTEREST_MATCH = 0.40
         const val WEIGHT_AGE_MATCH = 0.22
         const val WEIGHT_READING_LEVEL = 0.12
@@ -21,6 +24,7 @@ class RecommendationEngine @Inject constructor() {
         const val WEIGHT_SEARCH_HISTORY = 0.06
         const val WEIGHT_CLICK_HISTORY = 0.04
 
+        // Converts reading levels into number values
         private val READING_LEVEL_MAP = mapOf(
             "Beginner" to 1,
             "Early Reader" to 2,
@@ -29,6 +33,7 @@ class RecommendationEngine @Inject constructor() {
         )
     }
 
+    // Calculates the final recommendation score for a book
     fun scoreBook(
         book: Book,
         user: User,
@@ -56,6 +61,7 @@ class RecommendationEngine @Inject constructor() {
         return finalScore.coerceIn(0.0, 1.0)
     }
 
+    //  Re-ranks recommendation list based on scores
     fun rankRecommendations(
         recommendations: List<Recommendation>,
         curatedBooks: List<Book>,
@@ -109,6 +115,7 @@ class RecommendationEngine @Inject constructor() {
             .sortedByDescending { it.relevanceScore }
     }
 
+    // Gets the best recommendations for the user
     fun getTopRecommendations(
         curatedBooks: List<Book>,
         user: User,
@@ -167,6 +174,7 @@ class RecommendationEngine @Inject constructor() {
             }
     }
 
+    // Smaller recommendation list for daily suggestions
     fun getDailyRecommendations(
         curatedBooks: List<Book>,
         user: User,
@@ -185,6 +193,7 @@ class RecommendationEngine @Inject constructor() {
         )
     }
 
+    // Returns all recommendations ranked from highest to lowest
     fun getAllRankedRecommendations(
         curatedBooks: List<Book>,
         user: User,
@@ -202,6 +211,7 @@ class RecommendationEngine @Inject constructor() {
         )
     }
 
+    // Combines hybrid filtering with collaborative filtering
     fun mergeCollaborativeScores(
         baseRecommendations: List<Recommendation>,
         collaborativeRecommendations: List<CFRecommendation>
@@ -235,6 +245,7 @@ class RecommendationEngine @Inject constructor() {
             .sortedByDescending { it.relevanceScore }
     }
 
+    // Checks if book matches user interes
     private fun computeInterestScore(book: Book, interests: List<String>): Double {
 
         if (interests.isEmpty()) return 0.0
@@ -261,6 +272,7 @@ class RecommendationEngine @Inject constructor() {
         }
     }
 
+    //  Checks category and tag similarity
     private fun computeCategoryTagScore(book: Book, interests: List<String>): Double {
         if (interests.isEmpty()) return 0.5
 
@@ -275,6 +287,7 @@ class RecommendationEngine @Inject constructor() {
         return (matches.toDouble() / interests.size).coerceIn(0.0, 1.0)
     }
 
+    // Checks if book suits user's age
     private fun computeAgeScore(book: Book, userAge: Int): Double {
         if (userAge in book.ageMin..book.ageMax) return 1.0
 
@@ -290,6 +303,7 @@ class RecommendationEngine @Inject constructor() {
         }
     }
 
+    // Checks if reading difficulty matches user level
     private fun computeReadingLevelScore(book: Book, readingLevel: String): Double {
         val userLevel = READING_LEVEL_MAP[readingLevel] ?: 2
 
@@ -314,6 +328,7 @@ class RecommendationEngine @Inject constructor() {
         }
     }
 
+    // Finds similarity between book and favorites
     private fun computeFavoriteSimilarity(book: Book, favorites: List<Favorite>): Double {
         if (favorites.isEmpty()) return 0.5
 
@@ -330,6 +345,7 @@ class RecommendationEngine @Inject constructor() {
         return maxSimilarity.coerceIn(0.0, 1.0)
     }
 
+    // Finds similarity with user's search history
     private fun computeSearchHistoryScore(book: Book, searchHistory: List<String>): Double {
         if (searchHistory.isEmpty()) return 0.5
 
@@ -353,6 +369,7 @@ class RecommendationEngine @Inject constructor() {
         return maxSimilarity.coerceIn(0.0, 1.0)
     }
 
+    // Finds similarity with clicked items
     private fun computeClickHistoryScore(book: Book, clickedItems: List<String>): Double {
         if (clickedItems.isEmpty()) return 0.5
 
@@ -376,6 +393,7 @@ class RecommendationEngine @Inject constructor() {
         return maxSimilarity.coerceIn(0.0, 1.0)
     }
 
+    // Calculates score for chatbot-generated recommendations
     fun scoreRecommendation(
         rec: Recommendation,
         user: User,
@@ -434,6 +452,7 @@ class RecommendationEngine @Inject constructor() {
                 ).coerceIn(0.0, 1.0)
     }
 
+    // Makes sure content follows parental filters
     private fun isAllowedByUserFilters(book: Book, user: User): Boolean {
         if (!book.isKidSafe) return false
         if (book.contentType == "video" && !user.contentFilters.allowVideos) return false
@@ -452,6 +471,7 @@ class RecommendationEngine @Inject constructor() {
         }
     }
 
+    // Creates recommendation explanation text
     private fun generateReason(
         book: Book,
         user: User,
@@ -500,6 +520,7 @@ class RecommendationEngine @Inject constructor() {
         }
     }
 
+    // Creates explanation for AI-generated recommendations
     private fun generateReasonFromRecommendation(
         recommendation: Recommendation,
         user: User,
@@ -547,6 +568,7 @@ class RecommendationEngine @Inject constructor() {
         }
     }
 
+    // Finds the most similar favorite item
     private fun findBestFavoriteMatch(book: Book, favorites: List<Favorite>): Favorite? {
         if (favorites.isEmpty()) return null
 
@@ -564,6 +586,7 @@ class RecommendationEngine @Inject constructor() {
         }
     }
 
+    // Finds the closest matching search/click history
     private fun findBestHistoryMatch(text: String, history: List<String>): String? {
         if (history.isEmpty()) return null
 
@@ -584,6 +607,7 @@ class RecommendationEngine @Inject constructor() {
             }
     }
 
+    //  Splits text into searchable words
     private fun tokenize(text: String): Set<String> {
         return text.lowercase()
             .split(Regex("\\W+"))
@@ -591,6 +615,7 @@ class RecommendationEngine @Inject constructor() {
             .toSet()
     }
 
+    // Calculates similarity between two sets of words
     private fun jaccardSimilarity(a: Set<String>, b: Set<String>): Double {
         val union = a.union(b)
         if (union.isEmpty()) return 0.0
@@ -598,6 +623,7 @@ class RecommendationEngine @Inject constructor() {
         return intersection.size.toDouble() / union.size.toDouble()
     }
 
+    // Cleans titles before comparing them
     private fun normalizeTitle(text: String): String {
         return text.lowercase()
             .replace(Regex("[^a-z0-9 ]"), " ")
