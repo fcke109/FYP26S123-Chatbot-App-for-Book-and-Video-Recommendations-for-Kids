@@ -24,23 +24,30 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
+// Summary card shown to parents to view a child's reward progress
 @Composable
 fun ParentGamificationSummary(
     viewModel: GamificationViewModel,
     childUserId: String
 ) {
+    // Starts observing the selected child's gamification profile and badges
     LaunchedEffect(childUserId) {
         viewModel.observeChildGamification(childUserId)
     }
 
+    // Observes the child's points and level
     val profile by viewModel.profile.collectAsState()
+
+    // Observes the child's unlocked badges
     val badges by viewModel.badges.collectAsState()
 
+    // Card container for the reward summary section
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
+            // Section title
             Text(
                 text = "Reward Summary",
                 style = MaterialTheme.typography.titleMedium,
@@ -49,6 +56,7 @@ fun ParentGamificationSummary(
 
             Spacer(modifier = Modifier.height(12.dp))
 
+            // Displays points, level, and badge count side by side
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -61,6 +69,7 @@ fun ParentGamificationSummary(
     }
 }
 
+// Small reusable metric block used inside the parent reward summary card
 @Composable
 private fun SummaryMetric(
     label: String,
@@ -68,9 +77,12 @@ private fun SummaryMetric(
     icon: androidx.compose.ui.graphics.vector.ImageVector
 ) {
     Column {
+        // Metric icon
         Icon(icon, contentDescription = null)
         Spacer(modifier = Modifier.height(4.dp))
+        // Main metric value
         Text(text = value, fontWeight = FontWeight.Bold)
+        // Metric label
         Text(
             text = label,
             style = MaterialTheme.typography.bodySmall

@@ -13,14 +13,18 @@ import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    // Called when the activity is first created
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
+            // Applies the custom LittleDino app theme to all screens
             KidsRecommendationAppTheme {
                 Surface(
+                    // Provides a full-screen surface using the app's background colour
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
+                    // Loads the main navigation graph for authentication and app screens
                     AppNavigation()
                 }
             }

@@ -75,12 +75,15 @@ import com.kidsrec.chatbot.ui.webview.YouTubePlayerScreen
 import java.net.URLEncoder
 import java.util.Date
 
+// Fixed admin email used to identify the system administrator account
 private const val ADMIN_EMAIL = "admin@littledino.com"
 
+// Checks whether an email belongs to the administrator account
 private fun isAdminEmail(email: String?): Boolean {
     return email.equals(ADMIN_EMAIL, ignoreCase = true)
 }
 
+// Defines all navigation destinations used in the app
 sealed class Screen(val route: String, val title: String, val icon: ImageVector? = null) {
     object Login : Screen("login", "Login")
     object Chat : Screen("chat", "Chat", Icons.Default.Chat)
@@ -105,10 +108,12 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
     object PremiumUpgrade : Screen("premium", "Upgrade")
 }
 
+// Normalizes content URLs before routing them to the correct viewer
 private fun normalizeContentUrl(url: String): String {
     return url.trim().replace("http://", "https://")
 }
 
+// Checks whether a URL belongs to a supported online book/reading source
 private fun isKnownBookUrl(url: String): Boolean {
     val lower = url.trim().lowercase()
     return lower.contains("archive.org") ||
@@ -120,6 +125,7 @@ private fun isKnownBookUrl(url: String): Boolean {
             lower.contains("books.google.")
 }
 
+// Checks whether a URL looks like a supported YouTube or YouTube Kids link
 private fun isYoutubeLikeUrl(url: String): Boolean {
     val lower = url.trim().lowercase()
     return lower.contains("youtube.com") ||
@@ -129,6 +135,7 @@ private fun isYoutubeLikeUrl(url: String): Boolean {
             lower.contains("youtubekids.com")
 }
 
+// Extracts a YouTube video ID from common YouTube URL formats
 private fun extractYoutubeId(url: String): String? {
     if (url.isBlank()) return null
 
@@ -152,12 +159,14 @@ private fun extractYoutubeId(url: String): String? {
     return null
 }
 
+// Builds the navigation route for the in-app YouTube player
 private fun buildYouTubePlayerRoute(videoId: String, title: String): String {
     val encodedId = URLEncoder.encode(videoId, "UTF-8")
     val encodedTitle = URLEncoder.encode(title, "UTF-8")
     return "youtube_player?videoId=$encodedId&title=$encodedTitle"
 }
 
+// Builds the correct navigation route depending on whether the content is a book, YouTube video, or safe web content
 private fun buildContentRoute(
     url: String,
     title: String,
@@ -172,6 +181,7 @@ private fun buildContentRoute(
     Log.d("KidsRecNav", "Clean URL: $cleanUrl")
     Log.d("KidsRecNav", "Incoming isVideo: $isVideo")
 
+    // YouTube links are routed to the dedicated in-app YouTube player when possible
     if (isYoutubeLikeUrl(cleanUrl)) {
         val youtubeId = extractYoutubeId(cleanUrl)
         if (youtubeId != null) {
@@ -180,6 +190,7 @@ private fun buildContentRoute(
         }
     }
 
+    // Re-evaluates whether the content should be treated as video or reading material
     val finalIsVideo = when {
         cleanUrl.isBlank() -> isVideo
         isKnownBookUrl(cleanUrl) -> false
@@ -205,20 +216,26 @@ private fun buildContentRoute(
     return "webview?url=$encodedUrl&title=$encodedTitle&isVideo=$finalIsVideo&itemId=$encodedItemId&imageUrl=$encodedImg&description=$encodedDesc"
 }
 
+// Hilt entry point used to access AnalyticsRepository from navigation callbacks
 @EntryPoint
 @InstallIn(SingletonComponent::class)
 interface AnalyticsEntryPoint {
     fun analyticsRepository(): com.kidsrec.chatbot.data.repository.AnalyticsRepository
 }
 
+// Root navigation controller that decides whether to show auth, child, parent, or admin screens
 @Composable
 fun AppNavigation() {
+    // Shared authentication ViewModel for the app
     val authViewModel: AuthViewModel = hiltViewModel()
     val authState by authViewModel.authState.collectAsState()
+    // Current user and notification state observed by the app shell
     val currentUser by authViewModel.currentUser.collectAsState()
 
+    // Firebase Auth email is used as an additional admin check
     val firebaseEmail = FirebaseAuth.getInstance().currentUser?.email
 
+    // Determines whether the current account should enter the admin dashboard
     val isAdmin by remember(currentUser, firebaseEmail) {
         derivedStateOf {
             currentUser?.planType == PlanType.ADMIN ||
@@ -227,6 +244,7 @@ fun AppNavigation() {
         }
     }
 
+    // Determines whether the current account should enter the parent dashboard
     val isParent by remember(currentUser, firebaseEmail) {
         derivedStateOf {
             currentUser?.accountType == AccountType.PARENT &&
@@ -236,6 +254,7 @@ fun AppNavigation() {
         }
     }
 
+    // Chooses the first screen based on authentication and verification state
     when (authState) {
         is AuthState.Authenticated -> MainScreen(
             authViewModel = authViewModel,
@@ -257,8 +276,10 @@ fun AppNavigation() {
     }
 }
 
+// Navigation graph used before the user is authenticated
 @Composable
 fun AuthNavigation(authViewModel: AuthViewModel) {
+    // Main NavController for authenticated navigation
     val navController = rememberNavController()
 
     NavHost(
@@ -274,6 +295,7 @@ fun AuthNavigation(authViewModel: AuthViewModel) {
     }
 }
 
+// Main authenticated app shell containing the bottom navigation and all protected routes
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
@@ -285,6 +307,7 @@ fun MainScreen(
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
+    // Shared ViewModels used across multiple child screens
     val profileViewModel: ProfileViewModel = hiltViewModel()
     val favoritesViewModel: FavoritesViewModel = hiltViewModel()
     val notificationsViewModel: NotificationsViewModel = hiltViewModel()
@@ -292,6 +315,7 @@ fun MainScreen(
     val currentUser by authViewModel.currentUser.collectAsState()
     val notifications by notificationsViewModel.uiState.collectAsState()
 
+    // Filters unread notifications that should be shown as announcements
     val unreadAnnouncements = notifications.filter {
         !it.read && (
                 it.type.equals("announcement", ignoreCase = true) ||
@@ -299,12 +323,14 @@ fun MainScreen(
                 )
     }
 
+    // Starts realtime notification listening when the current user changes
     LaunchedEffect(currentUser?.id) {
         currentUser?.id?.let { userId ->
             notificationsViewModel.startListening(userId)
         }
     }
 
+    // Displays unread announcement or personalized notifications in a dialog
     if (unreadAnnouncements.isNotEmpty()) {
         AnnouncementDialog(
             announcements = unreadAnnouncements,
@@ -318,22 +344,26 @@ fun MainScreen(
         )
     }
 
+    // Loads user favorites once when the main screen is created
     LaunchedEffect(Unit) {
         favoritesViewModel.loadFavorites()
     }
 
+    // Child users receive bottom navigation; admin and parent accounts use dashboard screens
     val bottomNavItems = if (isAdmin || isParent) {
         emptyList()
     } else {
         listOf(Screen.Chat, Screen.Library, Screen.Favorites, Screen.Profile)
     }
 
+    // Selects the start destination based on the authenticated account role
     val startRoute = when {
         isAdmin -> Screen.Admin.route
         isParent -> Screen.ParentDashboard.route
         else -> Screen.Chat.route
     }
 
+    // Redirects role-based users to the correct dashboard if their role changes
     LaunchedEffect(isAdmin, isParent) {
         val targetRoute = when {
             isAdmin -> Screen.Admin.route
@@ -352,6 +382,7 @@ fun MainScreen(
     }
 
     Scaffold(
+        // Shows bottom navigation only on child main tabs, not on full-screen readers or dashboards
         bottomBar = {
             if (
                 bottomNavItems.isNotEmpty() &&
@@ -387,8 +418,10 @@ fun MainScreen(
         }
     ) { innerPadding ->
 
+        // Screen time enforcement is only applied to child accounts
         val isChildAccount = !isAdmin && !isParent
 
+        // Main authenticated navigation graph
         val navContent: @Composable () -> Unit = {
             NavHost(
                 navController = navController,
@@ -396,6 +429,7 @@ fun MainScreen(
                 modifier = Modifier.padding(innerPadding)
             ) {
 
+                // Chatbot route for Little Dino recommendations and conversations
                 composable(Screen.Chat.route) {
                     val chatViewModel: ChatViewModel = hiltViewModel()
                     val searchViewModel: SmartSearchViewModel = hiltViewModel()
@@ -407,6 +441,7 @@ fun MainScreen(
                         searchViewModel = searchViewModel,
                         onOpenRecommendation = { url, title, isVideo, itemId, imageUrl, description ->
 
+                            // Chooses the best available identifier for analytics tracking
                             val analyticsId = when {
                                 itemId.isNotBlank() -> itemId
                                 url.isNotBlank() -> url
@@ -415,11 +450,13 @@ fun MainScreen(
 
                             Log.d("ANALYTICS_TEST", "Chat open -> title=$title analyticsId=$analyticsId")
 
+                            // Tracks the opened recommendation for admin analytics
                             libraryViewModel.trackBookView(
                                 bookTitle = title,
                                 bookId = analyticsId
                             )
 
+                            // Adds the opened content to the user's reading/watch history
                             profileViewModel.trackReading(
                                 title = title,
                                 url = url,
@@ -441,6 +478,7 @@ fun MainScreen(
                     )
                 }
 
+                // Library route for browsing curated and recommended books/videos
                 composable(Screen.Library.route) {
                     val libraryViewModel: LibraryViewModel = hiltViewModel()
                     val searchViewModel: SmartSearchViewModel = hiltViewModel()
@@ -486,6 +524,7 @@ fun MainScreen(
                     )
                 }
 
+                // Favorites route for reopening saved books and videos
                 composable(Screen.Favorites.route) {
                     val libraryViewModel: LibraryViewModel = hiltViewModel()
 
@@ -527,6 +566,7 @@ fun MainScreen(
                     )
                 }
 
+                // Profile route for viewing and editing child profile information
                 composable(Screen.Profile.route) {
                     ProfileScreen(
                         authViewModel = authViewModel,
@@ -555,6 +595,7 @@ fun MainScreen(
                     )
                 }
 
+                // Premium-only badges and rewards route
                 composable(Screen.BadgesRewards.route) {
                     val childUser = currentUser
 
@@ -571,6 +612,7 @@ fun MainScreen(
                     }
                 }
 
+                // Admin dashboard route
                 composable(Screen.Admin.route) {
                     val adminViewModel: AdminViewModel = hiltViewModel()
 
@@ -592,12 +634,14 @@ fun MainScreen(
                     )
                 }
 
+                // Admin CMS upgrade placeholder route
                 composable(Screen.AdminUpgrade.route) {
                     AdminUpgradeScreen(
                         onBack = { navController.popBackStack() }
                     )
                 }
 
+                // Parent dashboard route for managing linked children
                 composable(Screen.ParentDashboard.route) {
                     val parentDashboardViewModel: ParentDashboardViewModel = hiltViewModel()
                     val parentProgressViewModel: ParentProgressViewModel = hiltViewModel()
@@ -611,6 +655,7 @@ fun MainScreen(
                     )
                 }
 
+                // Parent invite setup route for selecting child interests before generating an invite code
                 composable(Screen.ParentInterestSelection.route) {
                     val parentUser = currentUser
 
@@ -627,6 +672,7 @@ fun MainScreen(
                     }
                 }
 
+                // Child-side parental controls route guarded by the parent PIN
                 composable(Screen.ParentalControls.route) {
                     ParentalControlsScreen(
                         onNavigateBack = { navController.popBackStack() },
@@ -634,6 +680,7 @@ fun MainScreen(
                     )
                 }
 
+                // Safe WebView route for supported non-book web content and fallback viewing
                 composable(
                     route = Screen.SafeWebView.route,
                     arguments = listOf(
@@ -679,6 +726,7 @@ fun MainScreen(
                         val itemId = bse.arguments?.getString("itemId") ?: ""
                         val title = bse.arguments?.getString("title") ?: ""
 
+                        // Opens the URL in the safe web viewer and records drop-off analytics when closed
                         SafeWebViewScreen(
                             url = url,
                             title = title,
@@ -707,6 +755,7 @@ fun MainScreen(
                     }
                 }
 
+                // In-app YouTube player route for validated YouTube video IDs
                 composable(
                     route = Screen.YouTubePlayer.route,
                     arguments = listOf(
@@ -735,6 +784,7 @@ fun MainScreen(
                         val scope = rememberCoroutineScope()
                         val title = bse.arguments?.getString("title") ?: ""
 
+                        // Plays the YouTube video inside the app and records drop-off analytics when closed
                         YouTubePlayerScreen(
                             videoId = videoId,
                             title = title,
@@ -762,6 +812,7 @@ fun MainScreen(
                     }
                 }
 
+                // Book reader route for supported online reading sources
                 composable(
                     route = Screen.Reader.route,
                     arguments = listOf(
@@ -790,6 +841,7 @@ fun MainScreen(
 
                         val scope = rememberCoroutineScope()
 
+                        // Opens the book reader and records reading duration when closed
                         BookReaderScreen(
                             url = url,
                             onBack = { durationSeconds ->
@@ -816,6 +868,7 @@ fun MainScreen(
                     }
                 }
 
+                // Premium upgrade and payment route
                 composable(Screen.PremiumUpgrade.route) {
                     PaymentScreen(
                         onBack = { navController.popBackStack() },
@@ -828,6 +881,7 @@ fun MainScreen(
             }
         }
 
+        // Wraps child accounts with screen time tracking and blocking logic
         if (isChildAccount) {
             ScreenTimeWrapper { navContent() }
         } else {
@@ -836,12 +890,14 @@ fun MainScreen(
     }
 }
 
+// Dialog used to show unread announcements and personalized notifications
 @Composable
 fun AnnouncementDialog(
     announcements: List<UserNotification>,
     onDismiss: () -> Unit
 ) {
     AlertDialog(
+        // Marks notifications as handled when the dialog is dismissed
         onDismissRequest = onDismiss,
         icon = {
             Icon(
@@ -860,6 +916,7 @@ fun AnnouncementDialog(
             Column(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                // Renders each unread announcement inside its own card
                 announcements.forEach { announcement ->
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -885,6 +942,7 @@ fun AnnouncementDialog(
                 }
             }
         },
+        // Confirmation button closes the dialog and marks messages as read
         confirmButton = {
             TextButton(onClick = onDismiss) {
                 Text("Got it!")

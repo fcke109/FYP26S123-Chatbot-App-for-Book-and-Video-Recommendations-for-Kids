@@ -100,6 +100,7 @@ import com.kidsrec.chatbot.data.model.User
 import java.text.SimpleDateFormat
 import java.util.Locale
 
+// Parent dashboard colour palette used across this screen for consistent UI styling
 private val ParentBlue = Color(0xFF4F8EE8)
 private val ParentBlueDark = Color(0xFF316FC8)
 private val ParentSoftBlue = Color(0xFFEFF6FF)
@@ -111,6 +112,7 @@ private val ParentBorder = Color(0xFFDCE7F7)
 private val ParentTextSoft = Color(0xFF6D7A8C)
 private val ParentPinkSoft = Color(0xFFFFEEF5)
 
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 // main parent screen
@@ -121,6 +123,7 @@ fun ParentDashboardScreen(
     onUpgradePremium: () -> Unit = {},
     onGenerateCode: () -> Unit = {}
 ) {
+    // Observes parent dashboard state from the ViewModel
     val children by viewModel.children.collectAsState()
     val selectedChild by viewModel.selectedChild.collectAsState()
     val inviteCode by viewModel.inviteCode.collectAsState()
@@ -135,6 +138,7 @@ fun ParentDashboardScreen(
     Scaffold(
         containerColor = ParentSurface,
         topBar = {
+            // Top bar changes its title depending on whether a child is selected
             TopAppBar(
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color.White,
@@ -158,6 +162,7 @@ fun ParentDashboardScreen(
                     }
                 },
                 navigationIcon = {
+                    // Shows a back button only when viewing a selected child's details
                     if (selectedChild != null) {
                         IconButton(onClick = { viewModel.clearSelectedChild() }) {
                             Icon(
@@ -168,6 +173,7 @@ fun ParentDashboardScreen(
                     }
                 },
                 actions = {
+                    // Premium upgrade shortcut
                     IconButton(onClick = onUpgradePremium) {
                         Icon(
                             Icons.Default.Star,
@@ -175,6 +181,7 @@ fun ParentDashboardScreen(
                             tint = ParentGold
                         )
                     }
+                    // Parent logout shortcut
                     IconButton(onClick = onLogout) {
                         Icon(
                             Icons.AutoMirrored.Filled.Logout,
@@ -186,6 +193,7 @@ fun ParentDashboardScreen(
             )
         }
     ) { paddingValues ->
+        // If a child has been selected, show detailed child dashboard
         if (selectedChild != null) {
             ChildDetailView(
                 child = selectedChild!!,
@@ -209,6 +217,7 @@ fun ParentDashboardScreen(
                 modifier = Modifier.padding(paddingValues)
             )
         } else {
+            // Otherwise, show the parent home screen with linked children and invite controls
             ParentHomeView(
                 children = children,
                 inviteCode = inviteCode,
@@ -225,7 +234,7 @@ fun ParentDashboardScreen(
 }
 
 @Composable
-// parent home page
+// Parent home page showing account summary, invite code, and linked children
 private fun ParentHomeView(
     children: List<User>,
     inviteCode: String?,
@@ -237,6 +246,7 @@ private fun ParentHomeView(
     onSelectChild: (User) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // Clipboard manager used to copy generated invite codes
     val clipboardManager = LocalClipboardManager.current
 
     Column(
@@ -251,6 +261,7 @@ private fun ParentHomeView(
             onGenerateCode = onGenerateCode
         )
 
+        // Shows the invite code card only after a code is generated
         if (inviteCode != null) {
             Spacer(modifier = Modifier.height(16.dp))
             InviteCodeCard(
@@ -259,7 +270,7 @@ private fun ParentHomeView(
                 onDismiss = onDismissCode
             )
         }
-
+        // Shows dismissible error banner if an error exists
         if (errorMessage != null) {
             Spacer(modifier = Modifier.height(12.dp))
             ErrorBanner(
@@ -281,6 +292,7 @@ private fun ParentHomeView(
 
         Spacer(modifier = Modifier.height(12.dp))
 
+        // Shows an empty state if no child account has been linked yet
         if (children.isEmpty()) {
             EmptyChildrenCard()
         } else {
@@ -295,6 +307,7 @@ private fun ParentHomeView(
     }
 }
 
+// Summary card at the top of the parent home page
 @Composable
 private fun HeroSummaryCard(
     childCount: Int,
@@ -361,6 +374,7 @@ private fun HeroSummaryCard(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
+                // Small dashboard chips showing number of linked children and setup status
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     StatChip(title = "Linked", value = childCount.toString())
                     StatChip(
@@ -371,6 +385,7 @@ private fun HeroSummaryCard(
 
                 Spacer(modifier = Modifier.height(18.dp))
 
+                // Main button used to generate a child invite code
                 Button(
                     onClick = onGenerateCode,
                     enabled = !isLoading,
@@ -394,6 +409,7 @@ private fun HeroSummaryCard(
     }
 }
 
+// Compact statistic chip used inside summary cards
 @Composable
 private fun StatChip(
     title: String,
@@ -421,6 +437,7 @@ private fun StatChip(
     }
 }
 
+// Card displaying a generated invite code with copy and dismiss actions
 @Composable
 private fun InviteCodeCard(
     inviteCode: String,
@@ -494,6 +511,7 @@ private fun InviteCodeCard(
     }
 }
 
+// Error banner used to show dismissible parent dashboard errors
 @Composable
 private fun ErrorBanner(
     message: String,
@@ -526,6 +544,8 @@ private fun ErrorBanner(
     }
 }
 
+
+// Empty state card shown when the parent has no linked child accounts
 @Composable
 private fun EmptyChildrenCard() {
     Card(
@@ -575,6 +595,7 @@ private fun EmptyChildrenCard() {
     }
 }
 
+// Reusable section title with optional subtitle
 @Composable
 private fun SectionHeader(
     title: String,
@@ -597,6 +618,7 @@ private fun SectionHeader(
     }
 }
 
+// Card representing one linked child account on the parent home screen
 @Composable
 private fun ChildCard(
     child: User,
@@ -682,6 +704,7 @@ private fun ChildDetailView(
     onUpdatePin: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // Tracks which child detail tab is currently selected
     var selectedTab by remember { mutableIntStateOf(0) }
     val tabs = listOf("Activity", "Favorites", "Chat", "Controls", "Progress")
 
@@ -697,6 +720,7 @@ private fun ChildDetailView(
             conversationCount = conversations.size
         )
 
+        // Scrollable tabs allow parent to switch between monitoring and control sections
         ScrollableTabRow(
             selectedTabIndex = selectedTab,
             edgePadding = 12.dp,
@@ -717,6 +741,7 @@ private fun ChildDetailView(
             }
         }
 
+        // Displays the selected tab content
         when (selectedTab) {
             0 -> ActivityTab(history)
             1 -> FavoritesTab(favorites)
@@ -741,6 +766,7 @@ private fun ChildDetailView(
     }
 }
 
+// Summary card shown at the top of the selected child dashboard
 @Composable
 private fun ChildDashboardSummaryCard(
     child: User,
@@ -805,6 +831,7 @@ private fun ChildDashboardSummaryCard(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // Summary metrics for the selected child
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 SummaryStatCard(
                     modifier = Modifier.weight(1f),
@@ -832,6 +859,7 @@ private fun ChildDashboardSummaryCard(
     }
 }
 
+// Small statistic card used inside the selected child summary card
 @Composable
 private fun SummaryStatCard(
     modifier: Modifier = Modifier,
@@ -865,6 +893,7 @@ private fun SummaryStatCard(
     }
 }
 
+// Displays the child learning progress report tab
 @Composable
 private fun ProgressTab(
     child: User,
@@ -883,7 +912,7 @@ private fun ProgressTab(
 }
 
 @Composable
-// child activity tab
+// child activity tab showing recently opened books and videos
 private fun ActivityTab(history: List<ReadingHistory>) {
     if (history.isEmpty()) {
         EmptyState(
@@ -952,7 +981,7 @@ private fun ActivityTab(history: List<ReadingHistory>) {
 }
 
 @Composable
-// child favorites tab
+// child favorites tab showing books and videos saved by the child
 private fun FavoritesTab(favorites: List<Favorite>) {
     if (favorites.isEmpty()) {
         EmptyState(
@@ -1019,6 +1048,7 @@ private fun FavoritesTab(favorites: List<Favorite>) {
 }
 
 @Composable
+// parental control tab for screen time, content filters, parent PIN, and account removal
 private fun ControlsTab(
     child: User,
     parentDashboardViewModel: ParentDashboardViewModel,
@@ -1269,6 +1299,7 @@ private fun ControlsTab(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
+                // Slider controls the maximum allowed age rating for child content
                 Slider(
                     value = maxAgeRating,
                     onValueChange = {
@@ -1373,6 +1404,7 @@ private fun ControlsTab(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
+                // PIN input accepts up to four numeric digits
                 OutlinedTextField(
                     value = pinInput,
                     onValueChange = { value ->
@@ -1405,6 +1437,7 @@ private fun ControlsTab(
         // save filters and pin
         Button(
             onClick = {
+                // Validates PIN before saving settings
                 if (pinInput.isNotEmpty() && pinInput.length != 4) {
                     pinError = "PIN must be exactly 4 digits."
                     return@Button
@@ -1434,6 +1467,7 @@ private fun ControlsTab(
 
         Spacer(modifier = Modifier.height(20.dp))
 
+        // Dangerous account removal action is isolated in its own card
         DangerZoneCard(
             child = child,
             parentDashboardViewModel = parentDashboardViewModel
@@ -1442,14 +1476,19 @@ private fun ControlsTab(
 }
 
 @Composable
+// Card containing the soft-delete/remove-child account action
 private fun DangerZoneCard(
     child: User,
     parentDashboardViewModel: ParentDashboardViewModel
 ) {
+    // Controls whether the confirmation PIN dialog is visible
     var showDialog by remember(child.id) { mutableStateOf(false) }
+    // Observes account removal state from the parent dashboard ViewModel
     val removeState by parentDashboardViewModel.removeChildState.collectAsState()
+    // Removal requires a valid 4-digit parent PIN
     val hasPin = child.parentalPin?.matches(Regex("^\\d{4}$")) == true
 
+    // Closes the dialog after successful account removal
     LaunchedEffect(removeState) {
         if (removeState is RemoveChildState.Success) {
             showDialog = false
@@ -1517,6 +1556,7 @@ private fun DangerZoneCard(
         }
     }
 
+    // Displays PIN confirmation dialog before removing the child account
     if (showDialog) {
         RemoveChildPinDialog(
             childName = child.name.ifBlank { "this child" },
@@ -1533,14 +1573,18 @@ private fun DangerZoneCard(
 }
 
 @Composable
+// Confirmation dialog requiring parent PIN before removing a child account
 private fun RemoveChildPinDialog(
     childName: String,
     removeState: RemoveChildState,
     onConfirm: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
+    // Stores the PIN entered for confirmation
     var pin by remember { mutableStateOf("") }
+    // Tracks whether the remove request is currently processing
     val isLoading = removeState is RemoveChildState.Loading
+    // Extracts the error message if removal fails
     val errorText = (removeState as? RemoveChildState.Error)?.message
 
     AlertDialog(
@@ -1567,6 +1611,7 @@ private fun RemoveChildPinDialog(
                     lineHeight = 20.sp
                 )
                 Spacer(modifier = Modifier.height(12.dp))
+                // Parent PIN input field for confirming account removal
                 OutlinedTextField(
                     value = pin,
                     onValueChange = { value ->
@@ -1582,6 +1627,7 @@ private fun RemoveChildPinDialog(
                     visualTransformation = PasswordVisualTransformation(),
                     modifier = Modifier.fillMaxWidth()
                 )
+                // Shows removal error feedback if the PIN/action fails
                 if (errorText != null) {
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
@@ -1620,7 +1666,7 @@ private fun RemoveChildPinDialog(
 }
 
 @Composable
-// child chat history tab
+// child chat history tab showing conversation list or selected conversation messages
 private fun ChatHistoryTab(
     conversations: List<Conversation>,
     messages: List<ChatMessage>,
@@ -1630,6 +1676,7 @@ private fun ChatHistoryTab(
 ) {
     val dateFormat = remember { SimpleDateFormat("MMM dd, yyyy  hh:mm a", Locale.getDefault()) }
 
+    // Shows messages for the selected conversation
     if (selectedConversationId != null) {
         Column(modifier = Modifier.fillMaxSize()) {
             Surface(
@@ -1713,6 +1760,7 @@ private fun ChatHistoryTab(
             }
         }
     } else {
+        // Shows conversation list when no conversation is selected
         if (conversations.isEmpty()) {
             EmptyState(
                 icon = Icons.AutoMirrored.Filled.Chat,
@@ -1782,7 +1830,7 @@ private fun ChatHistoryTab(
 }
 
 @Composable
-// empty state UI
+// empty state UI used when child activity, favorites, or chat history is empty
 private fun EmptyState(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     title: String,

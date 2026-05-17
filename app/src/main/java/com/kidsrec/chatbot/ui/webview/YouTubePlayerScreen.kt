@@ -81,19 +81,28 @@ fun YouTubePlayerScreen(
     title: String,
     onBack: (durationSeconds: Long) -> Unit
 ) {
+    // Context is used to open the video externally if the in-app embed fails
     val context = LocalContext.current
+
+    // Cleans the incoming video ID before building player/watch URLs
     val cleanVideoId = videoId.trim()
     val watchUrl = "https://www.youtube.com/watch?v=$cleanVideoId"
 
+    // Records when the video screen was opened so watch duration can be calculated
     val openedAtMs = remember { System.currentTimeMillis() }
+
+    // UI state for loading, error handling, reward saving, and celebration display
     var isLoading by remember { mutableStateOf(true) }
     var loadError by remember { mutableStateOf(false) }
     var isFinishing by remember { mutableStateOf(false) }
     var showCelebrate by remember { mutableStateOf(false) }
+
+    // Reward text displayed after the child marks the video as completed
     var rewardTitle by remember { mutableStateOf("🎉 Great Job!") }
     var rewardMessage by remember { mutableStateOf("You finished watching!") }
     var rewardSubtitle by remember { mutableStateOf("Keep learning and exploring!") }
 
+    // Decodes the title because it may arrive from navigation as a URL-encoded string
     val decodedTitle = remember(title) {
         try {
             URLDecoder.decode(title, "UTF-8")
@@ -102,12 +111,16 @@ fun YouTubePlayerScreen(
         }
     }
 
+    // Calculates watch duration and exits the video player
     fun exitPlayer() {
         onBack((System.currentTimeMillis() - openedAtMs) / 1000)
     }
 
+    // Saves video completion progress, refreshes gamification, and prepares reward feedback
     suspend fun completeVideo() {
         val currentUid = FirebaseAuth.getInstance().currentUser?.uid
+
+        // If no user is signed in, still show a simple completion message
         if (currentUid == null) {
             rewardTitle = "🎬 Video Completed!"
             rewardMessage = "Nice watching!"
@@ -120,12 +133,14 @@ fun YouTubePlayerScreen(
         val learningProgressManager = LearningProgressManager(firestore)
         val gamificationManager = GamificationManager(firestore)
 
+        // Saves the gamification profile before updating progress to detect level-ups
         val beforeProfile = firestore.collection("gamification")
             .document(currentUid)
             .get()
             .await()
             .toObject(GamificationProfile::class.java)
 
+        // Saves the existing badge IDs before completion to detect newly unlocked badges
         val beforeBadges = firestore.collection("gamification")
             .document(currentUid)
             .collection("badges")
@@ -135,6 +150,7 @@ fun YouTubePlayerScreen(
             .map { it.badgeId }
             .toSet()
 
+        // Records that the child watched this video as a learning progress event
         val trackingResult = learningProgressManager.trackVideoWatched(
             childUserId = currentUid,
             contentId = cleanVideoId,
@@ -142,6 +158,7 @@ fun YouTubePlayerScreen(
             topic = decodedTitle
         )
 
+        // If tracking fails, show a fallback completion message instead of blocking the child
         if (trackingResult.isFailure) {
             rewardTitle = "🎬 Video Completed!"
             rewardMessage = "Nice watching!"
@@ -150,6 +167,7 @@ fun YouTubePlayerScreen(
             return
         }
 
+        // Refreshes points, badges, and level after video progress is saved
         val refreshResult = gamificationManager.refreshGamification(currentUid)
         if (refreshResult.isFailure) {
             rewardTitle = "🎉 Great Job!"
@@ -159,12 +177,14 @@ fun YouTubePlayerScreen(
             return
         }
 
+        // Loads the updated profile to check whether the child leveled up
         val afterProfile = firestore.collection("gamification")
             .document(currentUid)
             .get()
             .await()
             .toObject(GamificationProfile::class.java)
 
+        // Loads the updated badge list to check whether a new badge was unlocked
         val afterBadges = firestore.collection("gamification")
             .document(currentUid)
             .collection("badges")
@@ -172,13 +192,16 @@ fun YouTubePlayerScreen(
             .await()
             .toObjects(BadgeUnlock::class.java)
 
+        // Finds a badge that was unlocked during this completion flow
         val unlockedNow = afterBadges.firstOrNull { badge ->
             badge.badgeId !in beforeBadges
         }
 
+        // Checks whether the current level is higher than before completion
         val leveledUpNow =
             (afterProfile?.currentLevel ?: 1) > (beforeProfile?.currentLevel ?: 1)
 
+        // Chooses the most meaningful celebration message to display
         when {
             unlockedNow != null -> {
                 rewardTitle = "🏅 Badge Unlocked!"
@@ -203,6 +226,7 @@ fun YouTubePlayerScreen(
         }
     }
 
+    // HTML wrapper used to embed the YouTube video in a WebView using youtube-nocookie.com
     val htmlContent = """
         <!DOCTYPE html>
         <html>
@@ -286,6 +310,7 @@ fun YouTubePlayerScreen(
                     .padding(innerPadding),
                 contentAlignment = Alignment.Center
             ) {
+                // Shows an error fallback when the embedded video cannot be loaded
                 if (loadError) {
                     Column(
                         modifier = Modifier.padding(24.dp),
@@ -328,6 +353,7 @@ fun YouTubePlayerScreen(
 
                         Spacer(modifier = Modifier.size(16.dp))
 
+                        // Opens the video in the external YouTube app/browser as a fallback
                         Button(
                             onClick = {
                                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse(watchUrl))
@@ -340,11 +366,13 @@ fun YouTubePlayerScreen(
 
                         Spacer(modifier = Modifier.size(8.dp))
 
+                        // Exits the player when the child chooses to go back
                         Button(onClick = { exitPlayer() }) {
                             Text("Go Back")
                         }
                     }
                 } else {
+                    // Displays the YouTube embed inside an Android WebView
                     AndroidView(
                         factory = { webContext ->
                             WebView(webContext).apply {
@@ -358,6 +386,7 @@ fun YouTubePlayerScreen(
                                     mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
                                 }
 
+                                // Keeps the WebView background consistent with the video player theme
                                 setBackgroundColor(android.graphics.Color.BLACK)
 
                                 webViewClient = object : WebViewClient() {
@@ -366,6 +395,8 @@ fun YouTubePlayerScreen(
                                         request: WebResourceRequest?
                                     ): Boolean {
                                         val reqUrl = request?.url?.toString() ?: return true
+
+                                        // Allows only YouTube and required Google media domains inside the player
                                         val allowed = reqUrl.contains("youtube.com") ||
                                                 reqUrl.contains("youtube-nocookie.com") ||
                                                 reqUrl.contains("youtu.be") ||
@@ -395,14 +426,18 @@ fun YouTubePlayerScreen(
                                         error: WebResourceError?
                                     ) {
                                         super.onReceivedError(view, request, error)
+
+                                        // Only show the full error state if the main video frame fails
                                         if (request?.isForMainFrame == true) {
                                             loadError = true
                                         }
                                     }
                                 }
 
+                                // Enables WebView support for embedded media playback
                                 webChromeClient = WebChromeClient()
 
+                                // Loads the generated YouTube embed HTML
                                 loadDataWithBaseURL(
                                     "https://www.youtube-nocookie.com",
                                     htmlContent,
@@ -415,6 +450,7 @@ fun YouTubePlayerScreen(
                         modifier = Modifier.fillMaxSize()
                     )
 
+                    // Loading overlay shown while the video embed is loading
                     if (isLoading) {
                         Box(
                             modifier = Modifier.fillMaxSize(),
@@ -432,6 +468,7 @@ fun YouTubePlayerScreen(
                     }
                 }
 
+                // Overlay shown while completion progress and rewards are being saved
                 if (isFinishing) {
                     LaunchedEffect(Unit) {
                         completeVideo()
@@ -457,6 +494,7 @@ fun YouTubePlayerScreen(
             }
         }
 
+        // Shows the reward celebration after the video completion flow succeeds or falls back
         if (showCelebrate) {
             CelebrationOverlay(
                 title = rewardTitle,
@@ -471,6 +509,7 @@ fun YouTubePlayerScreen(
     }
 }
 
+// Overlay shown after a child finishes watching and earns progress/rewards
 @Composable
 private fun CelebrationOverlay(
     title: String,
@@ -480,6 +519,7 @@ private fun CelebrationOverlay(
 ) {
     val dismissState by rememberUpdatedState(onDismiss)
 
+    // Automatically dismisses the celebration after a short delay
     LaunchedEffect(title, message, subtitle) {
         delay(3200)
         dismissState()
@@ -491,8 +531,10 @@ private fun CelebrationOverlay(
             .background(Color.Black.copy(alpha = 0.12f)),
         contentAlignment = Alignment.Center
     ) {
+        // Animated confetti background
         SuperConfetti()
 
+        // Central reward message card
         Card(
             modifier = Modifier.padding(24.dp),
             shape = RoundedCornerShape(28.dp),
@@ -504,6 +546,7 @@ private fun CelebrationOverlay(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
+                // Selects the emoji based on the type of reward shown
                 Text(
                     text = when {
                         "Badge" in title -> "🏅"
@@ -531,6 +574,7 @@ private fun CelebrationOverlay(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
+                // Lets the child dismiss the reward manually
                 TextButton(onClick = onDismiss) {
                     Text("Awesome!")
                 }
@@ -539,10 +583,12 @@ private fun CelebrationOverlay(
     }
 }
 
+// Creates animated confetti pieces for the celebration overlay
 @Composable
 private fun SuperConfetti() {
     val infinite = rememberInfiniteTransition(label = "super_confetti")
 
+    // First falling confetti animation path
     val a by infinite.animateFloat(
         initialValue = -80f,
         targetValue = 1100f,
@@ -556,6 +602,7 @@ private fun SuperConfetti() {
         label = "a"
     )
 
+    // Second falling confetti animation path
     val b by infinite.animateFloat(
         initialValue = -160f,
         targetValue = 1150f,
@@ -569,6 +616,7 @@ private fun SuperConfetti() {
         label = "b"
     )
 
+    // Third falling confetti animation path
     val c by infinite.animateFloat(
         initialValue = -120f,
         targetValue = 1180f,
@@ -582,6 +630,7 @@ private fun SuperConfetti() {
         label = "c"
     )
 
+    // Places multiple colorful confetti dots across the screen
     Box(modifier = Modifier.fillMaxSize()) {
         CelebrationPiece(10.dp, a.dp, Color(0xFFFF1744), 16.dp)
         CelebrationPiece(40.dp, (b * 0.7f).dp, Color(0xFFFFC400), 12.dp)
@@ -596,6 +645,7 @@ private fun SuperConfetti() {
     }
 }
 
+// Single animated confetti dot used by the celebration overlay
 @Composable
 private fun CelebrationPiece(
     x: androidx.compose.ui.unit.Dp,

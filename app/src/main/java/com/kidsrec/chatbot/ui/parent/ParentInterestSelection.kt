@@ -80,26 +80,41 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
+// Stores selected interests, generated invite code, recommendation loading state, and starter book selections
 data class ParentInviteSetupUiState(
+    // Interests selected by the parent for the child
     val selectedInterests: Set<String> = emptySet(),
+    // Tracks whether the invite code is currently being generated
     val isGenerating: Boolean = false,
+    // Stores the generated invite code after successful creation
     val generatedCode: String? = null,
+    // Stores validation or loading errors shown to the parent
     val errorMessage: String? = null,
+    // Recommended starter books based on the selected interests
     val recommendedBooks: List<Book> = emptyList(),
+    // Tracks whether recommended books are being fetched
     val isLoadingRecommendations: Boolean = false,
+    // Books selected to be attached to the child invite setup
     val selectedRecommendedBookIds: Set<String> = emptySet()
 )
 
+// ViewModel responsible for managing invite-code creation and starter-book recommendations
 @HiltViewModel
 class ParentInviteSetupViewModel @Inject constructor(
+    // Handles account operations such as invite
     private val accountManager: AccountManager,
+    // Provides curated books from the app library
     private val bookDataManager: BookDataManager,
+    // Provides fallback book search from Open Library
     private val openLibraryService: OpenLibraryService
 ) : ViewModel() {
 
+    // Internal mutable state for the invite setup screen
     private val _uiState = MutableStateFlow(ParentInviteSetupUiState())
+    // Public read-only state observed by the Compose UI
     val uiState: StateFlow<ParentInviteSetupUiState> = _uiState.asStateFlow()
 
+    // Extra keywords used to improve book matching for each selected interest
     private val interestAliases = mapOf(
         "Reading" to listOf("read", "reader", "book", "story"),
         "Science" to listOf("science", "experiment", "invent", "nature"),
@@ -123,6 +138,7 @@ class ParentInviteSetupViewModel @Inject constructor(
         "Travel" to listOf("travel", "world", "trip", "journey")
     )
 
+    // Adds or removes a recommended book from the starter-book selection
     fun toggleRecommendedBook(book: Book) {
         val current = _uiState.value.selectedRecommendedBookIds
         val updated = if (current.contains(book.id)) {
@@ -136,6 +152,7 @@ class ParentInviteSetupViewModel @Inject constructor(
         )
     }
 
+    // Converts a full Book object into a lighter StarterBookSeed for invite setup storage
     private fun Book.toStarterBookSeed(): StarterBookSeed {
         return StarterBookSeed(
             id = id,
@@ -150,6 +167,7 @@ class ParentInviteSetupViewModel @Inject constructor(
         )
     }
 
+    // Toggles a child interest and enforces the maximum selection limit of 5 interests
     fun toggleInterest(interest: String) {
         val current = _uiState.value.selectedInterests
 
@@ -167,14 +185,16 @@ class ParentInviteSetupViewModel @Inject constructor(
                 null
             }
         )
-
+        // Refresh starter book recommendations whenever the selected interests change
         fetchRecommendedBooks(updated)
     }
 
+    // Clears the generated invite code from the UI state
     fun clearGeneratedCode() {
         _uiState.value = _uiState.value.copy(generatedCode = null)
     }
 
+    // Generates an invite code using selected child interests and selected starter books
     fun generateInviteCode(
         parentId: String,
         parentName: String
@@ -185,10 +205,12 @@ class ParentInviteSetupViewModel @Inject constructor(
                 errorMessage = null
             )
 
+            // Converts selected recommended books into starter book seed records
             val selectedStarterBooks = _uiState.value.recommendedBooks
                 .filter { it.id in _uiState.value.selectedRecommendedBookIds }
                 .map { it.toStarterBookSeed() }
 
+            // Creates the invite code through AccountManager
             val result = accountManager.generateInviteCode(
                 parentId = parentId,
                 parentName = parentName,
@@ -196,6 +218,7 @@ class ParentInviteSetupViewModel @Inject constructor(
                 starterBooks = selectedStarterBooks
             )
 
+            // Updates UI state based on whether invite code generation succeeds or fails
             result.fold(
                 onSuccess = { code ->
                     _uiState.value = _uiState.value.copy(
@@ -213,7 +236,9 @@ class ParentInviteSetupViewModel @Inject constructor(
         }
     }
 
+    // Fetches up to 6 recommended starter books based on the selected interests
     private fun fetchRecommendedBooks(selectedInterests: Set<String>) {
+        // Clear recommendations when no interests are selected
         if (selectedInterests.isEmpty()) {
             _uiState.value = _uiState.value.copy(
                 recommendedBooks = emptyList(),
@@ -229,12 +254,15 @@ class ParentInviteSetupViewModel @Inject constructor(
             )
 
             try {
+                // Expand selected interests into related terms for stronger matching
                 val selectedTerms = selectedInterests.flatMap { interest ->
                     listOf(interest) + interestAliases[interest].orEmpty()
                 }.map { it.lowercase() }.distinct()
 
+                // First retrieve curated books from the app library
                 val curatedBooks = bookDataManager.getCuratedBooksFlow().first()
 
+                // Match curated books by checking whether interest terms appear in searchable book metadata
                 val curatedMatches = curatedBooks
                     .mapNotNull { book ->
                         if (!book.isKidSafe) return@mapNotNull null
@@ -256,8 +284,10 @@ class ParentInviteSetupViewModel @Inject constructor(
                     .map { it.first }
                     .take(6)
 
+                // Number of additional books needed if curated matches are fewer than 6
                 val needed = (6 - curatedMatches.size).coerceAtLeast(0)
 
+                // Use Open Library as a fallback source when curated matches are not enough
                 val remoteMatches = if (needed > 0) {
                     selectedInterests
                         .flatMap { interest ->
@@ -266,6 +296,7 @@ class ParentInviteSetupViewModel @Inject constructor(
                                     "$interest subject:\"Children's fiction\" language:eng"
                                 )
 
+                                // Convert Open Library documents into the app's Book model
                                 response.docs.mapNotNull { doc ->
                                     val title = doc.title.takeIf { it.isNotBlank() } ?: return@mapNotNull null
                                     val author = doc.author_name?.firstOrNull().orEmpty().ifBlank { "Unknown" }
@@ -306,6 +337,7 @@ class ParentInviteSetupViewModel @Inject constructor(
                     emptyList()
                 }
 
+                // Combine curated and remote recommendations while removing duplicates
                 _uiState.value = _uiState.value.copy(
                     recommendedBooks = (curatedMatches + remoteMatches).distinctBy { "${it.title}|${it.author}" },
                     isLoadingRecommendations = false
@@ -322,6 +354,7 @@ class ParentInviteSetupViewModel @Inject constructor(
     }
 }
 
+// Route-level composable that connects the ViewModel, snackbar, clipboard, and screen UI
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun ParentInviteSetupRoute(
@@ -330,16 +363,21 @@ fun ParentInviteSetupRoute(
     onBack: () -> Unit,
     viewModel: ParentInviteSetupViewModel = hiltViewModel()
 ) {
+    // Observes the current invite setup state from the ViewModel
     val uiState by viewModel.uiState.collectAsState()
+    // Snackbar host used to notify the parent when actions complete
     val snackbarHostState = remember { SnackbarHostState() }
+    // Clipboard manager used to copy the generated invite code
     val clipboardManager = LocalClipboardManager.current
 
+    // Show feedback after an invite code is generated
     LaunchedEffect(uiState.generatedCode) {
         if (uiState.generatedCode != null) {
             snackbarHostState.showSnackbar("Invite code generated successfully.")
         }
     }
 
+    // Passes state and ViewModel callbacks into the screen composable
     ParentInviteSetupScreen(
         uiState = uiState,
         snackbarHostState = snackbarHostState,
@@ -355,6 +393,7 @@ fun ParentInviteSetupRoute(
     )
 }
 
+// Main screen where parents select interests, choose starter books, and generate an invite code
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun ParentInviteSetupScreen(
@@ -366,6 +405,7 @@ fun ParentInviteSetupScreen(
     onCopyCode: (String) -> Unit,
     onToggleRecommendedBook: (Book) -> Unit
 ) {
+    // Interest options available for the parent to choose from
     val interests = listOf(
         "Reading", "Science", "Animals", "Adventure",
         "Fantasy", "Art", "Music", "Sports", "History", "Nature",
@@ -373,8 +413,10 @@ fun ParentInviteSetupScreen(
         "Fairy Tales", "Superheroes", "Ocean", "Puzzles", "Travel"
     )
 
+    // Screen layout with top bar and snackbar support
     Scaffold(
         topBar = {
+            // Top app bar with back navigation
             TopAppBar(
                 title = { Text("Set Child Interests") },
                 navigationIcon = {
@@ -399,14 +441,17 @@ fun ParentInviteSetupScreen(
                 style = MaterialTheme.typography.bodyLarge
             )
 
+            // Displays how many interests have been selected
             Text(
                 text = "Selected: ${uiState.selectedInterests.size}/5",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold
             )
 
+            // Controls whether the interest dropdown is expanded
             var interestsExpanded by remember { mutableStateOf(false) }
 
+            // Dropdown used to select up to 5 interests for the child
             ExposedDropdownMenuBox(
                 expanded = interestsExpanded,
                 onExpandedChange = { interestsExpanded = !interestsExpanded }
@@ -435,6 +480,7 @@ fun ParentInviteSetupScreen(
                     maxLines = 1
                 )
 
+                // Interest selection menu
                 DropdownMenu(
                     expanded = interestsExpanded,
                     onDismissRequest = { interestsExpanded = false },
@@ -475,6 +521,7 @@ fun ParentInviteSetupScreen(
                 }
             }
 
+            // Shows the selected interests as chips that can be tapped to remove
             if (uiState.selectedInterests.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(4.dp))
 
@@ -497,6 +544,7 @@ fun ParentInviteSetupScreen(
                 }
             }
 
+            // Shows loading state while recommendations are being generated
             if (uiState.isLoadingRecommendations) {
                 Text(
                     text = "Finding books for the selected interests...",
@@ -506,6 +554,7 @@ fun ParentInviteSetupScreen(
                 CircularProgressIndicator()
             }
 
+            // Shows empty state if no books are found for the current interests
             if (!uiState.isLoadingRecommendations &&
                 uiState.selectedInterests.isNotEmpty() &&
                 uiState.recommendedBooks.isEmpty()
@@ -517,6 +566,7 @@ fun ParentInviteSetupScreen(
                 )
             }
 
+            // Displays recommended starter books when available
             if (uiState.recommendedBooks.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))
 
@@ -534,6 +584,7 @@ fun ParentInviteSetupScreen(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
+                // Renders each recommended book with metadata and add/remove action
                 uiState.recommendedBooks.forEach { book ->
                     val isSelectedForChildLibrary = uiState.selectedRecommendedBookIds.contains(book.id)
 
@@ -576,6 +627,7 @@ fun ParentInviteSetupScreen(
 
                                 Spacer(modifier = Modifier.height(4.dp))
 
+                                // Displays source and age range labels for the recommended book
                                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                     Surface(
                                         color = MaterialTheme.colorScheme.secondaryContainer,
@@ -603,6 +655,7 @@ fun ParentInviteSetupScreen(
 
                             Spacer(modifier = Modifier.width(8.dp))
 
+                            // Adds or removes this book from the starter library selection
                             IconButton(
                                 onClick = { onToggleRecommendedBook(book) }
                             ) {
@@ -627,6 +680,7 @@ fun ParentInviteSetupScreen(
                 }
             }
 
+            // Displays any error message from the setup process
             uiState.errorMessage?.let {
                 Text(
                     text = it,
@@ -637,6 +691,7 @@ fun ParentInviteSetupScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
 
+            // Generates the child invite code using the selected interests and starter books
             Button(
                 onClick = onGenerateCode,
                 modifier = Modifier.fillMaxWidth(),
@@ -652,6 +707,7 @@ fun ParentInviteSetupScreen(
                 }
             }
 
+            // Shows generated invite code and copy action
             uiState.generatedCode?.let { code ->
                 Spacer(modifier = Modifier.height(8.dp))
 

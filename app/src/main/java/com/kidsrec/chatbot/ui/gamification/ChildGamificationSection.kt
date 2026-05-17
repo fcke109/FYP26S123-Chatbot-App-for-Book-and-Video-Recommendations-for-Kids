@@ -54,24 +54,30 @@ import androidx.compose.ui.unit.dp
 import com.kidsrec.chatbot.data.model.BadgeUnlock
 import kotlinx.coroutines.delay
 
+// Displays the child's gamification summary inside a profile/dashboard section
 @Composable
 fun ChildGamificationSection(
     viewModel: GamificationViewModel,
     childUserId: String,
     onOpenFullPage: (() -> Unit)? = null
 ) {
+    // Starts observing gamification data whenever the selected child changes
     LaunchedEffect(childUserId) {
         viewModel.observeChildGamification(childUserId)
     }
 
+    // Observes the child's current gamification profile, earned badges, and celebration state
     val profile by viewModel.profile.collectAsState()
     val badges by viewModel.badges.collectAsState()
     val celebration by viewModel.celebration.collectAsState()
 
+    // Main container for the rewards summary and optional celebration overlay
     Box(modifier = Modifier.fillMaxWidth()) {
         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            // Header card introducing the rewards and badges section
             HeroRewardsHeader()
 
+            // Summary cards for total points, current level, and number of badges
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -104,14 +110,17 @@ fun ChildGamificationSection(
                 )
             }
 
+            // Shows progress towards the next reward level
             NextRewardCard(
                 currentPoints = profile.totalPoints,
                 currentLevel = profile.currentLevel
             )
 
+            // Shows an empty state if no badges have been unlocked yet
             if (badges.isEmpty()) {
                 EmptyBadgeState()
             } else {
+                // Displays the latest earned badges in a horizontal row
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
                         text = "Latest Badges",
@@ -127,6 +136,7 @@ fun ChildGamificationSection(
                 }
             }
 
+            // Optional button for navigating to the full rewards page
             if (onOpenFullPage != null) {
                 TextButton(onClick = onOpenFullPage) {
                     Text("Open Full Rewards Page")
@@ -134,6 +144,7 @@ fun ChildGamificationSection(
             }
         }
 
+        // Shows confetti and reward popup when a badge or level celebration is active
         if (celebration.type != RewardCelebrationType.NONE) {
             RewardConfettiOverlay()
             RewardPopup(
@@ -144,6 +155,7 @@ fun ChildGamificationSection(
     }
 }
 
+// Header card that introduces the gamification feature in a child-friendly way
 @Composable
 private fun HeroRewardsHeader() {
     Card(
@@ -158,6 +170,7 @@ private fun HeroRewardsHeader() {
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Decorative icon representing rewards and achievements
             Surface(
                 shape = CircleShape,
                 color = Color.White.copy(alpha = 0.95f)
@@ -187,6 +200,7 @@ private fun HeroRewardsHeader() {
     }
 }
 
+// Small summary card used for points, level, and badge count
 @Composable
 private fun RewardSummaryCard(
     modifier: Modifier = Modifier,
@@ -206,6 +220,7 @@ private fun RewardSummaryCard(
             modifier = Modifier.padding(14.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // Emoji icon placed inside a soft white surface
             Surface(
                 color = Color.White.copy(alpha = 0.9f),
                 shape = RoundedCornerShape(14.dp)
@@ -237,11 +252,13 @@ private fun RewardSummaryCard(
     }
 }
 
+// Shows the child's progress towards the next gamification level
 @Composable
 private fun NextRewardCard(
     currentPoints: Int,
     currentLevel: Int
 ) {
+    // Defines the point requirement for each level
     val nextLevelPoints = when (currentLevel) {
         1 -> 80
         2 -> 180
@@ -249,7 +266,10 @@ private fun NextRewardCard(
         else -> 300
     }
 
+    // Calculates how many more points are needed for the next level
     val remaining = (nextLevelPoints - currentPoints).coerceAtLeast(0)
+
+    // Calculates progress bar value while preventing invalid values
     val progress = when {
         currentLevel >= 4 -> 1f
         nextLevelPoints == 0 -> 1f
@@ -269,6 +289,7 @@ private fun NextRewardCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
+            // Shows either the next-level requirement or top-level message
             Text(
                 text = if (currentLevel >= 4) {
                     "Amazing! You reached the top reward level."
@@ -281,6 +302,7 @@ private fun NextRewardCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
+            // Visual progress bar toward the next level
             LinearProgressIndicator(
                 progress = { progress },
                 modifier = Modifier
@@ -293,6 +315,7 @@ private fun NextRewardCard(
     }
 }
 
+// Displays a single unlocked badge card
 @Composable
 private fun BadgeCard(badge: BadgeUnlock) {
     val badgeEmoji = badgeEmojiFor(badge)
@@ -307,6 +330,7 @@ private fun BadgeCard(badge: BadgeUnlock) {
             modifier = Modifier.padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // Badge emoji container
             Box(
                 modifier = Modifier
                     .size(72.dp)
@@ -341,6 +365,7 @@ private fun BadgeCard(badge: BadgeUnlock) {
     }
 }
 
+// Chooses an emoji based on the badge ID/category
 private fun badgeEmojiFor(badge: BadgeUnlock): String {
     val id = badge.badgeId.lowercase()
     return when {
@@ -354,6 +379,7 @@ private fun badgeEmojiFor(badge: BadgeUnlock): String {
     }
 }
 
+// Empty state shown before the child has earned any badges
 @Composable
 private fun EmptyBadgeState() {
     Card(
@@ -390,11 +416,13 @@ private fun EmptyBadgeState() {
     }
 }
 
+// Popup shown when a reward celebration is triggered
 @Composable
 private fun RewardPopup(
     celebration: RewardCelebration,
     onDismiss: () -> Unit
 ) {
+    // Animates the popup scale for a playful entrance effect
     val scale = remember { Animatable(0.8f) }
 
     LaunchedEffect(celebration) {
@@ -458,6 +486,7 @@ private fun RewardPopup(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
+                // Allows the child to manually close the celebration popup
                 TextButton(onClick = onDismiss) {
                     Text("Yay!")
                 }
@@ -466,10 +495,12 @@ private fun RewardPopup(
     }
 }
 
+// Animated confetti overlay shown during reward celebrations
 @Composable
 fun RewardConfettiOverlay() {
     val infinite = rememberInfiniteTransition(label = "confetti")
 
+    // First falling confetti animation
     val fall1 by infinite.animateFloat(
         initialValue = -60f,
         targetValue = 700f,
@@ -483,6 +514,7 @@ fun RewardConfettiOverlay() {
         label = "fall1"
     )
 
+    // Second falling confetti animation
     val fall2 by infinite.animateFloat(
         initialValue = -140f,
         targetValue = 760f,
@@ -496,6 +528,7 @@ fun RewardConfettiOverlay() {
         label = "fall2"
     )
 
+    // Third falling confetti animation
     val fall3 by infinite.animateFloat(
         initialValue = -100f,
         targetValue = 740f,
@@ -509,6 +542,7 @@ fun RewardConfettiOverlay() {
         label = "fall3"
     )
 
+    // Places multiple colourful confetti dots across the screen
     Box(modifier = Modifier.fillMaxSize()) {
         ConfettiDot(20.dp, fall1.dp, Color(0xFFFF1744), 14.dp)
         ConfettiDot(60.dp, (fall2 * 0.8f).dp, Color(0xFFFFC400), 10.dp)
@@ -522,6 +556,7 @@ fun RewardConfettiOverlay() {
     }
 }
 
+// Single animated confetti dot used by the reward overlay
 @Composable
 private fun ConfettiDot(
     xOffset: Dp,

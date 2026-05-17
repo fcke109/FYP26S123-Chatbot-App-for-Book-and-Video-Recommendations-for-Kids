@@ -43,22 +43,27 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
+// Displays a weekly learning progress summary for the selected child account
 @Composable
 fun ParentProgressSection(
     viewModel: ParentProgressViewModel,
     childUserId: String
 ) {
+    // Starts observing the selected child's progress whenever the child ID changes
     LaunchedEffect(childUserId) {
         viewModel.observeChildProgress(childUserId)
     }
 
+    // Collects the latest weekly progress report from the ViewModel
     val report by viewModel.weeklyReport.collectAsState()
 
+    // Main scrollable layout for the progress dashboard
     LazyColumn(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
+            // Section header and short description for the parent
             Column {
                 Text(
                     text = "Learning Progress Tracker",
@@ -75,6 +80,7 @@ fun ParentProgressSection(
         }
 
         item {
+            // Summary cards showing books read and videos watched
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -100,6 +106,7 @@ fun ParentProgressSection(
         }
 
         item {
+            // Summary cards showing explored topics and reading growth trend
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -125,6 +132,7 @@ fun ParentProgressSection(
         }
 
         item {
+            // Weekly report card showing the top topic and visual activity chart
             DashboardCard(
                 title = "Weekly Report",
                 icon = Icons.Default.BarChart
@@ -151,6 +159,7 @@ fun ParentProgressSection(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
+                // Simple bar chart comparing books, videos, and topics for the week
                 SimpleWeeklyBarChart(
                     booksRead = report.booksRead,
                     videosWatched = report.videosWatched,
@@ -160,6 +169,7 @@ fun ParentProgressSection(
         }
 
         item {
+            // Card displaying reading level score and growth trend
             DashboardCard(
                 title = "Reading Level Growth",
                 icon = Icons.Default.AutoGraph
@@ -183,6 +193,7 @@ fun ParentProgressSection(
         }
 
         item {
+            // Card showing the topics the child explored during the week
             DashboardCard(
                 title = "Topics Explored",
                 icon = Icons.Default.Topic
@@ -207,6 +218,7 @@ fun ParentProgressSection(
         }
 
         item {
+            // Card showing the child's most recent learning activity events
             DashboardCard(
                 title = "Recent Activity",
                 icon = Icons.Default.BarChart
@@ -222,6 +234,7 @@ fun ParentProgressSection(
                                 contentType = event.contentType
                             )
 
+                            // Adds a divider between recent activity rows, except after the last item
                             if (index != report.recentEvents.lastIndex) {
                                 Divider(
                                     modifier = Modifier.padding(top = 2.dp),
@@ -236,6 +249,7 @@ fun ParentProgressSection(
     }
 }
 
+// Reusable card container used for each progress dashboard section
 @Composable
 private fun DashboardCard(
     title: String,
@@ -251,6 +265,7 @@ private fun DashboardCard(
         )
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
+            // Card heading with icon and title
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -280,6 +295,7 @@ private fun DashboardCard(
     }
 }
 
+// Compact pastel card used for key weekly summary statistics
 @Composable
 private fun PastelSummaryCard(
     modifier: Modifier = Modifier,
@@ -299,6 +315,7 @@ private fun PastelSummaryCard(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            // Icon badge at the top of the summary card
             Surface(
                 shape = RoundedCornerShape(12.dp),
                 color = Color.White.copy(alpha = 0.75f)
@@ -327,6 +344,7 @@ private fun PastelSummaryCard(
     }
 }
 
+// Small information card used for reading score and trend values
 @Composable
 private fun SoftInfoCard(
     modifier: Modifier = Modifier,
@@ -356,12 +374,14 @@ private fun SoftInfoCard(
     }
 }
 
+// Simple visual bar chart comparing weekly books, videos, and topics
 @Composable
 private fun SimpleWeeklyBarChart(
     booksRead: Int,
     videosWatched: Int,
     topicsCount: Int
 ) {
+    // Prevents division by zero by ensuring the maximum value is at least 1
     val maxValue = maxOf(booksRead, videosWatched, topicsCount, 1)
 
     Column {
@@ -402,6 +422,7 @@ private fun SimpleWeeklyBarChart(
     }
 }
 
+// Single bar used inside the weekly bar chart
 @Composable
 private fun ChartBar(
     label: String,
@@ -409,6 +430,7 @@ private fun ChartBar(
     maxValue: Int,
     barColor: Color
 ) {
+    // Converts the value into a proportional height based on the maximum chart value
     val barHeight = if (maxValue == 0) 0f else (value.toFloat() / maxValue.toFloat()) * 110f
 
     Column(
@@ -429,6 +451,7 @@ private fun ChartBar(
                 .height(110.dp),
             contentAlignment = Alignment.BottomCenter
         ) {
+            // Background track for the bar
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -437,6 +460,7 @@ private fun ChartBar(
                     .background(Color(0xFFF1F3F4))
             )
 
+            // Filled portion of the bar based on the value
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -456,24 +480,28 @@ private fun ChartBar(
     }
 }
 
+// Row used to display one recent learning activity item
 @Composable
 private fun ActivityRow(
     title: String,
     subtitle: String,
     contentType: String
 ) {
+    // Selects an icon based on whether the activity is a book, video, or topic
     val icon = when (contentType) {
         "BOOK" -> Icons.Default.Book
         "VIDEO" -> Icons.Default.PlayCircle
         else -> Icons.Default.Topic
     }
 
+    // Selects a soft background colour for the activity icon
     val iconBg = when (contentType) {
         "BOOK" -> Color(0xFFE8F0FE)
         "VIDEO" -> Color(0xFFFFF1E6)
         else -> Color(0xFFEAF7EE)
     }
 
+    // Selects a tint colour for the activity icon
     val iconTint = when (contentType) {
         "BOOK" -> Color(0xFF1A73E8)
         "VIDEO" -> Color(0xFFEF6C00)
@@ -485,6 +513,7 @@ private fun ActivityRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.Top
     ) {
+        // Icon badge for the activity type
         Surface(
             color = iconBg,
             shape = RoundedCornerShape(14.dp)
@@ -497,6 +526,7 @@ private fun ActivityRow(
             )
         }
 
+        // Activity title and description
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
@@ -513,6 +543,7 @@ private fun ActivityRow(
     }
 }
 
+// Reusable text shown when a dashboard section has no data yet
 @Composable
 private fun EmptyStateText(text: String) {
     Text(

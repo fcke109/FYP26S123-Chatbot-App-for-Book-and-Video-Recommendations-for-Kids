@@ -11,17 +11,21 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+// ViewModel responsible for loading and exposing a child's weekly learning progress to the parent screen
 @HiltViewModel
 class ParentProgressViewModel @Inject constructor(
     private val learningProgressManager: LearningProgressManager
 ) : ViewModel() {
 
+    // Stores the current weekly learning report for the selected child
     private val _weeklyReport = MutableStateFlow(WeeklyLearningReport())
     val weeklyReport: StateFlow<WeeklyLearningReport> = _weeklyReport.asStateFlow()
 
+    // Observes the selected child's progress and updates the weekly report in real time
     fun observeChildProgress(childUserId: String) {
         viewModelScope.launch {
             learningProgressManager.getWeeklyReportFlow(childUserId).collect { report ->
+                // Updates the UI state whenever a new weekly report is received
                 _weeklyReport.value = report
             }
         }

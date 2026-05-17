@@ -10,14 +10,19 @@ import dagger.hilt.android.HiltAndroidApp
 
 @HiltAndroidApp
 class KidsRecApp : Application() {
+    // Called when the app process is created
     override fun onCreate() {
         super.onCreate()
 
+        // Initializes Firebase services for the application
         Firebase.initialize(context = this)
+        // Installs Firebase App Check to help protect backend resources from unauthorised access
         Firebase.appCheck.installAppCheckProviderFactory(
             if (BuildConfig.DEBUG) {
+                // Uses the debug App Check provider during development/testing
                 DebugAppCheckProviderFactory.getInstance()
             } else {
+                // Uses Play Integrity App Check provider for release builds
                 PlayIntegrityAppCheckProviderFactory.getInstance()
             }
         )

@@ -14,18 +14,25 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
+// ViewModel responsible for loading and updating user notifications
 @HiltViewModel
 class NotificationsViewModel @Inject constructor(
     private val firestore: FirebaseFirestore
 ) : ViewModel() {
 
+    // Stores the list of notifications displayed in the notification screen
     private val _uiState = MutableStateFlow<List<UserNotification>>(emptyList())
     val uiState: StateFlow<List<UserNotification>> = _uiState.asStateFlow()
 
+    // Keeps track of the Firestore realtime listener so it can be removed when no longer needed
     private var listenerRegistration: com.google.firebase.firestore.ListenerRegistration? = null
 
+    // Starts listening to the current user's notifications in realtime
     fun startListening(userId: String) {
+        // Removes any existing listener to avoid duplicate listeners
         listenerRegistration?.remove()
+
+        // Listens to the user's notification items, newest first
         listenerRegistration = firestore.collection("userNotifications")
             .document(userId)
             .collection("items")
@@ -36,6 +43,7 @@ class NotificationsViewModel @Inject constructor(
                     Log.e("NotificationsVM", "Error listening for notifications", error)
                     return@addSnapshotListener
                 }
+                // Converts Firestore documents into UserNotification objects
                 val notifications = snapshot?.documents?.map { doc ->
                     UserNotification(
                         id = doc.id,
@@ -47,10 +55,13 @@ class NotificationsViewModel @Inject constructor(
                         createdAt = doc.getLong("createdAt") ?: 0L
                     )
                 } ?: emptyList()
+
+                // Updates the UI state with the latest notification list
                 _uiState.value = notifications
             }
     }
 
+    // Marks a specific notification as read in Firestore
     fun markRead(userId: String, notificationId: String) {
         viewModelScope.launch {
             try {
@@ -66,6 +77,7 @@ class NotificationsViewModel @Inject constructor(
         }
     }
 
+    // Cleans up the Firestore listener when the ViewModel is destroyed
     override fun onCleared() {
         super.onCleared()
         listenerRegistration?.remove()

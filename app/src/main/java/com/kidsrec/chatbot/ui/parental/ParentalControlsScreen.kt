@@ -24,14 +24,25 @@ fun ParentalControlsScreen(
     onNavigateBack: () -> Unit,
     authViewModel: AuthViewModel
 ) {
+    // Observes the currently logged-in user
     val user by authViewModel.currentUser.collectAsState()
 
+    // Tracks whether the parent PIN has been successfully verified
     var isPinVerified by rememberSaveable { mutableStateOf(false) }
+
+    // Stores the PIN entered by the user
     var enteredPin by rememberSaveable { mutableStateOf("") }
+
+    // Tracks whether the entered PIN is incorrect
     var pinError by rememberSaveable { mutableStateOf(false) }
+
+    // Stores the selected maximum age rating for content filtering
     var maxAgeRating by remember { mutableStateOf(13) }
+
+    // Stores whether video recommendations are allowed
     var allowVideos by remember { mutableStateOf(true) }
 
+    // Loads the current user's saved content filter settings when the user changes
     LaunchedEffect(user?.id) {
         user?.let {
             maxAgeRating = it.contentFilters.maxAgeRating
@@ -41,10 +52,12 @@ fun ParentalControlsScreen(
     }
 
     Scaffold(
+        // Top navigation bar for the parental controls screen
         topBar = {
             TopAppBar(
                 title = { Text("Parental Controls") },
                 navigationIcon = {
+                    // Back button to leave the parental controls screen
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                     }
@@ -54,6 +67,7 @@ fun ParentalControlsScreen(
     ) { paddingValues ->
         val currentUser = user
 
+        // Shows a loading spinner while the current user data is not available yet
         if (currentUser == null) {
             Box(
                 modifier = Modifier
@@ -66,8 +80,10 @@ fun ParentalControlsScreen(
             return@Scaffold
         }
 
+        // Retrieves the saved parental PIN from the current user profile
         val storedPin = currentUser.parentalPin
 
+        // If no PIN has been created, tell the user that the parent must set one first
         if (storedPin.isNullOrBlank()) {
             Column(
                 modifier = Modifier
@@ -77,6 +93,7 @@ fun ParentalControlsScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
+                // Lock icon indicates restricted parent-only settings
                 Icon(
                     Icons.Default.Lock,
                     contentDescription = null,
@@ -102,6 +119,7 @@ fun ParentalControlsScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
+                // Returns the user to the previous screen
                 Button(
                     onClick = onNavigateBack,
                     modifier = Modifier.fillMaxWidth()
@@ -110,6 +128,7 @@ fun ParentalControlsScreen(
                 }
             }
         } else if (!isPinVerified) {
+            // Shows PIN verification screen before allowing access to parental controls
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -118,6 +137,7 @@ fun ParentalControlsScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
+                // Lock icon shown before PIN verification
                 Icon(
                     Icons.Default.Lock,
                     contentDescription = null,
@@ -143,6 +163,7 @@ fun ParentalControlsScreen(
 
                 Spacer(modifier = Modifier.height(32.dp))
 
+                // PIN input field that only accepts up to 4 numeric digits
                 OutlinedTextField(
                     value = enteredPin,
                     onValueChange = {
@@ -164,6 +185,7 @@ fun ParentalControlsScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
+                // Verifies the entered PIN against the stored parental PIN
                 Button(
                     onClick = {
                         if (enteredPin == storedPin) {
@@ -181,11 +203,13 @@ fun ParentalControlsScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
+                // Cancels PIN verification and returns to the previous screen
                 TextButton(onClick = onNavigateBack) {
                     Text("Cancel")
                 }
             }
         } else {
+            // Shows parental control settings after the PIN is successfully verified
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -201,6 +225,7 @@ fun ParentalControlsScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
+                // Card for setting the maximum allowed content age rating
                 Card(
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -212,6 +237,7 @@ fun ParentalControlsScreen(
 
                         Spacer(modifier = Modifier.height(8.dp))
 
+                        // Slider allows the parent to choose an age range from 3 to 18
                         Slider(
                             value = maxAgeRating.toFloat(),
                             onValueChange = { maxAgeRating = it.toInt() },
@@ -230,6 +256,7 @@ fun ParentalControlsScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
+                // Card for enabling or disabling video recommendations
                 Card(
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -252,6 +279,7 @@ fun ParentalControlsScreen(
                             )
                         }
 
+                        // Toggle for allowing video content recommendations
                         Switch(
                             checked = allowVideos,
                             onCheckedChange = { allowVideos = it }
@@ -261,6 +289,7 @@ fun ParentalControlsScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
+                // Saves updated content filter settings to the current user profile
                 Button(
                     onClick = {
                         val updatedUser = currentUser.copy(

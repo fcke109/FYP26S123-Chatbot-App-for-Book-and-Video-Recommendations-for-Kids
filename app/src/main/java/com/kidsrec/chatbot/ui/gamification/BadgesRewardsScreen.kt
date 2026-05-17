@@ -72,6 +72,7 @@ import com.kidsrec.chatbot.R
 import com.kidsrec.chatbot.data.model.BadgeUnlock
 import kotlinx.coroutines.delay
 
+// Represents a badge that has not been unlocked yet and is shown as a preview in the rewards page
 private data class BRLockedBadge(
     val title: String,
     val description: String,
@@ -79,6 +80,7 @@ private data class BRLockedBadge(
     val category: String
 )
 
+// Main Badges & Rewards screen shown to Premium child users
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BadgesRewardsScreen(
@@ -87,20 +89,25 @@ fun BadgesRewardsScreen(
     onBack: () -> Unit,
     viewModel: GamificationViewModel = hiltViewModel()
 ) {
+    // Starts observing the child's gamification profile and refreshes rewards when the screen opens
     LaunchedEffect(childUserId) {
         viewModel.observeChildGamification(childUserId)
         viewModel.refresh(childUserId)
     }
 
+    // Realtime gamification state collected from the ViewModel
     val profile by viewModel.profile.collectAsState()
     val badges by viewModel.badges.collectAsState()
     val celebration by viewModel.celebration.collectAsState()
 
+    // Prevents invalid level values from being displayed as 0 or negative
     val safeLevel = if (profile.currentLevel <= 0) 1 else profile.currentLevel
+    // Builds the list of preview badges that have not been unlocked yet
     val lockedBadges = brSampleLockedBadges(badges)
 
     Scaffold(
         topBar = {
+            // Top app bar for navigation and screen title
             CenterAlignedTopAppBar(
                 title = { Text("Badges & Rewards") },
                 navigationIcon = {
@@ -119,6 +126,7 @@ fun BadgesRewardsScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
                 .background(
+                    // Soft child-friendly background gradient
                     brush = Brush.verticalGradient(
                         colors = listOf(
                             Color(0xFFF8FBFF),
@@ -128,8 +136,10 @@ fun BadgesRewardsScreen(
                     )
                 )
         ) {
+            // Decorative animated stars in the background
             BRFloatingStars()
 
+            // Main scrollable rewards content
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -137,6 +147,7 @@ fun BadgesRewardsScreen(
                     .padding(20.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                // Header section with mascot and rewards introduction
                 Box(modifier = Modifier.fillMaxWidth()) {
                     BRRewardsHeroCard(
                         childName = childName,
@@ -152,12 +163,14 @@ fun BadgesRewardsScreen(
                     }
                 }
 
+                // Summary statistics for points, level, and earned badges
                 BRRewardsStatsRow(
                     points = profile.totalPoints,
                     level = safeLevel,
                     badgeCount = badges.size
                 )
 
+                // Progress card showing how close the child is to the next level
                 BRRewardJourneyCard(
                     currentPoints = profile.totalPoints,
                     currentLevel = safeLevel
@@ -165,6 +178,7 @@ fun BadgesRewardsScreen(
 
                 BRSectionTitle("Earned Badges")
 
+                // Shows empty state if the child has not earned badges yet
                 if (badges.isEmpty()) {
                     BREmptyRewardsState()
                 } else {
@@ -175,6 +189,7 @@ fun BadgesRewardsScreen(
 
                 BRSectionTitle("Locked Badges")
 
+                // Shows either a completed message or a horizontal list of locked badge previews
                 if (lockedBadges.isEmpty()) {
                     Card(
                         shape = RoundedCornerShape(22.dp),
@@ -211,6 +226,7 @@ fun BadgesRewardsScreen(
                 Spacer(modifier = Modifier.height(12.dp))
             }
 
+            // Shows celebration overlay when a badge or level-up event is triggered
             if (celebration.type != RewardCelebrationType.NONE) {
                 BRRewardConfettiOverlay()
                 BRRewardPopup(
@@ -222,6 +238,7 @@ fun BadgesRewardsScreen(
     }
 }
 
+// Introductory card at the top of the rewards page
 @Composable
 private fun BRRewardsHeroCard(
     childName: String,
@@ -237,6 +254,7 @@ private fun BRRewardsHeroCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(
+                    // Pastel gradient used to create a fun reward-world feeling
                     brush = Brush.linearGradient(
                         colors = listOf(
                             Color(0xFFE3F2FD),
@@ -276,6 +294,7 @@ private fun BRRewardsHeroCard(
     }
 }
 
+// Row of three reward statistics: points, level, and badge count
 @Composable
 private fun BRRewardsStatsRow(
     points: Int,
@@ -315,6 +334,7 @@ private fun BRRewardsStatsRow(
     }
 }
 
+// Reusable stat card for points, level, and badge totals
 @Composable
 private fun BRStatCard(
     modifier: Modifier = Modifier,
@@ -365,11 +385,13 @@ private fun BRStatCard(
     }
 }
 
+// Shows the child's progress toward the next reward level
 @Composable
 private fun BRRewardJourneyCard(
     currentPoints: Int,
     currentLevel: Int
 ) {
+    // Fixed point thresholds for each level
     val nextLevelPoints = when (currentLevel) {
         1 -> 80
         2 -> 180
@@ -378,8 +400,10 @@ private fun BRRewardJourneyCard(
         else -> 450
     }
 
+    // Calculates how many points remain until the next level
     val remaining = (nextLevelPoints - currentPoints).coerceAtLeast(0)
 
+    // Progress value used by the progress bar
     val progress = if (currentLevel >= 5) {
         1f
     } else {
@@ -431,6 +455,7 @@ private fun BRRewardJourneyCard(
     }
 }
 
+// Section title used to separate earned and locked badges
 @Composable
 private fun BRSectionTitle(text: String) {
     Text(
@@ -441,8 +466,10 @@ private fun BRSectionTitle(text: String) {
     )
 }
 
+// Full card used to display an earned badge
 @Composable
 private fun BRFullBadgeCard(badge: BadgeUnlock) {
+    // Chooses a friendly emoji based on badge type
     val emoji = brBadgeEmoji(badge)
 
     Card(
@@ -500,6 +527,7 @@ private fun BRFullBadgeCard(badge: BadgeUnlock) {
     }
 }
 
+// Compact card used to preview a badge that has not been unlocked yet
 @Composable
 private fun BRLockedBadgeCard(badge: BRLockedBadge) {
     Card(
@@ -560,6 +588,7 @@ private fun BRLockedBadgeCard(badge: BRLockedBadge) {
     }
 }
 
+// Empty state displayed when the child has not earned any badges yet
 @Composable
 private fun BREmptyRewardsState() {
     Card(
@@ -598,10 +627,12 @@ private fun BREmptyRewardsState() {
     }
 }
 
+// Floating dinosaur mascot animation shown on the hero card
 @Composable
 private fun BRFloatingDinoMascot() {
     val infinite = rememberInfiniteTransition(label = "dino")
 
+    // Creates a gentle up/down movement
     val offsetY by infinite.animateFloat(
         initialValue = 0f,
         targetValue = -18f,
@@ -612,6 +643,7 @@ private fun BRFloatingDinoMascot() {
         label = "dinoFloat"
     )
 
+    // Creates a small rotating movement for a playful effect
     val rotate by infinite.animateFloat(
         initialValue = -4f,
         targetValue = 4f,
@@ -632,6 +664,7 @@ private fun BRFloatingDinoMascot() {
     )
 }
 
+// Decorative animated stars that move across the reward screen background
 @Composable
 private fun BRFloatingStars() {
     val infinite = rememberInfiniteTransition(label = "stars")
@@ -676,11 +709,13 @@ private fun BRFloatingStars() {
     }
 }
 
+// Popup shown when the child unlocks a badge or level-up reward
 @Composable
 private fun BRRewardPopup(
     celebration: RewardCelebration,
     onDismiss: () -> Unit
 ) {
+    // Scale animation makes the popup bounce into view
     val scale = remember { Animatable(0.8f) }
 
     LaunchedEffect(celebration) {
@@ -752,6 +787,7 @@ private fun BRRewardPopup(
     }
 }
 
+// Confetti layer shown behind the reward popup
 @Composable
 private fun BRRewardConfettiOverlay() {
     val infinite = rememberInfiniteTransition(label = "confetti")
@@ -795,6 +831,7 @@ private fun BRRewardConfettiOverlay() {
         label = "fall3"
     )
 
+    // Draws multiple animated confetti dots with different speeds and colours
     Box(modifier = Modifier.fillMaxSize()) {
         BRConfettiDot(20.dp, fall1.dp, Color(0xFFFF1744), 14.dp)
         BRConfettiDot(60.dp, (fall2 * 0.8f).dp, Color(0xFFFFC400), 10.dp)
@@ -808,6 +845,7 @@ private fun BRRewardConfettiOverlay() {
     }
 }
 
+// Single confetti dot used by the confetti overlay animation
 @Composable
 private fun BRConfettiDot(
     xOffset: Dp,
@@ -824,6 +862,7 @@ private fun BRConfettiDot(
     )
 }
 
+// Selects an emoji for an earned badge based on its badge ID
 private fun brBadgeEmoji(badge: BadgeUnlock): String {
     val id = badge.badgeId.lowercase()
     return when {
@@ -837,6 +876,7 @@ private fun brBadgeEmoji(badge: BadgeUnlock): String {
     }
 }
 
+// Selects the card background colour for an earned badge
 private fun brBadgeColor(badge: BadgeUnlock): Color {
     val id = badge.badgeId.lowercase()
     return when {
@@ -849,6 +889,7 @@ private fun brBadgeColor(badge: BadgeUnlock): Color {
     }
 }
 
+// Selects the accent text colour for an earned badge
 private fun brBadgeAccentColor(badge: BadgeUnlock): Color {
     val id = badge.badgeId.lowercase()
     return when {
@@ -861,6 +902,7 @@ private fun brBadgeAccentColor(badge: BadgeUnlock): Color {
     }
 }
 
+// Produces a readable badge category label from the badge ID
 private fun brBadgeLabel(badge: BadgeUnlock): String {
     val id = badge.badgeId.lowercase()
     return when {
@@ -873,6 +915,7 @@ private fun brBadgeLabel(badge: BadgeUnlock): String {
     }
 }
 
+// Selects background colour for a locked badge preview based on its category
 private fun brLockedBadgeColor(category: String): Color {
     return when (category.lowercase()) {
         "space" -> Color(0xFFE3F2FD)
@@ -884,6 +927,7 @@ private fun brLockedBadgeColor(category: String): Color {
     }
 }
 
+// Selects emoji for a locked badge preview based on its category
 private fun brLockedBadgeEmoji(category: String): String {
     return when (category.lowercase()) {
         "space" -> "🚀"
@@ -895,9 +939,12 @@ private fun brLockedBadgeEmoji(category: String): String {
     }
 }
 
+// Builds preview locked badges and removes any category already unlocked by the child
 private fun brSampleLockedBadges(unlockedBadges: List<BadgeUnlock>): List<BRLockedBadge> {
+    // Normalizes unlocked badge IDs for matching against preview categories
     val unlockedIds = unlockedBadges.map { it.badgeId.lowercase() }.toSet()
 
+    // Static preview badges shown to encourage children to keep learning
     val allPreviewBadges = listOf(
         BRLockedBadge(
             title = "Space Explorer",
@@ -931,6 +978,7 @@ private fun brSampleLockedBadges(unlockedBadges: List<BadgeUnlock>): List<BRLock
         )
     )
 
+    // Filters out preview badges if an unlocked badge already matches that category
     return allPreviewBadges.filterNot { locked ->
         unlockedIds.any { id ->
             when (locked.category) {

@@ -53,6 +53,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import java.net.URLDecoder
 
+// Safe in-app web reader used for opening approved book/story content and
+// supported fallback video links
 @Composable
 fun SafeWebViewScreen(
     url: String,
@@ -62,6 +64,7 @@ fun SafeWebViewScreen(
 ) {
     val context = LocalContext.current
 
+    // Decodes the title because navigation arguments are URL-encoded
     val decodedTitle = remember(title) {
         try {
             URLDecoder.decode(title, "UTF-8")
@@ -70,16 +73,20 @@ fun SafeWebViewScreen(
         }
     }
 
+    // Normalizes the incoming URL to HTTPS for safer loading
     val safeUrl = remember(url) {
         url.trim().replace("http://", "https://")
     }
 
+    // Records when the content was opened so drop-off duration can be tracked
     val openedAtMs = remember { System.currentTimeMillis() }
 
+    // Calculates how long the user stayed on this content screen
     fun watchedSeconds(): Long {
         return (System.currentTimeMillis() - openedAtMs) / 1000
     }
 
+    // Sends duration data back when the Android back button is pressed
     BackHandler {
         onClose(watchedSeconds())
     }
@@ -100,6 +107,7 @@ fun SafeWebViewScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
+                // Displays the selected video/content title
                 Text(
                     text = decodedTitle,
                     style = MaterialTheme.typography.titleLarge,
@@ -108,6 +116,7 @@ fun SafeWebViewScreen(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
+                // Explains whether the video can be opened through an external YouTube link
                 Text(
                     text = if (youtubeLink != null) {
                         "This video cannot be shown in the safe in-app reader. Open the workable video link below."
@@ -121,6 +130,7 @@ fun SafeWebViewScreen(
                 Spacer(modifier = Modifier.height(20.dp))
 
                 if (youtubeLink != null) {
+                    // Opens the YouTube watch URL using an external compatible app or browser
                     Button(
                         onClick = {
                             val intent = Intent(Intent.ACTION_VIEW, Uri.parse(youtubeLink.watchUrl))
@@ -137,12 +147,14 @@ fun SafeWebViewScreen(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
+                    // Returns to the previous screen while recording duration
                     Button(
                         onClick = { onClose(watchedSeconds()) }
                     ) {
                         Text("Go Back")
                     }
                 } else {
+                    // Returns to the previous screen if the video URL is unsupported
                     Button(
                         onClick = { onClose(watchedSeconds()) }
                     ) {
@@ -155,12 +167,22 @@ fun SafeWebViewScreen(
     }
 
     // -------- NORMAL SAFE WEBVIEW MODE --------
+    // Tracks whether the WebView is still loading content
     var isLoading by remember { mutableStateOf(true) }
+
+    // Stores page loading progress from 0 to 100
     var loadingProgress by remember { mutableStateOf(0) }
+
+    // Holds the WebView reference so it can be controlled and destroyed safely
     var webView by remember { mutableStateOf<WebView?>(null) }
+
+    // Tracks whether the WebView has internal back history
     var canGoBack by remember { mutableStateOf(false) }
+
+    // Stores a blocked URL when navigation attempts to leave the approved domain list
     var blockedUrl by remember { mutableStateOf<String?>(null) }
 
+    // Domains allowed inside the safe reader
     val allowedDomains = listOf(
         "storyweaver.org",
         "storyweaver.org.in",
@@ -171,6 +193,7 @@ fun SafeWebViewScreen(
         "books.google."
     )
 
+    // Checks whether a URL belongs to one of the approved safe reading domains
     fun isUrlAllowed(urlToCheck: String): Boolean {
         return try {
             val host = Uri.parse(urlToCheck).host?.lowercase() ?: return false
@@ -182,6 +205,7 @@ fun SafeWebViewScreen(
         }
     }
 
+    // Cleans up WebView resources when leaving this screen
     DisposableEffect(Unit) {
         onDispose {
             webView?.stopLoading()
@@ -190,6 +214,7 @@ fun SafeWebViewScreen(
         }
     }
 
+    // Handles back navigation inside the WebView first before closing the screen
     BackHandler {
         if (canGoBack) {
             webView?.goBack()
@@ -203,6 +228,7 @@ fun SafeWebViewScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
+        // Header bar for the safe reader
         Surface(
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.fillMaxWidth()
@@ -214,6 +240,7 @@ fun SafeWebViewScreen(
                         .padding(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    // Back button navigates inside WebView if possible, otherwise closes the reader
                     IconButton(
                         onClick = {
                             if (canGoBack) {
@@ -235,6 +262,7 @@ fun SafeWebViewScreen(
                             .weight(1f)
                             .padding(horizontal = 8.dp)
                     ) {
+                        // Safe reader label shown with a lock icon
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
                                 imageVector = Icons.Default.Lock,
@@ -249,7 +277,7 @@ fun SafeWebViewScreen(
                                 color = Color.White.copy(alpha = 0.8f)
                             )
                         }
-
+                        // Displays the current content title in the header
                         Text(
                             text = decodedTitle,
                             fontSize = 16.sp,
@@ -260,6 +288,7 @@ fun SafeWebViewScreen(
                         )
                     }
 
+                    // Close button exits the reader and records duration
                     IconButton(
                         onClick = { onClose(watchedSeconds()) }
                     ) {
@@ -271,6 +300,7 @@ fun SafeWebViewScreen(
                     }
                 }
 
+                // Shows loading progress while the WebView is loading
                 if (isLoading) {
                     LinearProgressIndicator(
                         progress = { loadingProgress / 100f },
@@ -284,6 +314,7 @@ fun SafeWebViewScreen(
             }
         }
 
+        // If a blocked URL is detected, show a safe error screen instead of loading it
         if (blockedUrl != null) {
             Box(
                 modifier = Modifier
@@ -317,11 +348,13 @@ fun SafeWebViewScreen(
             }
         } else {
             Box(modifier = Modifier.weight(1f)) {
+                // Embeds a native Android WebView inside Compose
                 AndroidView(
                     factory = { webContext ->
                         WebView(webContext).apply {
                             webView = this
 
+                            // Configures WebView for safe online reading content
                             @SuppressLint("SetJavaScriptEnabled")
                             settings.apply {
                                 javaScriptEnabled = true
@@ -346,6 +379,7 @@ fun SafeWebViewScreen(
                                     val reqUrl = request?.url?.toString() ?: return true
                                     Log.d("KidsRecWebView", "Requested URL: $reqUrl")
 
+                                    // Blocks navigation attempts outside approved domains
                                     val allowed = isUrlAllowed(reqUrl)
                                     if (!allowed) {
                                         blockedUrl = reqUrl
@@ -365,12 +399,15 @@ fun SafeWebViewScreen(
                                 override fun onPageFinished(view: WebView?, url: String?) {
                                     super.onPageFinished(view, url)
                                     isLoading = false
+                                    // Updates whether the WebView can navigate backward
                                     canGoBack = view?.canGoBack() ?: false
                                 }
                             }
 
                             webChromeClient = object : WebChromeClient() {
                                 override fun onProgressChanged(view: WebView?, newProgress: Int) {
+
+                                    // Updates progress bar as the WebView loads
                                     loadingProgress = newProgress
                                     if (newProgress == 100) {
                                         isLoading = false
@@ -378,6 +415,7 @@ fun SafeWebViewScreen(
                                 }
                             }
 
+                            // Loads the URL only if it is approved by the domain allowlist
                             if (isUrlAllowed(safeUrl)) {
                                 loadUrl(safeUrl)
                             } else {
@@ -386,6 +424,7 @@ fun SafeWebViewScreen(
                         }
                     },
                     update = { view ->
+                        // Reloads the safe URL if the WebView is not already showing it
                         if (blockedUrl == null && view.url != safeUrl && isUrlAllowed(safeUrl)) {
                             view.loadUrl(safeUrl)
                         }
@@ -393,6 +432,7 @@ fun SafeWebViewScreen(
                     modifier = Modifier.fillMaxSize()
                 )
 
+                // Shows a simple loading overlay during early page load
                 if (isLoading && loadingProgress < 30) {
                     Box(
                         modifier = Modifier
@@ -415,6 +455,7 @@ fun SafeWebViewScreen(
     }
 }
 
+// Holds parsed YouTube video URL details used by the video fallback mode
 data class VideoLinkInfo(
     val videoId: String,
     val embedUrl: String,
@@ -422,8 +463,10 @@ data class VideoLinkInfo(
     val thumbnailUrl: String
 )
 
+// Helper object for extracting YouTube video IDs and building usable video links
 object YouTubeLinkHelper {
 
+    // Extracts a YouTube video ID from common YouTube URL formats
     fun extractVideoId(rawUrl: String): String? {
         val url = rawUrl.trim()
 
@@ -444,6 +487,7 @@ object YouTubeLinkHelper {
         return null
     }
 
+    // Builds a VideoLinkInfo object if the raw URL contains a valid YouTube video ID
     fun build(rawUrl: String): VideoLinkInfo? {
         val videoId = extractVideoId(rawUrl) ?: return null
 

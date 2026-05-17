@@ -49,42 +49,55 @@ class ParentDashboardViewModel @Inject constructor(
     private val _selectedChild = MutableStateFlow<User?>(null)
     val selectedChild: StateFlow<User?> = _selectedChild.asStateFlow()
 
+    // Stores the selected child's favourite books/videos
     private val _childFavorites = MutableStateFlow<List<Favorite>>(emptyList())
     val childFavorites: StateFlow<List<Favorite>> = _childFavorites.asStateFlow()
 
+    // Stores the selected child's reading and viewing history
     private val _childHistory = MutableStateFlow<List<ReadingHistory>>(emptyList())
     val childHistory: StateFlow<List<ReadingHistory>> = _childHistory.asStateFlow()
 
+    // Stores the selected child's screen time usage for today
     private val _childScreenTime = MutableStateFlow<ScreenTimeSession?>(null)
     val childScreenTime: StateFlow<ScreenTimeSession?> = _childScreenTime.asStateFlow()
 
+    // Stores the selected child's weekly screen time usage records
     private val _weeklyScreenTime = MutableStateFlow<List<ScreenTimeSession>>(emptyList())
     val weeklyScreenTime: StateFlow<List<ScreenTimeSession>> = _weeklyScreenTime.asStateFlow()
 
+    // Stores the selected child's chatbot conversation list
     private val _childConversations = MutableStateFlow<List<Conversation>>(emptyList())
     val childConversations: StateFlow<List<Conversation>> = _childConversations.asStateFlow()
 
+    // Stores messages for the currently selected chatbot conversation
     private val _childMessages = MutableStateFlow<List<ChatMessage>>(emptyList())
     val childMessages: StateFlow<List<ChatMessage>> = _childMessages.asStateFlow()
 
+    // Stores the ID of the conversation currently opened by the parent
     private val _selectedConversationId = MutableStateFlow<String?>(null)
     val selectedConversationId: StateFlow<String?> = _selectedConversationId.asStateFlow()
 
+    // Stores content approval requests waiting for the parent to approve or reject
     private val _pendingApprovals = MutableStateFlow<List<ContentApproval>>(emptyList())
     val pendingApprovals: StateFlow<List<ContentApproval>> = _pendingApprovals.asStateFlow()
 
+    // Stores the generated invite code used to link/register a child account
     private val _inviteCode = MutableStateFlow<String?>(null)
     val inviteCode: StateFlow<String?> = _inviteCode.asStateFlow()
 
+    // Tracks whether a parent dashboard action is currently loading
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    // Stores user-facing error messages for dashboard actions
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
+    // Stores the current state of the remove-child process
     private val _removeChildState = MutableStateFlow<RemoveChildState>(RemoveChildState.Idle)
     val removeChildState: StateFlow<RemoveChildState> = _removeChildState.asStateFlow()
 
+    // Loads parent dashboard data as soon as the ViewModel is created
     init {
         loadChildren()
         loadPendingApprovals()
@@ -103,6 +116,7 @@ class ParentDashboardViewModel @Inject constructor(
         }
     }
 
+    // Loads all pending approval requests assigned to the current parent
     private fun loadPendingApprovals() {
         val parentId = accountManager.getCurrentUserId() ?: return
         viewModelScope.launch {
@@ -133,26 +147,31 @@ class ParentDashboardViewModel @Inject constructor(
     // load child activity data
     private fun loadChildData(childId: String) {
         viewModelScope.launch {
+            // Observes the child's favourites in real time
             launch {
                 accountManager.getChildFavoritesFlow(childId).collect { favorites ->
                     _childFavorites.value = favorites
                 }
             }
+            // Observes the child's reading history in real time
             launch {
                 accountManager.getChildReadingHistoryFlow(childId).collect { history ->
                     _childHistory.value = history
                 }
             }
+            // Observes the child's screen time usage for the current day
             launch {
                 screenTimeManager.getTodayUsageFlow(childId).collect { session ->
                     _childScreenTime.value = session
                 }
             }
+            // Observes the child's screen time usage for the week
             launch {
                 screenTimeManager.getWeeklyUsageFlow(childId).collect { sessions ->
                     _weeklyScreenTime.value = sessions
                 }
             }
+            // Observes the child's chatbot conversation list and hides empty previews
             launch {
                 chatDataManager.getConversationsFlow(childId)
                     .catch { e -> Log.e("ParentDashVM", "Failed to load child conversations", e) }
@@ -163,6 +182,7 @@ class ParentDashboardViewModel @Inject constructor(
         }
     }
 
+    // Opens a specific child chatbot conversation and loads its messages
     fun selectConversation(childId: String, conversationId: String) {
         _selectedConversationId.value = conversationId
         viewModelScope.launch {
@@ -174,11 +194,13 @@ class ParentDashboardViewModel @Inject constructor(
         }
     }
 
+    // Clears the opened conversation and removes messages from the UI state
     fun clearConversation() {
         _selectedConversationId.value = null
         _childMessages.value = emptyList()
     }
 
+    // Generates an invite code that can be used to register or link a child account
     fun generateInviteCode() {
         val parentId = accountManager.getCurrentUserId() ?: return
         viewModelScope.launch {
@@ -200,6 +222,7 @@ class ParentDashboardViewModel @Inject constructor(
         }
     }
 
+    // Updates the selected child's maximum age rating and video recommendation setting
     fun updateChildFilters(childId: String, maxAgeRating: Int, allowVideos: Boolean) {
         viewModelScope.launch {
             if (!isMyChild(childId)) {
@@ -223,13 +246,16 @@ class ParentDashboardViewModel @Inject constructor(
         }
     }
 
+    // Updates the child's parental PIN after validating that it is exactly 4 digits
     fun updateChildParentalPin(childId: String, pin: String) {
         viewModelScope.launch {
+            // Prevents parents from updating PINs for children they do not own
             if (!isMyChild(childId)) {
                 _errorMessage.value = "Unauthorized action."
                 return@launch
             }
 
+            // Ensures the PIN follows the required 4-digit format
             if (!pin.matches(Regex("^\\d{4}$"))) {
                 _errorMessage.value = "PIN must be exactly 4 digits."
                 return@launch
@@ -251,17 +277,21 @@ class ParentDashboardViewModel @Inject constructor(
         }
     }
 
+    // Updates the list of content topics that should be blocked for a child
     fun updateBlockedTopics(childId: String, topics: List<String>) {
         viewModelScope.launch {
+            // Blocks updates if the selected child is not linked to this parent
             if (!isMyChild(childId)) {
                 _errorMessage.value = "Unauthorized action."
                 return@launch
             }
             try {
+                // Saves blocked topics inside the child's content filter settings
                 firestore.collection("users")
                     .document(childId)
                     .update("contentFilters.blockedTopics", topics)
                     .await()
+                // Refreshes selected child state so the UI shows the latest settings
                 val updated = accountManager.getUser(childId)
                 if (updated != null) {
                     _selectedChild.value = updated
@@ -273,17 +303,22 @@ class ParentDashboardViewModel @Inject constructor(
         }
     }
 
+    // Enables or disables approval-before-access for the selected child's content
     fun toggleContentApproval(childId: String, required: Boolean) {
         viewModelScope.launch {
+            // Verifies parent-child ownership before changing approval settings
             if (!isMyChild(childId)) {
                 _errorMessage.value = "Unauthorized action."
                 return@launch
             }
             try {
+                // Updates whether content approval is required for this child
                 firestore.collection("users")
                     .document(childId)
                     .update("contentApprovalRequired", required)
                     .await()
+
+                // Refreshes selected child state after the update
                 val updated = accountManager.getUser(childId)
                 if (updated != null) {
                     _selectedChild.value = updated
@@ -302,10 +337,14 @@ class ParentDashboardViewModel @Inject constructor(
                 return@launch
             }
 
+            // Keeps the daily limit within a safe and reasonable range
             val safeMinutes = minutes.coerceIn(1, 600)
+
+            // Sets warning threshold 5 minutes before the limit, with a minimum of 1 minute
             val warningMinutes = (safeMinutes - 5).coerceAtLeast(1)
 
             try {
+                // Updates the child's screen time configuration in Firestore
                 firestore.collection("users")
                     .document(childId)
                     .update(
@@ -317,6 +356,7 @@ class ParentDashboardViewModel @Inject constructor(
                     )
                     .await()
 
+                // Refreshes selected child state after the screen time update
                 val updated = accountManager.getUser(childId)
                 if (updated != null) {
                     _selectedChild.value = updated
@@ -331,6 +371,7 @@ class ParentDashboardViewModel @Inject constructor(
         }
     }
 
+    // Grants extra screen time to the selected child
     fun grantScreenTimeExtension(childId: String, additionalMinutes: Int = 15) {
         viewModelScope.launch {
             if (!isMyChild(childId)) return@launch
@@ -338,38 +379,46 @@ class ParentDashboardViewModel @Inject constructor(
         }
     }
 
+    // Approves a pending child content request
     fun approveContent(approvalId: String) {
         viewModelScope.launch {
             contentApprovalManager.approveContent(approvalId)
         }
     }
 
+    // Rejects a pending child content request
     fun rejectContent(approvalId: String) {
         viewModelScope.launch {
             contentApprovalManager.rejectContent(approvalId)
         }
     }
 
+    // Clears the current parent dashboard error message
     fun dismissError() {
         _errorMessage.value = null
     }
 
+    // Clears the generated invite code from the UI state
     fun dismissInviteCode() {
         _inviteCode.value = null
     }
 
+    // Soft deletes/removes a linked child account after verifying ownership and parent PIN
     fun softDeleteChild(childId: String, pin: String) {
         viewModelScope.launch {
+            // Prevents removal of a child not linked to the current parent
             if (!isMyChild(childId)) {
                 _removeChildState.value = RemoveChildState.Error("Unauthorized action.")
                 return@launch
             }
 
+            // Updates UI state to show the remove-child process is running
             _removeChildState.value = RemoveChildState.Loading
 
             val result = accountManager.softDeleteChild(childId, pin)
             result.fold(
                 onSuccess = {
+                    // If the removed child is currently opened, return to the parent home view
                     if (_selectedChild.value?.id == childId) {
                         clearSelectedChild()
                     }
@@ -383,11 +432,13 @@ class ParentDashboardViewModel @Inject constructor(
         }
     }
 
+    // Resets the remove-child state after the UI has handled success or error feedback
     fun resetRemoveChildState() {
         _removeChildState.value = RemoveChildState.Idle
     }
 }
 
+// Represents the UI state of the remove-child account flow
 sealed class RemoveChildState {
     object Idle : RemoveChildState()
     object Loading : RemoveChildState()

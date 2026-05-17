@@ -16,22 +16,34 @@ fun ChildSafetyLockGate(
     onAccessGranted: () -> Unit,
     content: @Composable () -> Unit
 ) {
+    // If the lock is disabled, show the content immediately
     if (!isLocked) {
         content()
         return
     }
 
+    // Stores the PIN typed by the user
     var pin by remember { mutableStateOf("") }
+
+    // Controls whether the PIN dialog is visible
     var showDialog by remember { mutableStateOf(true) }
 
+    // Shows the parental PIN dialog when locked content is accessed
     if (showDialog) {
         AlertDialog(
+            // Closes the dialog when dismissed
             onDismissRequest = { showDialog = false },
+
+            // Dialog title
             title = { Text("Parental PIN Required") },
+
+            // Dialog body containing explanation and PIN input field
             text = {
                 Column {
                     Text("Enter your parental PIN to continue.")
                     Spacer(modifier = Modifier.height(8.dp))
+
+                    // PIN input field with password-style masking
                     OutlinedTextField(
                         value = pin,
                         onValueChange = { if (it.length <= 6) pin = it },
@@ -42,6 +54,7 @@ fun ChildSafetyLockGate(
                     )
                 }
             },
+            // Confirms access and triggers the access callback
             confirmButton = {
                 TextButton(onClick = {
                     showDialog = false
@@ -50,6 +63,7 @@ fun ChildSafetyLockGate(
                     Text("Confirm")
                 }
             },
+            // Cancels access and closes the dialog
             dismissButton = {
                 TextButton(onClick = { showDialog = false }) {
                     Text("Cancel")
@@ -59,6 +73,7 @@ fun ChildSafetyLockGate(
     }
 }
 
+// Entry component that either shows locked content or an unlock button
 @Composable
 fun ChildSettingsEntry(
     lockEnabled: Boolean,
@@ -66,9 +81,11 @@ fun ChildSettingsEntry(
     onRequestUnlock: () -> Unit,
     content: @Composable () -> Unit
 ) {
+    // Show the protected content if locking is disabled or access has already been granted
     if (!lockEnabled || isUnlocked) {
         content()
     } else {
+        // Shows an unlock button when parental controls are locked
         OutlinedButton(
             onClick = onRequestUnlock,
             modifier = Modifier.fillMaxWidth()
