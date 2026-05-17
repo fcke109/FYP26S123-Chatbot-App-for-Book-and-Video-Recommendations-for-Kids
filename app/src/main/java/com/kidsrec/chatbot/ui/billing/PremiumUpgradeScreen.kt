@@ -16,16 +16,22 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.kidsrec.chatbot.data.repository.PurchaseState
 
+// Premium upgrade screen UI
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PremiumUpgradeScreen(
     onBack: () -> Unit
 ) {
+    // Get BillingViewModel using Hilt
     val viewModel: BillingViewModel = hiltViewModel()
+    // Available premium products from Google Play Billing
     val products by viewModel.products.collectAsState()
+    // Current purchase state
     val purchaseState by viewModel.purchaseState.collectAsState()
+    // Get current Android context
     val context = LocalContext.current
 
+    // Return to previous screen after successful purchase
     LaunchedEffect(purchaseState) {
         if (purchaseState is PurchaseState.Success) {
             onBack()

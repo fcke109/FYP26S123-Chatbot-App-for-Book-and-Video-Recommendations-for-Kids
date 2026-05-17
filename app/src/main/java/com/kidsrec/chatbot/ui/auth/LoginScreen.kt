@@ -78,52 +78,66 @@ import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
 
+// Background sky colours used for the login screen
 private val SkyTop = Color(0xFFAEDFFF)
 private val SkyMid = Color(0xFFDDF2FF)
 private val SkyBottom = Color(0xFFFFEBDD)
 private val SkyPink = Color(0xFFFBEAF6)
 
+// Main text and UI colours
 private val TitleBlue = Color(0xFF4D94E6)
 private val TitleBlueDark = Color(0xFF367FD4)
 private val BodyBlue = Color(0xFF6D82AE)
 private val RegisterBlue = Color(0xFF3E86D8)
 
+// Card design colours
 private val CardFill = Color(0xEFFFFFFF)
 private val CardBorder = Color(0xF6FFFFFF)
 private val CardShadowGlow = Color(0x40FFFFFF)
 
+// TextField colours
 private val InputFill = Color(0xF9FFFFFF)
 private val InputBorder = Color(0xFFD8E5F5)
 private val InputFocused = Color(0xFFA8CDF8)
 private val InputText = Color(0xFF61749B)
 private val InputPlaceholder = Color(0xFF8FA0B8)
 
+// Login button gradient colours
 private val LoginGreenTop = Color(0xFF7EE96C)
 private val LoginGreenBottom = Color(0xFF58C95D)
 
+// Decorative background colours
 private val StarYellow = Color(0xFFFFE27A)
 private val MoonYellow = Color(0xFFF9E28B)
 private val BubbleBlue = Color(0x6689D0FF)
 private val CloudWhite = Color(0xCFFFFFFF)
 
+// Main login screen UI
 @Composable
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
     viewModel: AuthViewModel
 ) {
+    // Stores email entered by user
     var email by remember { mutableStateOf("") }
+    // Stores password entered by user
     var password by remember { mutableStateOf("") }
+    // Controls password visibility
     var passwordVisible by remember { mutableStateOf(false) }
 
+    // Observe authentication state from ViewModel
     val authState by viewModel.authState.collectAsState()
+    // Enables scrolling for smaller screens
     val scrollState = rememberScrollState()
 
+    // Navigate to next screen after successful login
     LaunchedEffect(authState) {
         if (authState is AuthState.Authenticated) {
             onLoginSuccess()
         }
     }
 
+    // Main screen container
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -134,8 +148,10 @@ fun LoginScreen(
             )
             .systemBarsPadding()
     ) {
+        // Animated dreamy background
         DreamySkyBackground()
 
+        // Main login screen layout
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -227,7 +243,8 @@ fun LoginScreen(
                     colors = dreamyTextFieldColors()
                 )
 
-                if (authState is AuthState.Error) {
+                    // Show login error message
+                    if (authState is AuthState.Error) {
                     Spacer(modifier = Modifier.height(14.dp))
                     Surface(
                         color = MaterialTheme.colorScheme.errorContainer,
@@ -257,6 +274,7 @@ fun LoginScreen(
                 Spacer(modifier = Modifier.height(20.dp))
 
                 Button(
+                    // Calls sign in function
                     onClick = { viewModel.signIn(email.trim(), password) },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -316,10 +334,13 @@ fun LoginScreen(
     }
 }
 
+// Top section with mascot and app title
 @Composable
 private fun DreamyHeroSection() {
+    // Animation for floating mascot effect
     val transition = rememberInfiniteTransition(label = "hero")
 
+    // Vertical floating animation
     val floatY by transition.animateFloat(
         initialValue = -4f,
         targetValue = 6f,
@@ -393,6 +414,7 @@ private fun DreamyHeroSection() {
     }
 }
 
+// Glassmorphism login card
 @Composable
 private fun DreamyLoginCard(
     content: @Composable ColumnScope.() -> Unit
@@ -610,6 +632,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawBubble(
     )
 }
 
+// Custom TextField colours for login inputs
 @Composable
 private fun dreamyTextFieldColors() = OutlinedTextFieldDefaults.colors(
     focusedContainerColor = InputFill,

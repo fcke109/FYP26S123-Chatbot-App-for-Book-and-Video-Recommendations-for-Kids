@@ -47,20 +47,28 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 
+// Main payment screen for premium subscription
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PaymentScreen(
     onBack: () -> Unit,
     onPaymentSuccess: () -> Unit
 ) {
+    // Stores cardholder name input
     var cardholderName by remember { mutableStateOf("") }
+    // Stores card number input
     var cardNumber by remember { mutableStateOf("") }
+    // Stores expiry date input
     var expiryDate by remember { mutableStateOf("") }
+    // Stores CVV input
     var cvv by remember { mutableStateOf("") }
 
+    // Controls payment loading state
     var isProcessing by remember { mutableStateOf(false) }
+    // Controls success screen display
     var paymentSuccess by remember { mutableStateOf(false) }
 
+    // Simulates payment processing delay
     LaunchedEffect(isProcessing) {
         if (isProcessing) {
             delay(2000)
@@ -69,6 +77,7 @@ fun PaymentScreen(
         }
     }
 
+    // Main payment screen layout
     Scaffold(
         containerColor = Color(0xFFF6F7FB),
         topBar = {
@@ -93,6 +102,7 @@ fun PaymentScreen(
             )
         }
     ) { padding ->
+        // Main screen container
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -187,10 +197,12 @@ fun PaymentScreen(
                                 shape = RoundedCornerShape(14.dp)
                             )
 
+                            // Expiry date and CVV row
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
+                                // Expiry date input
                                 OutlinedTextField(
                                     value = expiryDate,
                                     onValueChange = {
@@ -205,6 +217,7 @@ fun PaymentScreen(
                                     shape = RoundedCornerShape(14.dp)
                                 )
 
+                                // CVV input
                                 OutlinedTextField(
                                     value = cvv,
                                     onValueChange = {
@@ -265,10 +278,12 @@ fun PaymentScreen(
     }
 }
 
+// Success screen shown after payment completes
 @Composable
 private fun PaymentSuccessContent(
     onContinue: () -> Unit
 ) {
+    // Success screen layout
     Column(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.Center,

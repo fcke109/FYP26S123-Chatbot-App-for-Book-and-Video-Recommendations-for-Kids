@@ -151,27 +151,45 @@ private val SoftOrange = Color(0xFFFFB870)
 private val SoftPurple = Color(0xFFCBB7FF)
 private val CreamBubble = Color(0xFFFFFCF3)
 
+// Main chatbot screen UI
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DinoChatPage(
+    // Chat ViewModel for chatbot logic
     viewModel: ChatViewModel,
+    // Handles favorites feature
     favoritesViewModel: FavoritesViewModel,
+    // Handles smart search suggestions
     searchViewModel: SmartSearchViewModel,
+    // Opens books/videos
     onOpenRecommendation: (String, String, Boolean, String, String, String) -> Unit
 ) {
+    // Chat messages state
     val messages by viewModel.messages.collectAsState()
+    // Loading state while chatbot responds
     val isLoading by viewModel.isLoading.collectAsState()
+    // Error message state
     val error by viewModel.error.collectAsState()
+    // Chat history conversations
     val conversations by viewModel.conversations.collectAsState()
+    // Favorite items state
     val favoriteItems by favoritesViewModel.favorites.collectAsState()
+    // Favorite error messages
     val favoritesError by favoritesViewModel.errorMessage.collectAsState()
+    // Free plan quota information
     val quota by viewModel.quota.collectAsState()
+    // Smart search suggestion state
     val searchUiState by searchViewModel.uiState.collectAsState()
+    // Collaborative filtering recommendations
     val recommendations by viewModel.recommendations.collectAsState()
+    // Recommendation loading state
     val isLoadingRecommendations by viewModel.isLoadingRecommendations.collectAsState()
+    // Checks if current user is on Free plan
     val isFreeUser = quota?.planType == PlanType.FREE
 
+    // Current Android context
     val context = LocalContext.current
+    // Shows favorite-related errors using Toast
     LaunchedEffect(favoritesError) {
         favoritesError?.let { msg ->
             Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
@@ -179,10 +197,15 @@ fun DinoChatPage(
         }
     }
 
+    // Stores current input message
     var messageText by remember { mutableStateOf("") }
+    // Stores input validation warnings
     var inputWarning by remember { mutableStateOf<String?>(null) }
+    // Controls message list scrolling
     val listState = rememberLazyListState()
+    // Coroutine scope for async tasks
     val coroutineScope = rememberCoroutineScope()
+    // Controls history bottom sheet visibility
     var showHistorySheet by remember { mutableStateOf(false) }
 
     fun openHistorySheet() {
@@ -281,9 +304,11 @@ fun DinoChatPage(
         }
     }
 
+    // Tracks analytics and gamification when opening recommendations
     val trackedOpenRecommendation: (String, String, Boolean, String, String, String) -> Unit =
         { url, title, isVideo, itemId, imageUrl, description ->
 
+            // Get current logged in user
             val currentUid = FirebaseAuth.getInstance().currentUser?.uid
 
             if (currentUid != null) {
@@ -351,10 +376,13 @@ fun DinoChatPage(
                                 }
                             }
                         }
-                    } catch (e: Exception) {
+                    }
+                    // Error while tracking analytics
+                    catch (e: Exception) {
                         Log.e("DinoChatPage", "Tracking recommendation failed: ${e.message}", e)
                     }
 
+                    // Open book/video content
                     onOpenRecommendation(url, title, isVideo, itemId, imageUrl, description)
                 }
             } else {
@@ -362,6 +390,7 @@ fun DinoChatPage(
             }
         }
 
+    // Smart autocomplete ghost text logic
     val autocompleteSuggestion = remember(messageText, searchUiState.suggestions) {
         if (messageText.isBlank() || messageText.endsWith(" ")) return@remember null
 
@@ -376,6 +405,7 @@ fun DinoChatPage(
         }
     }
 
+    // Creates ghost suggestion text effect
     val ghostTextTransformation = remember(autocompleteSuggestion) {
         VisualTransformation { text ->
             if (autocompleteSuggestion != null) {
@@ -399,6 +429,7 @@ fun DinoChatPage(
         }
     }
 
+    // Auto scroll chat when new message appears
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) {
             coroutineScope.launch {
@@ -453,11 +484,13 @@ fun DinoChatPage(
                 }
             }
 
+            // Main message area
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
             ) {
+                // Welcome screen before chatting
                 if (messages.isEmpty()) {
                     WelcomeView(
                         quickPrompt = { prompt ->
@@ -606,8 +639,10 @@ fun DinoChatPage(
     }
 }
 
+// Top navigation bar for chatbot screen
 @Composable
 private fun DinoChatTopBar(
+    // Opens history sheet
     onHistoryClick: () -> Unit
 ) {
     Surface(
@@ -686,6 +721,7 @@ private fun DinoChatTopBar(
     }
 }
 
+// Floating decorative background animations
 @Composable
 private fun FloatingPlayfulBackground() {
     BoxWithConstraints(
@@ -751,6 +787,7 @@ private fun FloatingOrnament(
     )
 }
 
+// Free plan quota information banner
 @Composable
 fun FreePlanQuotaBanner(status: ChatQuotaStatus) {
     val resetAtMillis = status.resetAt?.toDate()?.time
@@ -821,11 +858,15 @@ fun FreePlanQuotaBanner(status: ChatQuotaStatus) {
     }
 }
 
+// Welcome screen before first message
 @Composable
 fun WelcomeView(
     quickPrompt: (String) -> Unit,
+    // Collaborative recommendations
     recommendations: List<com.kidsrec.chatbot.data.CFRecommendation> = emptyList(),
+    // Recommendation loading state
     isLoadingRecommendations: Boolean = false,
+    // Opens recommendation
     onOpenRecommendation: (com.kidsrec.chatbot.data.CFRecommendation) -> Unit = {}
 ) {
     Column(
@@ -930,6 +971,7 @@ fun WelcomeView(
     }
 }
 
+// Collaborative filtering recommendation section
 @Composable
 private fun UsersLikeYouSection(
     recommendations: List<com.kidsrec.chatbot.data.CFRecommendation>,
@@ -987,9 +1029,13 @@ private fun UsersLikeYouSection(
     }
 }
 
+// "Users like you..." recommendation row
+// Recommendation card shown in welcome screen
 @Composable
 private fun RecommendationCard(
+    // Recommendation item
     recommendation: com.kidsrec.chatbot.data.CFRecommendation,
+    // Open action
     onClick: () -> Unit
 ) {
     val isVideo = recommendation.item.type.equals("VIDEO", ignoreCase = true)
@@ -1079,6 +1125,7 @@ private fun RecommendationCard(
     }
 }
 
+// Animated dancing dino mascot section
 @Composable
 private fun DancingDinoHero() {
     val transition = rememberInfiniteTransition(label = "dino_dance")
@@ -1171,6 +1218,7 @@ private fun DancingDinoHero() {
     }
 }
 
+// Chat message bubble
 @Composable
 fun MessageBubble(
     message: ChatMessage,
@@ -1275,6 +1323,7 @@ fun MessageBubble(
     }
 }
 
+// Recommendation card inside chatbot replies
 @Composable
 fun RecommendationCard(
     recommendation: Recommendation,

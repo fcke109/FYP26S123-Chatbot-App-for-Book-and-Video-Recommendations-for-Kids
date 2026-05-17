@@ -28,9 +28,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-/**
- * ChatViewModel: Manages the logic for the DinoChatPage.
- */
+// ViewModel for handling chatbot screen logic
 @HiltViewModel
 class ChatViewModel @Inject constructor(
     private val chatDataManager: ChatDataManager,
